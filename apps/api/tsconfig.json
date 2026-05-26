@@ -1,0 +1,8 @@
+{
+  "extends": "../../packages/configs/typescript/node.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}

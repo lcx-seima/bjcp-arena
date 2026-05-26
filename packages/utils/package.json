@@ -1,0 +1,13 @@
+{
+  "name": "@bjcp-arena/utils",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src --ext .ts --max-warnings=0",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

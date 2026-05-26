@@ -1,0 +1,17 @@
+{
+  "name": "@bjcp-arena/configs",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./typescript/base": "./typescript/base.json",
+    "./typescript/node": "./typescript/node.json",
+    "./typescript/react": "./typescript/react.json",
+    "./eslint/base": "./eslint/base.mjs",
+    "./prettier": "./prettier/index.mjs"
+  },
+  "scripts": {
+    "build": "node -e \"console.log('configs package: no build step')\"",
+    "lint": "node -e \"console.log('configs package: no lint step')\"",
+    "typecheck": "node -e \"console.log('configs package: no typecheck step')\""
+  }
+}

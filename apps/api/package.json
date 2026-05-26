@@ -1,0 +1,20 @@
+{
+  "name": "@bjcp-arena/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint src test --ext .ts --max-warnings=0",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@bjcp-arena/contracts": "workspace:*",
+    "@fastify/cors": "^11.2.0",
+    "dotenv": "^17.2.3",
+    "fastify": "^5.8.2",
+    "fastify-type-provider-zod": "^6.1.0",
+    "zod": "^4.3.6"
+  }
+}

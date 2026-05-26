@@ -1,0 +1,43 @@
+{
+  "name": "bjcp-arena",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.32.1",
+  "scripts": {
+    "dev": "concurrently -n api,admin,judge,board -c green,blue,magenta,yellow \"pnpm dev:api\" \"pnpm dev:admin\" \"pnpm dev:judge\" \"pnpm dev:board\"",
+    "dev:api": "pnpm --filter @bjcp-arena/api dev",
+    "dev:admin": "pnpm --filter @bjcp-arena/admin dev",
+    "dev:judge": "pnpm --filter @bjcp-arena/judge dev",
+    "dev:board": "pnpm --filter @bjcp-arena/board dev",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "build": "pnpm -r --if-present build",
+    "build:api": "pnpm --filter @bjcp-arena/api build",
+    "build:admin": "pnpm --filter @bjcp-arena/admin build",
+    "build:judge": "pnpm --filter @bjcp-arena/judge build",
+    "build:board": "pnpm --filter @bjcp-arena/board build",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "test:api": "pnpm --filter @bjcp-arena/api test",
+    "test:contracts": "pnpm --filter @bjcp-arena/contracts test",
+    "test:api-client": "pnpm --filter @bjcp-arena/api-client test",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@types/node": "^25.5.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "concurrently": "^9.2.1",
+    "eslint": "^9.39.4",
+    "globals": "^17.4.0",
+    "prettier": "^3.8.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.1",
+    "vitest": "^4.0.8"
+  }
+}
