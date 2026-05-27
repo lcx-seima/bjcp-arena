@@ -29,19 +29,25 @@ API_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174,http://localhost
 VITE_API_BASE_URL=http://localhost:4000
 ```
 
-## 数据库
+## 本地基础设施
 
 ```bash
-pnpm db:up
+pnpm infra:up
 ```
 
 PostgreSQL 暴露在：
 
 ```text
-127.0.0.1:15432
+127.0.0.1:25432
 ```
 
-初始 API 还不会使用数据库。保留容器是为了后续加入持久化时不改变开发形态。
+Redis 暴露在：
+
+```text
+127.0.0.1:26379
+```
+
+初始 API 还不会使用 PostgreSQL 或 Redis。保留容器是为了后续加入持久化、缓存或临时状态能力时不改变开发形态。
 
 ## 启动全部应用
 

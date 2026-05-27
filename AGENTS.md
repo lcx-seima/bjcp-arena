@@ -33,7 +33,7 @@
 
 ```bash
 pnpm install
-pnpm db:up
+pnpm infra:up
 pnpm dev
 pnpm verify
 ```

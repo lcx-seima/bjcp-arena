@@ -38,7 +38,7 @@ admin/judge/board -> @bjcp-arena/api-client -> http://<api-host>:4000/api/ping
 
 - `GET /api/ping`
 - `admin`、`judge` 和 `board` 的 hello-world 页面
-- 面向未来持久化工作的 Docker 化 PostgreSQL
+- 面向未来持久化、缓存和临时状态工作的 Docker 化 PostgreSQL 与 Redis
 - 本地开发和测试预期文档
 
 以下内容有意延后：
