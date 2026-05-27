@@ -1,92 +1,92 @@
-# Testing Strategy
+# 测试策略
 
-## Principle
+## 原则
 
-Testing should protect high-value boundaries without making fast-moving UI expensive to change. This repository starts with API, contract, and API-client tests. UI validation is handled by manual smoke checks.
+测试应保护高价值边界，同时避免让快速变化的 UI 变得难以调整。本仓库当前从 API、contracts 和 api-client 测试开始。UI 验收采用人工冒烟检查。
 
-## Automated Tests
+## 自动化测试
 
 ### API
 
-Use Vitest with Fastify `app.inject`.
+使用 Vitest 搭配 Fastify `app.inject`。
 
-Cover:
+覆盖：
 
-- route status codes
-- response bodies
-- contract schema compatibility
-- CORS headers for allowed and disallowed origins
+- 路由状态码
+- 响应体
+- 契约 schema 兼容性
+- 允许和不允许来源时的 CORS 头
 
-Current command:
+当前命令：
 
 ```bash
 pnpm test:api
 ```
 
-### Contracts
+### 契约
 
-Use Vitest for shared Zod schemas and exported constants.
+使用 Vitest 测试共享 Zod schema 和导出常量。
 
-Cover:
+覆盖：
 
-- endpoint paths
-- accepted response shapes
-- rejected contract drift
+- 端点路径
+- 可接受的响应结构
+- 被拒绝的契约漂移
 
-Current command:
+当前命令：
 
 ```bash
 pnpm test:contracts
 ```
 
-### API Client
+### API 客户端
 
-Use Vitest with a fake `fetch`.
+使用 Vitest 搭配假的 `fetch`。
 
-Cover:
+覆盖：
 
-- base URL and path joining
-- request method and headers
-- successful response parsing
-- non-OK HTTP responses
-- schema validation failures
+- 基础 URL 和路径拼接
+- 请求方法和请求头
+- 成功响应解析
+- 非 OK HTTP 响应
+- schema 校验失败
 
-Current command:
+当前命令：
 
 ```bash
 pnpm test:api-client
 ```
 
-### Utils
+### 工具包
 
-Only add tests when `packages/utils` contains real logic. Do not write placeholder tests for coverage.
+只有当 `packages/utils` 包含真实逻辑时才添加测试。不要为了覆盖率编写占位测试。
 
-## Tests We Are Not Adding Now
+## 当前不添加的测试
 
-Do not add these unless the project direction changes and the expected ROI becomes clear:
+除非项目方向发生变化并且预期投入产出比变得明确，否则不要添加以下测试：
 
-- Playwright E2E tests
-- React component tests
-- screenshot tests
-- visual regression tests
-- Storybook test setup
+- Playwright E2E 测试
+- React 组件测试
+- 截图测试
+- 视觉回归测试
+- Storybook 测试设置
 
-Reasons:
+原因：
 
-- the early UI will change quickly
-- component tests can lock in implementation details
-- browser automation adds setup and maintenance cost
-- the current acceptance target is API reachability and visible `pong`, not complex UI behavior
+- 早期 UI 会快速变化
+- 组件测试容易锁定实现细节
+- 浏览器自动化会增加搭建和维护成本
+- 当前验收目标是 API 可达并显示 `pong`，不是复杂 UI 行为
 
-## Manual UI Smoke
+## 人工 UI 冒烟检查
 
-Run:
+运行：
 
 ```bash
 pnpm dev
 ```
 
-Open:
+打开：
 
 ```text
 http://localhost:5173
@@ -94,20 +94,20 @@ http://localhost:5174
 http://localhost:5175
 ```
 
-Each page should show:
+每个页面应显示：
 
-- its own app title
-- the configured API base URL
+- 自己的应用标题
+- 已配置的 API 基础地址
 - `pong from bjcp-arena-api`
 
-Because the apps use real HTTP CORS instead of Vite proxy, this manual check also validates the local version of the LAN access model.
+因为应用使用真实 HTTP CORS，而不是 Vite 代理，所以这项人工检查也会验证局域网访问模型在本地的表现。
 
-## Verification Command
+## 验证命令
 
-Before considering implementation complete, run:
+认为实现完成前，运行：
 
 ```bash
 pnpm verify
 ```
 
-This executes lint, typecheck, unit tests, and builds.
+该命令会执行 lint、typecheck、单元测试和构建。

@@ -1,26 +1,26 @@
-# Local Development
+# 本地开发
 
-## Requirements
+## 环境要求
 
 - Node.js 20+
 - pnpm 10+
-- Docker Desktop or another Docker Compose compatible runtime
+- Docker Desktop 或其他兼容 Docker Compose 的运行时
 
-## Install
+## 安装
 
 ```bash
 pnpm install
 ```
 
-## Environment
+## 环境变量
 
-Copy `.env.example` to `.env` when you need local overrides.
+需要本地覆盖配置时，将 `.env.example` 复制为 `.env`。
 
 ```bash
 cp .env.example .env
 ```
 
-Important variables:
+重要变量：
 
 ```text
 API_HOST=0.0.0.0
@@ -29,27 +29,27 @@ API_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174,http://localhost
 VITE_API_BASE_URL=http://localhost:4000
 ```
 
-## Database
+## 数据库
 
 ```bash
 pnpm db:up
 ```
 
-PostgreSQL is exposed at:
+PostgreSQL 暴露在：
 
 ```text
 127.0.0.1:15432
 ```
 
-The initial API does not use the database yet. The container exists so persistence can be added without changing the development shape later.
+初始 API 还不会使用数据库。保留容器是为了后续加入持久化时不改变开发形态。
 
-## Start Everything
+## 启动全部应用
 
 ```bash
 pnpm dev
 ```
 
-Ports:
+端口：
 
 ```text
 api    http://localhost:4000
@@ -58,7 +58,7 @@ judge  http://localhost:5174
 board  http://localhost:5175
 ```
 
-## Start One App
+## 启动单个应用
 
 ```bash
 pnpm dev:api
@@ -67,23 +67,23 @@ pnpm dev:judge
 pnpm dev:board
 ```
 
-## LAN Access
+## 局域网访问
 
-Competition-day usage is expected to happen over LAN HTTP addresses.
+评鉴现场预计通过局域网 HTTP 地址访问。
 
-Example:
+示例：
 
 ```text
-API computer LAN IP: 192.168.1.23
+API 电脑局域网 IP: 192.168.1.23
 VITE_API_BASE_URL=http://192.168.1.23:4000
 ```
 
-When another device opens the H5 judge app, do not use `localhost` for the API. `localhost` would point to the phone itself. Use the computer's LAN IP instead.
+当其他设备打开 H5 裁判端时，API 地址不要使用 `localhost`。`localhost` 会指向手机自身，应改用电脑的局域网 IP。
 
-Add LAN origins to API CORS when needed:
+需要时，将局域网 origin 添加到 API CORS：
 
 ```text
 API_ALLOWED_ORIGINS=http://192.168.1.23:5173,http://192.168.1.23:5174,http://192.168.1.23:5175
 ```
 
-For quick local development, keep both localhost and LAN origins in the comma-separated list.
+为了方便本地开发，可以在逗号分隔列表中同时保留 localhost 和局域网 origin。
