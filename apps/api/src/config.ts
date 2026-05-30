@@ -13,6 +13,10 @@ export interface ApiConfig {
   host: string;
   port: number;
   allowedOrigins: string[];
+  databaseUrl: string;
+  redisUrl: string;
+  jwtSecret: string;
+  jwtExpiresIn: string;
 }
 
 function readCsv(value: string | undefined) {
@@ -27,5 +31,10 @@ export function getApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
     host: env.API_HOST ?? "0.0.0.0",
     port: Number(env.API_PORT ?? 4000),
     allowedOrigins: readCsv(env.API_ALLOWED_ORIGINS) ?? defaultAllowedOrigins,
+    databaseUrl:
+      env.DATABASE_URL ?? "postgresql://bjcp_arena:bjcp_arena@127.0.0.1:25432/bjcp_arena",
+    redisUrl: env.REDIS_URL ?? "redis://127.0.0.1:26379",
+    jwtSecret: env.JWT_SECRET ?? "local-development-secret-change-me",
+    jwtExpiresIn: env.JWT_EXPIRES_IN ?? "7d",
   };
 }

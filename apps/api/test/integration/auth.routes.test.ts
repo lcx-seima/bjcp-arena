@@ -1,0 +1,308 @@
+import { describe, expect, it } from "vitest";
+import { superAdminRole } from "@bjcp-arena/contracts";
+import {
+  createMemoryAuthVersionStore,
+  type AuthVersionStore,
+} from "../../src/auth/auth-version-store.js";
+import { createApp } from "../../src/app.js";
+import { DuplicateUsernameError, type UserRepository } from "../../src/users/user-repository.js";
+import { createTestApp } from "../helpers/create-test-app.js";
+
+function createDuplicateBootstrapUserRepository(): UserRepository {
+  return {
+    async countUsers() {
+      return 0;
+    },
+    async findById() {
+      return null;
+    },
+    async findByUsername() {
+      return null;
+    },
+    async listUsers() {
+      return [];
+    },
+    async createUser() {
+      throw new DuplicateUsernameError();
+    },
+    async updateUser() {
+      return null;
+    },
+    async resetPassword() {
+      return null;
+    },
+  };
+}
+
+function createUnavailableAuthVersionStore(): AuthVersionStore {
+  return {
+    async get() {
+      throw new Error("auth version store unavailable");
+    },
+    async set() {},
+    async close() {},
+  };
+}
+
+describe("auth routes", () => {
+  it("returns bootstrap status before users exist", async () => {
+    const { app } = createTestApp();
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/auth/bootstrap-status",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ hasUsers: false });
+    await app.close();
+  });
+
+  it("bootstraps fixed superadmin when user table is empty", async () => {
+    const { app } = createTestApp();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap-super-admin",
+      payload: {
+        password: "secret123",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      token: expect.any(String),
+      user: {
+        id: 1,
+        username: "superadmin",
+        nickname: "superadmin",
+        roles: superAdminRole,
+        disabled: false,
+        authVersion: 0,
+      },
+    });
+    await app.close();
+  });
+
+  it("rejects repeated bootstrap after users exist", async () => {
+    const { app } = createTestApp();
+
+    await app.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap-super-admin",
+      payload: { password: "secret123" },
+    });
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap-super-admin",
+      payload: { password: "secret123" },
+    });
+
+    expect(response.statusCode).toBe(409);
+    await app.close();
+  });
+
+  it("maps duplicate superadmin bootstrap race to conflict", async () => {
+    const app = createApp({
+      allowedOrigins: ["http://localhost:5173"],
+      users: createDuplicateBootstrapUserRepository(),
+      authVersions: createMemoryAuthVersionStore(),
+      jwtSecret: "test-secret",
+      jwtExpiresIn: "7d",
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap-super-admin",
+      payload: { password: "secret123" },
+    });
+
+    expect(response.statusCode).toBe(409);
+    await app.close();
+  });
+
+  it("logs in with username and password", async () => {
+    const { app } = createTestApp();
+    await app.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap-super-admin",
+      payload: { password: "secret123" },
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: {
+        username: "superadmin",
+        password: "secret123",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      token: expect.any(String),
+      user: {
+        username: "superadmin",
+      },
+    });
+    await app.close();
+  });
+
+  it("rejects invalid password", async () => {
+    const { app } = createTestApp();
+    await app.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap-super-admin",
+      payload: { password: "secret123" },
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: {
+        username: "superadmin",
+        password: "wrong123",
+      },
+    });
+
+    expect(response.statusCode).toBe(401);
+    await app.close();
+  });
+
+  it("returns current user with valid token", async () => {
+    const { app } = createTestApp();
+    const bootstrap = await app.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap-super-admin",
+      payload: { password: "secret123" },
+    });
+    const token = bootstrap.json().token as string;
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/auth/me",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      user: {
+        username: "superadmin",
+      },
+    });
+    await app.close();
+  });
+
+  it("rejects token when authVersion is stale", async () => {
+    const { app, users, authVersions } = createTestApp();
+    const bootstrap = await app.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap-super-admin",
+      payload: { password: "secret123" },
+    });
+    const token = bootstrap.json().token as string;
+    const user = await users.findByUsername("superadmin");
+    await authVersions.set(user!.id, user!.authVersion + 1);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/auth/me",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(401);
+    await app.close();
+  });
+
+  it("does not mask authVersion store failures as unauthorized", async () => {
+    const dependencies = createTestApp();
+    const bootstrap = await dependencies.app.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap-super-admin",
+      payload: { password: "secret123" },
+    });
+    const token = bootstrap.json().token as string;
+    await dependencies.app.close();
+
+    const app = createApp({
+      allowedOrigins: ["http://localhost:5173"],
+      users: dependencies.users,
+      authVersions: createUnavailableAuthVersionStore(),
+      jwtSecret: "test-secret",
+      jwtExpiresIn: "7d",
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/auth/me",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json().message).not.toBe("Unauthorized");
+    await app.close();
+  });
+
+  it("rejects stale token when cached authVersion lags behind DB and repairs cache", async () => {
+    const { app, users, authVersions } = createTestApp();
+    const bootstrap = await app.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap-super-admin",
+      payload: { password: "secret123" },
+    });
+    const token = bootstrap.json().token as string;
+    const user = await users.findByUsername("superadmin");
+    const updated = await users.updateUser(user!.id, { username: "superadmin2" });
+    await authVersions.set(user!.id, user!.authVersion);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/auth/me",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(await authVersions.get(user!.id)).toBe(updated!.authVersion);
+    await app.close();
+  });
+
+  it("rejects disabled users during login and authenticate", async () => {
+    const { app, users } = createTestApp();
+    const bootstrap = await app.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap-super-admin",
+      payload: { password: "secret123" },
+    });
+    const token = bootstrap.json().token as string;
+    const user = await users.findByUsername("superadmin");
+    await users.updateUser(user!.id, { disabled: true });
+
+    const login = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: {
+        username: "superadmin",
+        password: "secret123",
+      },
+    });
+    const me = await app.inject({
+      method: "GET",
+      url: "/api/auth/me",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    expect(login.statusCode).toBe(401);
+    expect(me.statusCode).toBe(401);
+    await app.close();
+  });
+});
