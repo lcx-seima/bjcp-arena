@@ -14,11 +14,15 @@ pnpm install
 
 ## 环境变量
 
-需要本地覆盖配置时，将 `.env.example` 复制为 `.env`。
+本地默认配置已经能连接 `compose.yaml` 中的 PostgreSQL 和 Redis。需要覆盖配置时，可以在启动命令前设置 shell 环境变量，或按应用目录放置 `.env`：
 
 ```bash
-cp .env.example .env
+cp .env.example apps/api/.env
+cp .env.example apps/admin/.env
+cp .env.example apps/judge/.env
 ```
+
+API 读取 `apps/api/.env`。Vite 前端读取各自应用目录下的 `.env`，例如 `apps/admin/.env` 和 `apps/judge/.env`。根目录 `.env` 不作为稳定的应用配置入口。
 
 重要变量：
 
@@ -26,6 +30,10 @@ cp .env.example .env
 API_HOST=0.0.0.0
 API_PORT=4000
 API_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174,http://localhost:5175
+DATABASE_URL=postgresql://bjcp_arena:bjcp_arena@127.0.0.1:25432/bjcp_arena
+REDIS_URL=redis://127.0.0.1:26379
+JWT_SECRET=local-development-secret-change-me
+JWT_EXPIRES_IN=7d
 VITE_API_BASE_URL=http://localhost:4000
 ```
 
@@ -47,7 +55,29 @@ Redis 暴露在：
 127.0.0.1:26379
 ```
 
-初始 API 还不会使用 PostgreSQL 或 Redis。保留容器是为了后续加入持久化、缓存或临时状态能力时不改变开发形态。
+API 会使用 PostgreSQL 保存用户数据，并使用 Redis 记录认证版本状态。启动 API 前应先确保本地基础设施已启动。
+
+## 数据库迁移
+
+首次启动或 Prisma schema 变更后，执行：
+
+```bash
+pnpm --filter @bjcp-arena/api db:generate
+pnpm --filter @bjcp-arena/api db:migrate
+```
+
+## 后台初始化
+
+首次打开后台管理端时，如果用户表为空，页面会进入超管初始化流程。
+
+初始化账号固定为：
+
+```text
+username=superadmin
+nickname=superadmin
+```
+
+完成初始化后，使用该账号登录后台，再创建管理员或裁判员账号。
 
 ## 启动全部应用
 

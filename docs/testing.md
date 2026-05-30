@@ -16,6 +16,10 @@
 - 响应体
 - 契约 schema 兼容性
 - 允许和不允许来源时的 CORS 头
+- 超管初始化 bootstrap
+- 登录、当前用户 `me`
+- 用户管理权限边界
+- Redis `authVersion` 变化后的旧 token 失效
 
 当前命令：
 
@@ -47,8 +51,11 @@ pnpm test:contracts
 
 - 基础 URL 和路径拼接
 - 请求方法和请求头
+- 公开 auth 请求不携带 token
+- 认证请求携带 Bearer token
+- 用户管理方法
 - 成功响应解析
-- 非 OK HTTP 响应
+- HTTP status 错误
 - schema 校验失败
 
 当前命令：
@@ -76,7 +83,7 @@ pnpm test:api-client
 - 早期 UI 会快速变化
 - 组件测试容易锁定实现细节
 - 浏览器自动化会增加搭建和维护成本
-- 当前验收目标是 API 可达并显示 `pong`，不是复杂 UI 行为
+- 当前 UI 验收以人工冒烟覆盖关键入口和权限边界
 
 ## 人工 UI 冒烟检查
 
@@ -94,11 +101,13 @@ http://localhost:5174
 http://localhost:5175
 ```
 
-每个页面应显示：
+检查：
 
-- 自己的应用标题
-- 已配置的 API 基础地址
-- `pong from bjcp-arena-api`
+- 后台首次打开时，如果用户表为空，可以初始化 `superadmin`。
+- 超管可以创建管理员账号和裁判员账号。
+- 管理员可以进入后台，但不能访问账号管理。
+- 只有裁判员可以进入裁判端。
+- board 本轮仍只检查 API 可达和现有页面可打开即可。
 
 因为应用使用真实 HTTP CORS，而不是 Vite 代理，所以这项人工检查也会验证局域网访问模型在本地的表现。
 

@@ -22,34 +22,57 @@ packages/
 
 ## 数据流
 
-API 负责运行时行为。`packages/contracts` 负责公开的请求和响应结构。`packages/api-client` 消费这些契约，并暴露类似 `client.ping()` 的小型方法。
+API 负责运行时行为。`packages/contracts` 负责公开的请求和响应结构。`packages/api-client` 消费这些契约，并暴露框架无关的调用方法。
 
 前端应用始终通过真实 HTTP 基础地址调用 API：
 
 ```text
-admin/judge/board -> @bjcp-arena/api-client -> http://<api-host>:4000/api/ping
+admin/judge/board -> @bjcp-arena/api-client -> http://<api-host>:4000/api/*
 ```
 
 项目刻意不使用 Vite 开发代理。本地开发应暴露与正式评鉴现场相同的 CORS 和局域网地址问题。
 
 ## 当前范围
 
-初始范围只包含工程骨架：
+当前范围包含工程底座和基础用户模块：
 
 - `GET /api/ping`
-- `admin`、`judge` 和 `board` 的 hello-world 页面
-- 面向未来持久化、缓存和临时状态工作的 Docker 化 PostgreSQL 与 Redis
+- PostgreSQL、Prisma 和用户表
+- JWT 登录态和 Redis `authVersion`
+- 后台初始化、登录和账号管理
+- 裁判端登录和当前用户信息
+- `board` 现有页面和 API 可达检查
 - 本地开发和测试预期文档
 
 以下内容有意延后：
 
 - 评鉴会领域模型
-- 账号和认证流程
-- 数据库 schema 与迁移
 - 实时大盘传输通道
 - 生产部署打包
 - 组件库或设计系统
 
+## 认证与账号
+
+用户数据保存在 PostgreSQL，由 `apps/api` 通过 Prisma 访问。数据库迁移只覆盖当前基础用户模块需要的 `users` 表，不提前建立评鉴会、酒款、评分等业务 schema。
+
+登录成功后，API 签发有效期 7 天的 JWT。前端将 token 保存在 `localStorage`，并在认证请求中通过 `Authorization: Bearer <token>` 发送。公开认证接口不携带 token。
+
+Redis 保存用户维度的 `authVersion`。JWT 中携带签发时的版本，API 处理受保护请求时会对比 Redis 中的当前版本。版本不一致时，旧 token 失效。
+
+`authVersion` 会在影响登录态有效性的账号变更时递增，例如用户被禁用、密码被重置或角色被调整。
+
+角色使用 bitmask 表达：
+
+```text
+SUPER_ADMIN=1
+ADMIN=2
+JUDGE=4
+```
+
+后台入口允许 `SUPER_ADMIN` 和 `ADMIN` 登录。账号管理仅允许 `SUPER_ADMIN` 访问。裁判端入口仅允许 `JUDGE` 登录。
+
+`board` 本轮仍不接入认证保护，只保留现有页面和 API 可达能力。
+
 ## 后续扩展点
 
-当出现需要状态的具体工作流时再加入持久化。当大盘需要实时比赛更新时再加入实时传输通道。当账号边界和比赛角色可以明确建模时再加入认证。
+当出现评鉴会、裁判、酒款、评分等具体工作流时，再扩展领域模型和业务表。当大盘需要实时比赛更新时，再加入实时传输通道。
