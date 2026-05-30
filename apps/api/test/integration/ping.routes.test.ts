@@ -36,6 +36,26 @@ describe("GET /api/ping", () => {
     await app.close();
   });
 
+  it("allows PATCH requests in CORS preflight responses", async () => {
+    const app = createApp({
+      allowedOrigins: ["http://localhost:5173"],
+    });
+
+    const response = await app.inject({
+      method: "OPTIONS",
+      url: "/api/users/2",
+      headers: {
+        origin: "http://localhost:5173",
+        "access-control-request-method": "PATCH",
+      },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(response.headers["access-control-allow-origin"]).toBe("http://localhost:5173");
+    expect(response.headers["access-control-allow-methods"]).toContain("PATCH");
+    await app.close();
+  });
+
   it("does not allow origins outside the configured list", async () => {
     const app = createApp({
       allowedOrigins: ["http://localhost:5173"],

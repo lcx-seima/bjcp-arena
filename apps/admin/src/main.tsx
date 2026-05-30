@@ -32,8 +32,9 @@ const roleOptions = [
 ] as const;
 
 interface AppState {
+  error: string | null;
   hasUsers: boolean;
-  status: "loading" | "ready";
+  status: "loading" | "ready" | "restore-error";
   user: UserPublic | null;
 }
 
@@ -46,8 +47,12 @@ function readError(error: unknown) {
   return error instanceof Error ? error.message : "请求失败，请稍后重试";
 }
 
+function isUnauthorized(error: unknown) {
+  return error instanceof ApiClientHttpError && error.status === 401;
+}
+
 function handleRequestError(error: unknown, onUnauthorized: () => void) {
-  if (error instanceof ApiClientHttpError && error.status === 401) {
+  if (isUnauthorized(error)) {
     onUnauthorized();
     return "登录态已失效，请重新登录";
   }
@@ -61,6 +66,13 @@ function randomAlphaNumeric(length: number) {
   crypto.getRandomValues(values);
 
   return Array.from(values, (value) => alphabet[value % alphabet.length]).join("");
+}
+
+function randomNumericPassword() {
+  const values = new Uint32Array(6);
+  crypto.getRandomValues(values);
+
+  return Array.from(values, (value) => String(value % 10)).join("");
 }
 
 function describeRoles(roles: number) {
@@ -80,10 +92,16 @@ function clearToken() {
 
 function App() {
   const [state, setState] = useState<AppState>({
+    error: null,
     hasUsers: true,
     status: "loading",
     user: null,
   });
+
+  const endSession = useCallback(() => {
+    clearToken();
+    setState({ error: null, hasUsers: true, status: "ready", user: null });
+  }, []);
 
   const restoreSession = useCallback(async () => {
     try {
@@ -91,23 +109,32 @@ function App() {
 
       if (!bootstrapStatus.hasUsers) {
         clearToken();
-        setState({ hasUsers: false, status: "ready", user: null });
+        setState({ error: null, hasUsers: false, status: "ready", user: null });
         return;
       }
 
       const token = localStorage.getItem(tokenStorageKey);
       if (!token) {
-        setState({ hasUsers: true, status: "ready", user: null });
+        setState({ error: null, hasUsers: true, status: "ready", user: null });
         return;
       }
 
       const result = await client.me();
-      setState({ hasUsers: true, status: "ready", user: result.user });
-    } catch {
-      clearToken();
-      setState({ hasUsers: true, status: "ready", user: null });
+      setState({ error: null, hasUsers: true, status: "ready", user: result.user });
+    } catch (unknownError) {
+      if (isUnauthorized(unknownError)) {
+        endSession();
+        return;
+      }
+
+      setState({
+        error: readError(unknownError),
+        hasUsers: true,
+        status: "restore-error",
+        user: null,
+      });
     }
-  }, []);
+  }, [endSession]);
 
   useEffect(() => {
     void restoreSession();
@@ -115,14 +142,13 @@ function App() {
 
   const handleSession = useCallback((token: string, user: UserPublic) => {
     saveToken(token);
-    setState({ hasUsers: true, status: "ready", user });
+    setState({ error: null, hasUsers: true, status: "ready", user });
   }, []);
 
   const handleLogout = useCallback(() => {
     void client.logout().catch(() => undefined);
-    clearToken();
-    setState((current) => ({ ...current, user: null }));
-  }, []);
+    endSession();
+  }, [endSession]);
 
   if (state.status === "loading") {
     return (
@@ -131,6 +157,16 @@ function App() {
           <p className="muted">正在连接后台服务...</p>
         </section>
       </main>
+    );
+  }
+
+  if (state.status === "restore-error") {
+    return (
+      <RestoreErrorPage
+        error={state.error ?? "恢复登录态失败，请稍后重试"}
+        onLogout={handleLogout}
+        onRetry={() => void restoreSession()}
+      />
     );
   }
 
@@ -177,6 +213,39 @@ function App() {
         />
       </Routes>
     </BrowserRouter>
+  );
+}
+
+function RestoreErrorPage({
+  error,
+  onLogout,
+  onRetry,
+}: {
+  error: string;
+  onLogout: () => void;
+  onRetry: () => void;
+}) {
+  return (
+    <main className="center-shell">
+      <section className="panel narrow-panel auth-form">
+        <div className="section-heading">
+          <p className="eyebrow">Admin Console</p>
+          <h1>恢复登录态失败</h1>
+          <p className="muted">API：{apiBaseUrl}</p>
+        </div>
+
+        <p className="form-error">{error}</p>
+
+        <div className="form-actions">
+          <button className="ghost-button" type="button" onClick={onRetry}>
+            重试
+          </button>
+          <button className="ghost-button" type="button" onClick={onLogout}>
+            退出登录
+          </button>
+        </div>
+      </section>
+    </main>
   );
 }
 
@@ -588,7 +657,7 @@ function CreateUserPanel({
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
-            <button type="button" onClick={() => setPassword(randomAlphaNumeric(12))}>
+            <button type="button" onClick={() => setPassword(randomNumericPassword())}>
               随机
             </button>
           </div>
@@ -781,7 +850,7 @@ function UserRow({
             value={password}
             onChange={(event) => setPassword(event.target.value)}
           />
-          <button type="button" onClick={() => setPassword(randomAlphaNumeric(12))}>
+          <button type="button" onClick={() => setPassword(randomNumericPassword())}>
             随机
           </button>
         </div>
