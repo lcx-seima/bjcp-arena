@@ -26,9 +26,18 @@ describe("auth contract", () => {
   });
 
   it("validates password length", () => {
-    expect(passwordSchema.parse("secret123")).toBe("secret123");
+    expect(passwordSchema.parse("123456")).toBe("123456");
+    expect(passwordSchema.parse("x".repeat(32))).toBe("x".repeat(32));
     expect(() => passwordSchema.parse("12345")).toThrow();
-    expect(() => passwordSchema.parse("x".repeat(129))).toThrow();
+    expect(() => passwordSchema.parse("x".repeat(33))).toThrow();
+  });
+
+  it("validates password character set", () => {
+    expect(passwordSchema.parse("Az09@#$%_-")).toBe("Az09@#$%_-");
+    expect(() => passwordSchema.parse("secret 123")).toThrow();
+    expect(() => passwordSchema.parse("密码123456")).toThrow();
+    expect(() => passwordSchema.parse('secret"123')).toThrow();
+    expect(() => passwordSchema.parse("secret/123")).toThrow();
   });
 
   it("validates alphanumeric username length", () => {

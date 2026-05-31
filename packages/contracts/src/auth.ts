@@ -7,7 +7,11 @@ export const authLoginPath = "/api/auth/login" as const;
 export const authMePath = "/api/auth/me" as const;
 export const authLogoutPath = "/api/auth/logout" as const;
 
-export const passwordSchema = z.string().min(6).max(128);
+export const passwordSchema = z
+  .string()
+  .min(6)
+  .max(32)
+  .regex(/^[A-Za-z0-9@#$%_-]+$/);
 export const usernameSchema = z
   .string()
   .min(1)
