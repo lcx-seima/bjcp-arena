@@ -38,7 +38,7 @@ admin/judge/board -> @bjcp-arena/api-client -> http://<api-host>:4000/api/*
 
 - `GET /api/ping`
 - PostgreSQL、Prisma 和用户表
-- JWT 登录态和 Redis `authVersion`
+- JWT 登录态和 Redis 认证用户快照
 - 后台初始化、登录和账号管理
 - 裁判端登录和当前用户信息
 - `board` 现有页面和 API 可达检查
@@ -57,9 +57,9 @@ admin/judge/board -> @bjcp-arena/api-client -> http://<api-host>:4000/api/*
 
 登录成功后，API 签发有效期 7 天的 JWT。前端将 token 保存在 `localStorage`，并在认证请求中通过 `Authorization: Bearer <token>` 发送。公开认证接口不携带 token。
 
-Redis 保存用户维度的 `authVersion`。JWT 中携带签发时的版本，API 处理受保护请求时会对比 Redis 中的当前版本。版本不一致时，旧 token 失效。
+JWT 只保存 `sub` 和签发时的 `authVersion`。Redis 保存带 TTL 的认证用户快照，包括 `id`、`username`、`nickname`、`roles`、`disabled`、`authVersion`、`createdAt` 和 `updatedAt`。API 处理受保护请求时优先读取 Redis 快照；快照命中且 `authVersion` 一致时直接作为当前用户上下文使用。Redis miss 时回源 PostgreSQL，校验用户状态和版本后回填快照。
 
-`authVersion` 会在影响登录态有效性的账号变更时递增，例如用户被禁用、密码被重置或角色被调整。
+`authVersion` 会在影响登录态有效性的账号变更时递增，例如用户被禁用、密码被重置或角色被调整。账号变更成功后会刷新 Redis 快照；旧 token 会因为版本不一致被拒绝。
 
 角色使用 bitmask 表达：
 

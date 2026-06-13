@@ -5,7 +5,7 @@ export function createTestApp() {
   const app = createApp({
     allowedOrigins: ["http://localhost:5173"],
     users: dependencies.users,
-    authVersions: dependencies.authVersions,
+    authUserSnapshots: dependencies.authUserSnapshots,
     jwtSecret: "test-secret",
     jwtExpiresIn: "7d",
   });
@@ -13,6 +13,6 @@ export function createTestApp() {
   return {
     app,
     users: dependencies.users,
-    authVersions: dependencies.authVersions,
+    authUserSnapshots: dependencies.authUserSnapshots,
   };
 }

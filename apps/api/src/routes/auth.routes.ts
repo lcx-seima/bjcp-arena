@@ -13,7 +13,6 @@ import {
   userResultSchema,
 } from "@bjcp-arena/contracts";
 import { AuthError, type createAuthService } from "../auth/auth-service.js";
-import { toPublicUser } from "../users/user-mapper.js";
 
 type AuthService = ReturnType<typeof createAuthService>;
 
@@ -87,7 +86,7 @@ export function registerAuthRoutes(app: FastifyInstance, auth: AuthService) {
     async (request, reply) => {
       return auth
         .authenticate(request.headers.authorization)
-        .then((user) => ({ user: toPublicUser(user) }))
+        .then((user) => ({ user }))
         .catch((error: unknown) => sendAuthError(reply, error));
     }
   );

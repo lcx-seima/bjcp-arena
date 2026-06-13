@@ -17,6 +17,7 @@ export interface ApiConfig {
   redisUrl: string;
   jwtSecret: string;
   jwtExpiresIn: string;
+  authUserCacheTtlSeconds: number;
 }
 
 function readCsv(value: string | undefined) {
@@ -36,5 +37,6 @@ export function getApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
     redisUrl: env.REDIS_URL ?? "redis://127.0.0.1:26379",
     jwtSecret: env.JWT_SECRET ?? "local-development-secret-change-me",
     jwtExpiresIn: env.JWT_EXPIRES_IN ?? "7d",
+    authUserCacheTtlSeconds: Number(env.AUTH_USER_CACHE_TTL_SECONDS ?? 1800),
   };
 }

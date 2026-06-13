@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SignJWT } from "jose";
+import { SignJWT, decodeJwt } from "jose";
 import { createTokenService } from "../../src/auth/token.js";
 
 describe("auth token service", () => {
@@ -7,8 +7,6 @@ describe("auth token service", () => {
   const encodedSecret = new TextEncoder().encode(jwtSecret);
   const payload = {
     userId: 42,
-    username: "superadmin",
-    roles: 1,
     authVersion: 3,
   };
 
@@ -22,6 +20,10 @@ describe("auth token service", () => {
     const verified = await tokens.verify(token);
 
     expect(verified).toEqual(payload);
+    expect(decodeJwt(token)).not.toMatchObject({
+      username: expect.anything(),
+      roles: expect.anything(),
+    });
   });
 
   it("rejects tokens signed with a different secret", async () => {
@@ -39,19 +41,17 @@ describe("auth token service", () => {
     await expect(verifier.verify(token)).rejects.toThrow();
   });
 
-  it("rejects tokens with unsupported roles", async () => {
+  it("does not require user profile claims in tokens", async () => {
     const tokens = createTokenService({
       jwtSecret,
       jwtExpiresIn: "7d",
     });
     const token = await signRawToken({
       sub: String(payload.userId),
-      username: payload.username,
-      roles: 8,
       authVersion: payload.authVersion,
     });
 
-    await expect(tokens.verify(token)).rejects.toThrow();
+    await expect(tokens.verify(token)).resolves.toEqual(payload);
   });
 
   it("rejects tokens with invalid authVersion", async () => {
@@ -61,8 +61,6 @@ describe("auth token service", () => {
     });
     const token = await signRawToken({
       sub: String(payload.userId),
-      username: payload.username,
-      roles: payload.roles,
       authVersion: -1,
     });
 

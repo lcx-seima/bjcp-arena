@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { superAdminRole } from "@bjcp-arena/contracts";
 import {
-  createMemoryAuthVersionStore,
-  type AuthVersionStore,
-} from "../../src/auth/auth-version-store.js";
+  createMemoryAuthUserSnapshotStore,
+  type AuthUserSnapshotStore,
+} from "../../src/auth/auth-user-snapshot-store.js";
 import { createApp } from "../../src/app.js";
-import { DuplicateUsernameError, type UserRepository } from "../../src/users/user-repository.js";
+import {
+  createMemoryUserRepository,
+  DuplicateUsernameError,
+  type UserRepository,
+} from "../../src/users/user-repository.js";
+import type { StoredUser } from "../../src/users/user-mapper.js";
 import { createTestApp } from "../helpers/create-test-app.js";
 
 function createDuplicateBootstrapUserRepository(): UserRepository {
@@ -34,13 +39,32 @@ function createDuplicateBootstrapUserRepository(): UserRepository {
   };
 }
 
-function createUnavailableAuthVersionStore(): AuthVersionStore {
+function createUnavailableAuthUserSnapshotStore(): AuthUserSnapshotStore {
   return {
     async get() {
-      throw new Error("auth version store unavailable");
+      throw new Error("auth user snapshot store unavailable");
     },
     async set() {},
+    async delete() {},
     async close() {},
+  };
+}
+
+function createCountingUserRepository(initialUsers: StoredUser[] = []) {
+  const repository = createMemoryUserRepository(initialUsers);
+  const calls = {
+    findById: 0,
+  };
+
+  return {
+    calls,
+    repository: {
+      ...repository,
+      async findById(id: number) {
+        calls.findById += 1;
+        return repository.findById(id);
+      },
+    } satisfies UserRepository,
   };
 }
 
@@ -106,7 +130,7 @@ describe("auth routes", () => {
     const app = createApp({
       allowedOrigins: ["http://localhost:5173"],
       users: createDuplicateBootstrapUserRepository(),
-      authVersions: createMemoryAuthVersionStore(),
+      authUserSnapshots: createMemoryAuthUserSnapshotStore(),
       jwtSecret: "test-secret",
       jwtExpiresIn: "7d",
     });
@@ -195,8 +219,43 @@ describe("auth routes", () => {
     await app.close();
   });
 
-  it("rejects token when authVersion is stale", async () => {
-    const { app, users, authVersions } = createTestApp();
+  it("uses cached auth user snapshot without reloading the user from DB", async () => {
+    const { calls, repository } = createCountingUserRepository();
+    const app = createApp({
+      allowedOrigins: ["http://localhost:5173"],
+      users: repository,
+      authUserSnapshots: createMemoryAuthUserSnapshotStore(),
+      jwtSecret: "test-secret",
+      jwtExpiresIn: "7d",
+    });
+    const bootstrap = await app.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap-super-admin",
+      payload: { password: "secret123" },
+    });
+    const token = bootstrap.json().token as string;
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/auth/me",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      user: {
+        username: "superadmin",
+        roles: superAdminRole,
+      },
+    });
+    expect(calls.findById).toBe(0);
+    await app.close();
+  });
+
+  it("rejects token when cached auth user snapshot is stale", async () => {
+    const { app, users, authUserSnapshots } = createTestApp();
     const bootstrap = await app.inject({
       method: "POST",
       url: "/api/auth/bootstrap-super-admin",
@@ -204,7 +263,16 @@ describe("auth routes", () => {
     });
     const token = bootstrap.json().token as string;
     const user = await users.findByUsername("superadmin");
-    await authVersions.set(user!.id, user!.authVersion + 1);
+    await authUserSnapshots.set({
+      id: user!.id,
+      username: user!.username,
+      nickname: user!.nickname,
+      roles: user!.roles,
+      disabled: user!.disabled,
+      authVersion: user!.authVersion + 1,
+      createdAt: user!.createdAt.toISOString(),
+      updatedAt: user!.updatedAt.toISOString(),
+    });
 
     const response = await app.inject({
       method: "GET",
@@ -218,7 +286,7 @@ describe("auth routes", () => {
     await app.close();
   });
 
-  it("does not mask authVersion store failures as unauthorized", async () => {
+  it("does not mask auth user snapshot store failures as unauthorized", async () => {
     const dependencies = createTestApp();
     const bootstrap = await dependencies.app.inject({
       method: "POST",
@@ -231,7 +299,7 @@ describe("auth routes", () => {
     const app = createApp({
       allowedOrigins: ["http://localhost:5173"],
       users: dependencies.users,
-      authVersions: createUnavailableAuthVersionStore(),
+      authUserSnapshots: createUnavailableAuthUserSnapshotStore(),
       jwtSecret: "test-secret",
       jwtExpiresIn: "7d",
     });
@@ -249,8 +317,8 @@ describe("auth routes", () => {
     await app.close();
   });
 
-  it("rejects stale token when cached authVersion lags behind DB and repairs cache", async () => {
-    const { app, users, authVersions } = createTestApp();
+  it("reloads auth user snapshot from DB when cache misses", async () => {
+    const { app, users, authUserSnapshots } = createTestApp();
     const bootstrap = await app.inject({
       method: "POST",
       url: "/api/auth/bootstrap-super-admin",
@@ -258,8 +326,7 @@ describe("auth routes", () => {
     });
     const token = bootstrap.json().token as string;
     const user = await users.findByUsername("superadmin");
-    const updated = await users.updateUser(user!.id, { username: "superadmin2" });
-    await authVersions.set(user!.id, user!.authVersion);
+    await authUserSnapshots.delete(user!.id);
 
     const response = await app.inject({
       method: "GET",
@@ -269,13 +336,49 @@ describe("auth routes", () => {
       },
     });
 
-    expect(response.statusCode).toBe(401);
-    expect(await authVersions.get(user!.id)).toBe(updated!.authVersion);
+    expect(response.statusCode).toBe(200);
+    expect(await authUserSnapshots.get(user!.id)).toMatchObject({
+      id: user!.id,
+      username: "superadmin",
+      authVersion: user!.authVersion,
+    });
     await app.close();
   });
 
-  it("rejects disabled users during login and authenticate", async () => {
-    const { app, users } = createTestApp();
+  it("rejects disabled cached auth user snapshots", async () => {
+    const { app, users, authUserSnapshots } = createTestApp();
+    const bootstrap = await app.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap-super-admin",
+      payload: { password: "secret123" },
+    });
+    const token = bootstrap.json().token as string;
+    const user = await users.findByUsername("superadmin");
+    await authUserSnapshots.set({
+      id: user!.id,
+      username: user!.username,
+      nickname: user!.nickname,
+      roles: user!.roles,
+      disabled: true,
+      authVersion: user!.authVersion,
+      createdAt: user!.createdAt.toISOString(),
+      updatedAt: user!.updatedAt.toISOString(),
+    });
+
+    const me = await app.inject({
+      method: "GET",
+      url: "/api/auth/me",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    expect(me.statusCode).toBe(401);
+    await app.close();
+  });
+
+  it("rejects disabled users during login and DB fallback authenticate", async () => {
+    const { app, users, authUserSnapshots } = createTestApp();
     const bootstrap = await app.inject({
       method: "POST",
       url: "/api/auth/bootstrap-super-admin",
@@ -284,6 +387,7 @@ describe("auth routes", () => {
     const token = bootstrap.json().token as string;
     const user = await users.findByUsername("superadmin");
     await users.updateUser(user!.id, { disabled: true });
+    await authUserSnapshots.delete(user!.id);
 
     const login = await app.inject({
       method: "POST",

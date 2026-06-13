@@ -3,10 +3,10 @@ import Fastify from "fastify";
 import { serializerCompiler, validatorCompiler } from "fastify-type-provider-zod";
 import { pingPath, pingResultSchema, type PingResult } from "@bjcp-arena/contracts";
 import {
-  createMemoryAuthVersionStore,
-  createRedisAuthVersionStore,
-  type AuthVersionStore,
-} from "./auth/auth-version-store.js";
+  createMemoryAuthUserSnapshotStore,
+  createRedisAuthUserSnapshotStore,
+  type AuthUserSnapshotStore,
+} from "./auth/auth-user-snapshot-store.js";
 import { createAuthService } from "./auth/auth-service.js";
 import { createTokenService } from "./auth/token.js";
 import { defaultAllowedOrigins, getApiConfig } from "./config.js";
@@ -22,9 +22,10 @@ import {
 export interface CreateAppOptions {
   allowedOrigins?: string[];
   users?: UserRepository;
-  authVersions?: AuthVersionStore;
+  authUserSnapshots?: AuthUserSnapshotStore;
   jwtSecret?: string;
   jwtExpiresIn?: string;
+  authUserCacheTtlSeconds?: number;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
@@ -39,12 +40,17 @@ export function createApp(options: CreateAppOptions = {}) {
     prisma = createPrismaClient(config.databaseUrl);
     users = createPrismaUserRepository(prisma);
   }
-  const authVersions = options.authVersions ?? createRedisAuthVersionStore(config.redisUrl);
+  const authUserSnapshots =
+    options.authUserSnapshots ??
+    createRedisAuthUserSnapshotStore(
+      config.redisUrl,
+      options.authUserCacheTtlSeconds ?? config.authUserCacheTtlSeconds
+    );
   const tokens = createTokenService({
     jwtSecret: options.jwtSecret ?? config.jwtSecret,
     jwtExpiresIn: options.jwtExpiresIn ?? config.jwtExpiresIn,
   });
-  const auth = createAuthService({ users, authVersions, tokens });
+  const auth = createAuthService({ users, authUserSnapshots, tokens });
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
@@ -55,7 +61,7 @@ export function createApp(options: CreateAppOptions = {}) {
   });
 
   app.addHook("onClose", async () => {
-    await authVersions.close();
+    await authUserSnapshots.close();
     await prisma?.$disconnect();
   });
 
@@ -82,7 +88,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerUserRoutes(app, {
     auth,
     users,
-    authVersions,
+    authUserSnapshots,
   });
 
   return app;
@@ -90,10 +96,10 @@ export function createApp(options: CreateAppOptions = {}) {
 
 export function createTestDependencies() {
   const users = createMemoryUserRepository();
-  const authVersions = createMemoryAuthVersionStore();
+  const authUserSnapshots = createMemoryAuthUserSnapshotStore();
 
   return {
     users,
-    authVersions,
+    authUserSnapshots,
   };
 }

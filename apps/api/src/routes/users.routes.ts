@@ -9,7 +9,10 @@ import {
   usersPath,
 } from "@bjcp-arena/contracts";
 import { AuthError, type createAuthService } from "../auth/auth-service.js";
-import type { AuthVersionStore } from "../auth/auth-version-store.js";
+import {
+  toAuthUserSnapshot,
+  type AuthUserSnapshotStore,
+} from "../auth/auth-user-snapshot-store.js";
 import { hashPassword } from "../auth/password.js";
 import { createRandomNickname, createRandomUsername } from "../users/random-user.js";
 import { toPublicUser } from "../users/user-mapper.js";
@@ -85,10 +88,10 @@ export function registerUserRoutes(
   dependencies: {
     auth: AuthService;
     users: UserRepository;
-    authVersions: AuthVersionStore;
+    authUserSnapshots: AuthUserSnapshotStore;
   }
 ) {
-  const { auth, users, authVersions } = dependencies;
+  const { auth, users, authUserSnapshots } = dependencies;
 
   app.get(
     usersPath,
@@ -131,7 +134,7 @@ export function registerUserRoutes(
             roles: input.roles,
           });
 
-          await authVersions.set(user.id, user.authVersion);
+          await authUserSnapshots.set(toAuthUserSnapshot(user));
 
           return userResultSchema.parse({
             user: toPublicUser(user),
@@ -162,7 +165,7 @@ export function registerUserRoutes(
             return sendNotFound(reply);
           }
 
-          await authVersions.set(user.id, user.authVersion);
+          await authUserSnapshots.set(toAuthUserSnapshot(user));
 
           return userResultSchema.parse({
             user: toPublicUser(user),
@@ -193,7 +196,7 @@ export function registerUserRoutes(
             return sendNotFound(reply);
           }
 
-          await authVersions.set(user.id, user.authVersion);
+          await authUserSnapshots.set(toAuthUserSnapshot(user));
 
           return userResultSchema.parse({
             user: toPublicUser(user),

@@ -19,7 +19,9 @@
 - 超管初始化 bootstrap
 - 登录、当前用户 `me`
 - 用户管理权限边界
-- Redis `authVersion` 变化后的旧 token 失效
+- Redis 认证用户快照命中时无需回源 DB
+- Redis miss 时回源 DB 并回填快照
+- Redis 快照 `authVersion` 变化后的旧 token 失效
 
 当前命令：
 

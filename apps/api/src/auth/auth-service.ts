@@ -1,10 +1,13 @@
 import { superAdminRole } from "@bjcp-arena/contracts";
-import type { AuthVersionStore } from "./auth-version-store.js";
+import {
+  toAuthUserSnapshot,
+  type AuthUserSnapshot,
+  type AuthUserSnapshotStore,
+} from "./auth-user-snapshot-store.js";
 import { hashPassword, verifyPassword } from "./password.js";
 import type { AuthTokenPayload, createTokenService } from "./token.js";
 import { DuplicateUsernameError, type UserRepository } from "../users/user-repository.js";
 import type { StoredUser } from "../users/user-mapper.js";
-import { toPublicUser } from "../users/user-mapper.js";
 
 export class AuthError extends Error {
   constructor(
@@ -17,7 +20,7 @@ export class AuthError extends Error {
 
 export interface AuthServiceDependencies {
   users: UserRepository;
-  authVersions: AuthVersionStore;
+  authUserSnapshots: AuthUserSnapshotStore;
   tokens: ReturnType<typeof createTokenService>;
 }
 
@@ -25,42 +28,42 @@ function readBearerToken(authorization: string | undefined) {
   return authorization?.match(/^Bearer (.+)$/i)?.[1];
 }
 
-function tokenPayloadForUser(user: StoredUser): AuthTokenPayload {
+function tokenPayloadForSnapshot(snapshot: AuthUserSnapshot): AuthTokenPayload {
   return {
-    userId: user.id,
-    username: user.username,
-    roles: user.roles,
-    authVersion: user.authVersion,
+    userId: snapshot.id,
+    authVersion: snapshot.authVersion,
   };
 }
 
-export function createAuthService({ users, authVersions, tokens }: AuthServiceDependencies) {
+export function createAuthService({ users, authUserSnapshots, tokens }: AuthServiceDependencies) {
   async function authenticatePayload(payload: AuthTokenPayload) {
+    const cachedUser = await authUserSnapshots.get(payload.userId);
+    if (cachedUser) {
+      if (cachedUser.disabled || cachedUser.authVersion !== payload.authVersion) {
+        throw new AuthError("Unauthorized", 401);
+      }
+
+      return cachedUser;
+    }
+
     const user = await users.findById(payload.userId);
 
-    if (!user || user.disabled) {
+    if (!user || user.disabled || user.authVersion !== payload.authVersion) {
       throw new AuthError("Unauthorized", 401);
     }
 
-    const cachedVersion = await authVersions.get(user.id);
-    if (cachedVersion === null || cachedVersion < user.authVersion) {
-      await authVersions.set(user.id, user.authVersion);
-    }
-
-    const currentVersion = Math.max(cachedVersion ?? user.authVersion, user.authVersion);
-    if (payload.authVersion !== currentVersion) {
-      throw new AuthError("Unauthorized", 401);
-    }
-
-    return user;
+    const snapshot = toAuthUserSnapshot(user);
+    await authUserSnapshots.set(snapshot);
+    return snapshot;
   }
 
   async function createSession(user: StoredUser) {
-    await authVersions.set(user.id, user.authVersion);
+    const snapshot = toAuthUserSnapshot(user);
+    await authUserSnapshots.set(snapshot);
 
     return {
-      token: await tokens.sign(tokenPayloadForUser(user)),
-      user: toPublicUser(user),
+      token: await tokens.sign(tokenPayloadForSnapshot(snapshot)),
+      user: snapshot,
     };
   }
 

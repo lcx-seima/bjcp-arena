@@ -1,10 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
-import { userRolesSchema } from "@bjcp-arena/contracts";
-
 export interface AuthTokenPayload {
   userId: number;
-  username: string;
-  roles: number;
   authVersion: number;
 }
 
@@ -54,8 +50,6 @@ export function createTokenService(options: TokenServiceOptions): TokenService {
   return {
     async sign(payload) {
       return new SignJWT({
-        username: payload.username,
-        roles: payload.roles,
         authVersion: payload.authVersion,
       })
         .setProtectedHeader({ alg: "HS256" })
@@ -78,8 +72,6 @@ export function createTokenService(options: TokenServiceOptions): TokenService {
 
       return {
         userId,
-        username: readStringClaim(payload.username, "username"),
-        roles: userRolesSchema.parse(readNumberClaim(payload.roles, "roles")),
         authVersion: readAuthVersionClaim(payload.authVersion),
       };
     },
