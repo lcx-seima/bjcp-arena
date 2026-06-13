@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SignJWT, decodeJwt } from "jose";
-import { createTokenService } from "../../src/auth/token.js";
+import { createTokenService } from "../../src/modules/auth/token.js";
 
 describe("auth token service", () => {
   const jwtSecret = "test-secret";

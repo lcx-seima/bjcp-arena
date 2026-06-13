@@ -4,7 +4,7 @@ import {
   parseAuthUserSnapshotValue,
   serializeAuthUserSnapshot,
   type AuthUserSnapshot,
-} from "../../src/auth/auth-user-snapshot-store.js";
+} from "../../src/modules/auth/auth-user-snapshot-store.js";
 
 const snapshot: AuthUserSnapshot = {
   id: 1,

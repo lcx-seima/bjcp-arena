@@ -1,0 +1,18 @@
+.tableHead {
+  display: grid;
+  gap: var(--mantine-spacing-sm);
+  grid-template-columns:
+    minmax(120px, 1fr) minmax(120px, 1fr) minmax(150px, 1fr)
+    minmax(110px, 0.7fr) minmax(170px, 1.2fr) minmax(190px, 1fr);
+  color: var(--mantine-color-gray-6);
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 800;
+  padding: 0 var(--mantine-spacing-sm);
+  text-transform: uppercase;
+}
+
+@media (max-width: 74em) {
+  .tableHead {
+    display: none;
+  }
+}

@@ -1,0 +1,27 @@
+.navbar {
+  border-right: 1px solid var(--mantine-color-gray-3);
+}
+
+.navLink {
+  border-radius: var(--mantine-radius-sm);
+  color: var(--mantine-color-gray-7);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.navLink[data-active="true"],
+.navLink:hover {
+  background: var(--mantine-color-blue-0);
+  color: var(--mantine-color-blue-7);
+}
+
+.page {
+  min-width: 0;
+}
+
+@media (max-width: 48em) {
+  .navbar {
+    border-bottom: 1px solid var(--mantine-color-gray-3);
+    border-right: 0;
+  }
+}

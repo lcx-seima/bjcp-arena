@@ -1,0 +1,34 @@
+.shell {
+  min-height: 100vh;
+  background: #102a43;
+  color: #f8fafc;
+}
+
+.content {
+  display: grid;
+  gap: 36px;
+  grid-template-rows: 1fr auto;
+  min-height: 100vh;
+  padding: 56px;
+}
+
+.headline {
+  align-self: center;
+}
+
+.title {
+  max-width: 980px;
+  font-size: clamp(3rem, 8vw, 7rem);
+  line-height: 0.98;
+}
+
+.metric {
+  border-color: rgba(188, 204, 220, 0.24);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 48em) {
+  .content {
+    padding: 32px 20px;
+  }
+}

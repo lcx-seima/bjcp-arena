@@ -3,14 +3,14 @@ import { superAdminRole } from "@bjcp-arena/contracts";
 import {
   createMemoryAuthUserSnapshotStore,
   type AuthUserSnapshotStore,
-} from "../../src/auth/auth-user-snapshot-store.js";
+} from "../../src/modules/auth/auth-user-snapshot-store.js";
 import { createApp } from "../../src/app.js";
 import {
   createMemoryUserRepository,
-  DuplicateUsernameError,
   type UserRepository,
-} from "../../src/users/user-repository.js";
-import type { StoredUser } from "../../src/users/user-mapper.js";
+} from "../../src/modules/users/users.repository.js";
+import { DuplicateUsernameError } from "../../src/modules/users/users.errors.js";
+import type { StoredUser } from "../../src/modules/users/users.types.js";
 import { createTestApp } from "../helpers/create-test-app.js";
 
 function createDuplicateBootstrapUserRepository(): UserRepository {

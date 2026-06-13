@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { StoredUser } from "../../src/users/user-mapper.js";
-import {
-  createMemoryUserRepository,
-  DuplicateUsernameError,
-} from "../../src/users/user-repository.js";
+import { DuplicateUsernameError } from "../../src/modules/users/users.errors.js";
+import type { StoredUser } from "../../src/modules/users/users.types.js";
+import { createMemoryUserRepository } from "../../src/modules/users/users.repository.js";
 
 describe("memory user repository", () => {
   it("throws DuplicateUsernameError when creating or updating to an existing username", async () => {

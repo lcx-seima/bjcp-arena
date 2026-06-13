@@ -6,18 +6,18 @@ import {
   createMemoryAuthUserSnapshotStore,
   createRedisAuthUserSnapshotStore,
   type AuthUserSnapshotStore,
-} from "./auth/auth-user-snapshot-store.js";
-import { createAuthService } from "./auth/auth-service.js";
-import { createTokenService } from "./auth/token.js";
+} from "./modules/auth/auth-user-snapshot-store.js";
+import { createAuthService } from "./modules/auth/auth.service.js";
+import { createTokenService } from "./modules/auth/token.js";
 import { defaultAllowedOrigins, getApiConfig } from "./config.js";
 import { createPrismaClient } from "./db/prisma.js";
-import { registerAuthRoutes } from "./routes/auth.routes.js";
-import { registerUserRoutes } from "./routes/users.routes.js";
+import { registerAuthRoutes } from "./modules/auth/auth.routes.js";
+import { registerUserRoutes } from "./modules/users/users.routes.js";
 import {
   createMemoryUserRepository,
   createPrismaUserRepository,
   type UserRepository,
-} from "./users/user-repository.js";
+} from "./modules/users/users.repository.js";
 
 export interface CreateAppOptions {
   allowedOrigins?: string[];

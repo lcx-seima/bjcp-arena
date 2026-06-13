@@ -23,7 +23,10 @@
 - `packages/api-client` 保持框架无关，不绑定 React。
 - 前端本地开发不使用 Vite proxy，始终通过真实 HTTP 地址访问 API。
 - 当前不建立 `.codex/skills/*`，需要沉淀的说明优先写入 `docs/*`。
-- 不提前引入复杂业务抽象、实时通道、认证体系、ORM schema 或组件库。
+- 不提前引入复杂业务抽象、实时通道或评鉴业务 ORM schema。
+- 后端代码组织详见 `docs/backend.md`，需要修改 `apps/api` 时先读取。
+- 前端代码组织、Mantine 使用和样式策略详见 `docs/frontend.md`，需要修改 `apps/admin`、`apps/judge` 或 `apps/board` 时先读取。
+- 测试边界和 UI 冒烟方式详见 `docs/testing.md`。
 
 ## 提交约束
 

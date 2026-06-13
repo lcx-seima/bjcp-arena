@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createRandomNickname, createRandomUsername } from "../../src/users/random-user.js";
+import { createRandomNickname, createRandomUsername } from "../../src/modules/users/random-user.js";
 
 describe("random user helpers", () => {
   it("creates 6-character alphanumeric username", () => {
