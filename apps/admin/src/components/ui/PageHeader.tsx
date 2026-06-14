@@ -7,7 +7,7 @@ export function PageHeader({
 }: {
   eyebrow: string;
   title: string;
-  description?: string;
+  description?: string | undefined;
 }) {
   return (
     <Stack gap={6}>

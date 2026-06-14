@@ -1,4 +1,5 @@
-import { Prisma, type PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient, type User as PrismaUser } from "@prisma/client";
+import { nullableJudgeTypeSchema, type JudgeType } from "@bjcp-arena/contracts";
 import { DuplicateUsernameError } from "./users.errors.js";
 import type { CreateStoredUserInput, StoredUser } from "./users.types.js";
 
@@ -6,6 +7,7 @@ export interface UpdateStoredUserInput {
   username?: string;
   nickname?: string;
   roles?: number;
+  judgeType?: JudgeType | null;
   disabled?: boolean;
 }
 
@@ -27,9 +29,29 @@ export function cloneStoredUser(user: StoredUser): StoredUser {
   };
 }
 
+function toStoredUser(user: PrismaUser): StoredUser {
+  return {
+    id: user.id,
+    username: user.username,
+    nickname: user.nickname,
+    passwordHash: user.passwordHash,
+    roles: user.roles,
+    judgeType: nullableJudgeTypeSchema.parse(user.judgeType ?? null),
+    disabled: user.disabled,
+    authVersion: user.authVersion,
+    createdAt: new Date(user.createdAt),
+    updatedAt: new Date(user.updatedAt),
+  };
+}
+
+function toStoredUserOrNull(user: PrismaUser | null): StoredUser | null {
+  return user ? toStoredUser(user) : null;
+}
+
 function shouldBumpAuthVersion(user: StoredUser, input: UpdateStoredUserInput) {
   return (
     (input.username !== undefined && input.username !== user.username) ||
+    (input.judgeType !== undefined && input.judgeType !== user.judgeType) ||
     (input.roles !== undefined && input.roles !== user.roles) ||
     (input.disabled !== undefined && input.disabled !== user.disabled)
   );
@@ -58,22 +80,25 @@ export function createPrismaUserRepository(prisma: PrismaClient): UserRepository
     },
 
     findById(id) {
-      return prisma.user.findUnique({ where: { id } });
+      return prisma.user.findUnique({ where: { id } }).then((user) => toStoredUserOrNull(user));
     },
 
     findByUsername(username) {
-      return prisma.user.findUnique({ where: { username } });
+      return prisma.user
+        .findUnique({ where: { username } })
+        .then((user) => toStoredUserOrNull(user));
     },
 
     listUsers() {
       return prisma.user.findMany({
         orderBy: { id: "asc" },
-      });
+      }).then((users) => users.map(toStoredUser));
     },
 
     async createUser(input) {
       try {
-        return await prisma.user.create({ data: input });
+        const created = await prisma.user.create({ data: input });
+        return toStoredUser(created);
       } catch (error) {
         if (isDuplicateUsernameError(error)) {
           throw new DuplicateUsernameError();
@@ -83,19 +108,22 @@ export function createPrismaUserRepository(prisma: PrismaClient): UserRepository
     },
 
     async updateUser(id, input) {
-      const user = await prisma.user.findUnique({ where: { id } });
+      const user = await prisma.user
+        .findUnique({ where: { id } })
+        .then((storedUser) => toStoredUserOrNull(storedUser));
       if (!user) {
         return null;
       }
 
       try {
-        return await prisma.user.update({
+        const updated = await prisma.user.update({
           where: { id },
           data: {
             ...input,
             ...(shouldBumpAuthVersion(user, input) ? { authVersion: { increment: 1 } } : {}),
           },
         });
+        return toStoredUser(updated);
       } catch (error) {
         if (isRecordNotFoundError(error)) {
           return null;
@@ -109,13 +137,14 @@ export function createPrismaUserRepository(prisma: PrismaClient): UserRepository
 
     async resetPassword(id, passwordHash) {
       try {
-        return await prisma.user.update({
+        const updated = await prisma.user.update({
           where: { id },
           data: {
             passwordHash,
             authVersion: { increment: 1 },
           },
         });
+        return toStoredUser(updated);
       } catch (error) {
         if (isRecordNotFoundError(error)) {
           return null;
@@ -167,6 +196,7 @@ export function createMemoryUserRepository(initialUsers: StoredUser[] = []): Use
         nickname: input.nickname,
         passwordHash: input.passwordHash,
         roles: input.roles,
+        judgeType: input.judgeType ?? null,
         disabled: false,
         authVersion: 0,
         createdAt,

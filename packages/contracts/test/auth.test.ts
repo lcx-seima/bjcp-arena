@@ -74,6 +74,7 @@ describe("auth contract", () => {
       username: "superadmin",
       nickname: "superadmin",
       roles: superAdminRole,
+      judgeType: null,
       disabled: false,
       authVersion: 0,
       createdAt: "2026-05-28T00:00:00.000Z",

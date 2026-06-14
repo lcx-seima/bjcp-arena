@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { passwordSchema, userPublicSchema, usernameSchema } from "./auth.js";
 import { userRolesSchema } from "./roles.js";
+import { nullableJudgeTypeSchema } from "./judge-types.js";
 
 export const usersPath = "/api/users" as const;
 
@@ -17,6 +18,7 @@ export const createUserInputSchema = z.object({
   nickname: z.string().min(1).max(64).optional(),
   password: passwordSchema,
   roles: userRolesSchema,
+  judgeType: nullableJudgeTypeSchema.optional(),
 });
 
 export const updateUserInputSchema = z
@@ -24,6 +26,7 @@ export const updateUserInputSchema = z
     username: usernameSchema.optional(),
     nickname: z.string().min(1).max(64).optional(),
     roles: userRolesSchema.optional(),
+    judgeType: nullableJudgeTypeSchema.optional(),
     disabled: z.boolean().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, "At least one field is required");

@@ -28,6 +28,20 @@ describe("memory user repository", () => {
     );
   });
 
+  it("updates authVersion when judgeType changes", async () => {
+    const repository = createMemoryUserRepository([
+      createStoredUser({ id: 1, username: "alice", authVersion: 7, judgeType: null }),
+    ]);
+
+    const withJudgeType = await repository.updateUser(1, { judgeType: "professional" });
+    expect(withJudgeType?.judgeType).toBe("professional");
+    expect(withJudgeType?.authVersion).toBe(8);
+
+    const clearedJudgeType = await repository.updateUser(1, { judgeType: null });
+    expect(clearedJudgeType?.judgeType).toBeNull();
+    expect(clearedJudgeType?.authVersion).toBe(9);
+  });
+
   it("does not let returned users mutate repository state", async () => {
     const initialUser = createStoredUser({
       id: 1,
@@ -110,6 +124,7 @@ function createStoredUser(overrides: Partial<StoredUser> = {}): StoredUser {
     nickname: "User 1",
     passwordHash: "hash-1",
     roles: 2,
+    judgeType: null,
     disabled: false,
     authVersion: 0,
     createdAt,

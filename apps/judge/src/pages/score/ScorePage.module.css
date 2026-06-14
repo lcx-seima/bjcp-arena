@@ -1,0 +1,17 @@
+.shell {
+  margin: 0 auto;
+  max-width: 520px;
+  width: 100%;
+}
+
+.metricGrid {
+  display: grid;
+  gap: var(--mantine-spacing-sm);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 30em) {
+  .metricGrid {
+    grid-template-columns: 1fr;
+  }
+}

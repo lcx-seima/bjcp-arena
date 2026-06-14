@@ -1,6 +1,7 @@
 import { Redis } from "ioredis";
 import { userPublicSchema, type UserPublic } from "@bjcp-arena/contracts";
 import type { StoredUser } from "../users/users.types.js";
+import { toPublicUser } from "../users/user-mapper.js";
 
 export type AuthUserSnapshot = UserPublic;
 
@@ -16,16 +17,7 @@ function authUserSnapshotKey(userId: number): string {
 }
 
 export function toAuthUserSnapshot(user: StoredUser): AuthUserSnapshot {
-  return {
-    id: user.id,
-    username: user.username,
-    nickname: user.nickname,
-    roles: user.roles,
-    disabled: user.disabled,
-    authVersion: user.authVersion,
-    createdAt: user.createdAt.toISOString(),
-    updatedAt: user.updatedAt.toISOString(),
-  };
+  return toPublicUser(user);
 }
 
 export function serializeAuthUserSnapshot(snapshot: AuthUserSnapshot): string {

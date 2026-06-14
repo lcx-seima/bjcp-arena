@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { userRolesSchema } from "./roles.js";
+import { nullableJudgeTypeSchema } from "./judge-types.js";
 
 export const authBootstrapStatusPath = "/api/auth/bootstrap-status" as const;
 export const authBootstrapSuperAdminPath = "/api/auth/bootstrap-super-admin" as const;
@@ -23,6 +24,7 @@ export const userPublicSchema = z.object({
   username: usernameSchema,
   nickname: z.string().min(1).max(64),
   roles: userRolesSchema,
+  judgeType: nullableJudgeTypeSchema,
   disabled: z.boolean(),
   authVersion: z.number().int().nonnegative(),
   createdAt: z.string().datetime(),

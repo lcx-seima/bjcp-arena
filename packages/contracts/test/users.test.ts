@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   adminRole,
   createUserInputSchema,
+  judgeTypeProfessional,
+  judgeTypePublic,
+  judgeTypeSchema,
   judgeRole,
   resetUserPasswordInputSchema,
   updateUserInputSchema,
@@ -17,6 +20,14 @@ describe("users contract", () => {
     expect(usersPath).toBe("/api/users");
     expect(userByIdPath(12)).toBe("/api/users/12");
     expect(userResetPasswordPath(12)).toBe("/api/users/12/reset-password");
+  });
+
+  it("defines judge type constants", () => {
+    expect(judgeTypeProfessional).toBe("professional");
+    expect(judgeTypePublic).toBe("public");
+    expect(judgeTypeSchema.parse("professional")).toBe("professional");
+    expect(judgeTypeSchema.parse("public")).toBe("public");
+    expect(() => judgeTypeSchema.parse("guest")).toThrow();
   });
 
   it("parses create user input with optional username and nickname", () => {
@@ -85,6 +96,47 @@ describe("users contract", () => {
     expect(() => updateUserInputSchema.parse({ username: "bad-name" })).toThrow();
   });
 
+  it("parses judge type on user create and update input", () => {
+    expect(
+      createUserInputSchema.parse({
+        username: "judge03",
+        password: "secret123",
+        roles: judgeRole,
+        judgeType: judgeTypeProfessional,
+      })
+    ).toMatchObject({
+      judgeType: judgeTypeProfessional,
+    });
+
+    expect(
+      createUserInputSchema.parse({
+        username: "judge04",
+        password: "secret123",
+        roles: judgeRole,
+        judgeType: null,
+      })
+    ).toMatchObject({
+      judgeType: null,
+    });
+
+    expect(updateUserInputSchema.parse({ judgeType: judgeTypePublic })).toEqual({
+      judgeType: judgeTypePublic,
+    });
+    expect(updateUserInputSchema.parse({ judgeType: null })).toEqual({
+      judgeType: null,
+    });
+
+    expect(() =>
+      createUserInputSchema.parse({
+        username: "judge05",
+        password: "secret123",
+        roles: judgeRole,
+        judgeType: "guest",
+      })
+    ).toThrow();
+    expect(() => updateUserInputSchema.parse({ judgeType: "guest" })).toThrow();
+  });
+
   it("parses reset password input", () => {
     expect(resetUserPasswordInputSchema.parse({ password: "newSecret123" })).toEqual({
       password: "newSecret123",
@@ -98,6 +150,7 @@ describe("users contract", () => {
       username: "abc123",
       nickname: "bjcpabc123",
       roles: judgeRole,
+      judgeType: judgeTypeProfessional,
       disabled: false,
       authVersion: 0,
       createdAt: "2026-05-28T00:00:00.000Z",

@@ -18,6 +18,7 @@ export interface ApiConfig {
   jwtSecret: string;
   jwtExpiresIn: string;
   authUserCacheTtlSeconds: number;
+  judgeAppBaseUrl: string;
 }
 
 function readCsv(value: string | undefined) {
@@ -38,5 +39,6 @@ export function getApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
     jwtSecret: env.JWT_SECRET ?? "local-development-secret-change-me",
     jwtExpiresIn: env.JWT_EXPIRES_IN ?? "7d",
     authUserCacheTtlSeconds: Number(env.AUTH_USER_CACHE_TTL_SECONDS ?? 1800),
+    judgeAppBaseUrl: env.JUDGE_APP_BASE_URL ?? "http://localhost:5174",
   };
 }

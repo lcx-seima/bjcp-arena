@@ -3,6 +3,8 @@ import {
   adminRole,
   authMePath,
   createUserInputSchema,
+  judgeTypeProfessional,
+  judgeTypePublic,
   judgeRole,
   resetUserPasswordInputSchema,
   superAdminRole,
@@ -198,6 +200,44 @@ describe("user management routes", () => {
       disabled: true,
       authVersion: 1,
     });
+    await app.close();
+  });
+
+  it("stores judge type on judge users and allows clearing it", async () => {
+    const { app } = createTestApp();
+    const token = await bootstrapToken(app);
+
+    const created = await createUser(app, token, {
+      username: "judge03",
+      nickname: "裁判 03",
+      password: "secret123",
+      roles: judgeRole,
+      judgeType: judgeTypeProfessional,
+    });
+
+    expect(created.statusCode).toBe(200);
+    const id = userResultSchema.parse(created.json()).user.id;
+    expect(userResultSchema.parse(created.json()).user.judgeType).toBe(judgeTypeProfessional);
+
+    const updated = await app.inject({
+      method: "PATCH",
+      url: userByIdPath(id),
+      headers: { authorization: `Bearer ${token}` },
+      payload: { judgeType: judgeTypePublic },
+    });
+
+    expect(updated.statusCode).toBe(200);
+    expect(userResultSchema.parse(updated.json()).user.judgeType).toBe(judgeTypePublic);
+
+    const cleared = await app.inject({
+      method: "PATCH",
+      url: userByIdPath(id),
+      headers: { authorization: `Bearer ${token}` },
+      payload: { judgeType: null },
+    });
+
+    expect(cleared.statusCode).toBe(200);
+    expect(userResultSchema.parse(cleared.json()).user.judgeType).toBeNull();
     await app.close();
   });
 

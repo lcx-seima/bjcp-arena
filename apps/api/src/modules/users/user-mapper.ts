@@ -7,6 +7,7 @@ export function toPublicUser(user: StoredUser): UserPublic {
     username: user.username,
     nickname: user.nickname,
     roles: user.roles,
+    judgeType: user.judgeType,
     disabled: user.disabled,
     authVersion: user.authVersion,
     createdAt: user.createdAt.toISOString(),

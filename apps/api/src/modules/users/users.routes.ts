@@ -67,6 +67,9 @@ function toUpdateStoredUserInput(input: ReturnType<typeof updateUserInputSchema.
   if (input.roles !== undefined) {
     update.roles = input.roles;
   }
+  if (input.judgeType !== undefined) {
+    update.judgeType = input.judgeType;
+  }
   if (input.disabled !== undefined) {
     update.disabled = input.disabled;
   }
@@ -129,6 +132,7 @@ export function registerUserRoutes(
             nickname: input.nickname ?? createRandomNickname(),
             passwordHash: await hashPassword(input.password),
             roles: input.roles,
+            judgeType: input.judgeType ?? null,
           });
 
           await authUserSnapshots.set(toAuthUserSnapshot(user));

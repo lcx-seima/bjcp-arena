@@ -1,11 +1,14 @@
 import { AppShell, Button, Group, Stack, Text } from "@mantine/core";
-import { LogOut, UsersRound, LayoutDashboard } from "lucide-react";
+import { LogOut, UsersRound, LayoutDashboard, Trophy } from "lucide-react";
 import { NavLink as RouterNavLink, Routes, Route, Navigate } from "react-router-dom";
 import { canManageUsers, type UserPublic } from "@bjcp-arena/contracts";
 import { describeRoles } from "../utils/roles.js";
 import { ForbiddenPage } from "../pages/overview/ForbiddenPage.js";
 import { OverviewPage } from "../pages/overview/OverviewPage.js";
 import { UsersPage } from "../pages/users/UsersPage.js";
+import { CompetitionsPage } from "../pages/competitions/CompetitionsPage.js";
+import { CompetitionDetailPage } from "../pages/competitions/CompetitionDetailPage.js";
+import { QrCodesPage } from "../pages/competitions/QrCodesPage.js";
 import classes from "./AdminLayout.module.css";
 
 export function AdminLayout({ user, onLogout }: { user: UserPublic; onLogout: () => void }) {
@@ -28,6 +31,14 @@ export function AdminLayout({ user, onLogout }: { user: UserPublic; onLogout: ()
                 <Group data-active={isActive} gap="xs" p="sm" className={classes.navLink!}>
                   <LayoutDashboard size={16} />
                   <span>概览</span>
+                </Group>
+              )}
+            </RouterNavLink>
+            <RouterNavLink className={classes.navLink!} to="/competitions">
+              {({ isActive }) => (
+                <Group data-active={isActive} gap="xs" p="sm" className={classes.navLink!}>
+                  <Trophy size={16} />
+                  <span>比赛管理</span>
                 </Group>
               )}
             </RouterNavLink>
@@ -65,6 +76,15 @@ export function AdminLayout({ user, onLogout }: { user: UserPublic; onLogout: ()
       <AppShell.Main className={classes.page!}>
         <Routes>
           <Route index element={<OverviewPage user={user} />} />
+          <Route path="/competitions" element={<CompetitionsPage onLogout={onLogout} />} />
+          <Route
+            path="/competitions/:competitionId"
+            element={<CompetitionDetailPage onLogout={onLogout} />}
+          />
+          <Route
+            path="/competitions/:competitionId/qr-codes"
+            element={<QrCodesPage onLogout={onLogout} />}
+          />
           <Route
             path="/users"
             element={

@@ -11,6 +11,7 @@ const snapshot: AuthUserSnapshot = {
   username: "superadmin",
   nickname: "superadmin",
   roles: 1,
+  judgeType: null,
   disabled: false,
   authVersion: 2,
   createdAt: "2026-05-28T00:00:00.000Z",

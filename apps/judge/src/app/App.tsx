@@ -7,6 +7,7 @@ import { LoginPage } from "../pages/login/LoginPage.js";
 import { RestoreErrorPage } from "../pages/session/RestoreErrorPage.js";
 import { RoleDeniedPage } from "../pages/session/RoleDeniedPage.js";
 import { UserInfoPage } from "../pages/session/UserInfoPage.js";
+import { ScorePage } from "../pages/score/ScorePage.js";
 import { isUnauthorized, readError } from "../utils/errors.js";
 
 interface AppState {
@@ -15,8 +16,21 @@ interface AppState {
   user: UserPublic | null;
 }
 
+function readScoreRoute(pathname: string) {
+  const match = pathname.match(/^\/competitions\/(\d+)\/beers\/(\d+)\/?$/);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    competitionId: Number(match[1]),
+    beerId: Number(match[2]),
+  };
+}
+
 export function App() {
   const [state, setState] = useState<AppState>({ error: null, status: "loading", user: null });
+  const scoreRoute = readScoreRoute(window.location.pathname);
 
   const endSession = useCallback(() => {
     clearToken();
@@ -82,6 +96,13 @@ export function App() {
         <LoginPage onLogin={handleLogin} onUnauthorized={endSession} />
       ) : !canAccessJudgeApp(state.user.roles) ? (
         <RoleDeniedPage user={state.user} onLogout={handleLogout} />
+      ) : scoreRoute ? (
+        <ScorePage
+          beerId={scoreRoute.beerId}
+          competitionId={scoreRoute.competitionId}
+          user={state.user}
+          onLogout={handleLogout}
+        />
       ) : (
         <UserInfoPage user={state.user} onLogout={handleLogout} />
       )}
