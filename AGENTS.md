@@ -55,3 +55,8 @@ pnpm dev:board
 ## 测试边界
 
 自动化测试聚焦 API、contracts、api-client。当前不做 E2E、React 组件测试、截图测试、视觉回归或 Storybook 测试体系。UI 验收采用人工 smoke，详见 `docs/testing.md`。
+
+
+## 特别注意
+
+不要随便运行 `docker compose down -v` 这种可能删除 data volumes 的方法，必须再三确认！
