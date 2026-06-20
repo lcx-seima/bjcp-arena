@@ -51,6 +51,7 @@ export function createApp(options: CreateAppOptions = {}) {
     ...options.config,
   };
   const allowedOrigins = options.allowedOrigins ?? config.allowedOrigins;
+  const corsOrigin = allowedOrigins.includes("*") ? true : allowedOrigins;
   let prisma: ReturnType<typeof createPrismaClient> | undefined;
   let users = options.users;
   let competitions = options.competitions;
@@ -97,7 +98,7 @@ export function createApp(options: CreateAppOptions = {}) {
 
   app.register(cors, {
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "OPTIONS"],
-    origin: allowedOrigins,
+    origin: corsOrigin,
   });
 
   app.addHook("onClose", async () => {

@@ -36,6 +36,23 @@ describe("GET /api/ping", () => {
     await app.close();
   });
 
+  it("allows any origin when configured with a wildcard", async () => {
+    const app = createApp({
+      allowedOrigins: ["*"],
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/ping",
+      headers: {
+        origin: "http://example.com",
+      },
+    });
+
+    expect(response.headers["access-control-allow-origin"]).toBe("http://example.com");
+    await app.close();
+  });
+
   it("allows PATCH requests in CORS preflight responses", async () => {
     const app = createApp({
       allowedOrigins: ["http://localhost:5173"],

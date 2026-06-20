@@ -186,3 +186,9 @@ API_ALLOWED_ORIGINS=http://192.168.1.23:5173,http://192.168.1.23:5174,http://192
 ```
 
 为了方便本地开发，可以在逗号分隔列表中同时保留 localhost 和局域网 origin。
+
+如果希望允许任意前端 origin，可以配置：
+
+```text
+API_ALLOWED_ORIGINS=*
+```
