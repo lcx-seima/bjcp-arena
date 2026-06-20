@@ -17,14 +17,15 @@ pnpm install
 本地默认配置已经能连接 `compose.yaml` 中的 PostgreSQL 和 Redis。需要覆盖配置时，可以在启动命令前设置 shell 环境变量，或按应用目录放置 `.env`：
 
 ```bash
-cp .env.example apps/api/.env
-cp .env.example apps/admin/.env
-cp .env.example apps/judge/.env
+cp apps/api/.env.example apps/api/.env
+cp apps/admin/.env.example apps/admin/.env
+cp apps/judge/.env.example apps/judge/.env
+cp apps/board/.env.example apps/board/.env
 ```
 
-API 读取 `apps/api/.env`。Vite 前端读取各自应用目录下的 `.env`，例如 `apps/admin/.env` 和 `apps/judge/.env`。根目录 `.env` 不作为稳定的应用配置入口。
+API 读取 `apps/api/.env`。Vite 前端读取各自应用目录下的 `.env`，例如 `apps/admin/.env`、`apps/judge/.env` 和 `apps/board/.env`。根目录 `.env` 不作为稳定的应用配置入口。
 
-重要变量：
+API 变量见 `apps/api/.env.example`：
 
 ```text
 API_HOST=0.0.0.0
@@ -35,8 +36,30 @@ REDIS_URL=redis://127.0.0.1:26379
 JWT_SECRET=local-development-secret-change-me
 JWT_EXPIRES_IN=7d
 AUTH_USER_CACHE_TTL_SECONDS=1800
+JUDGE_APP_BASE_URL=http://localhost:5174
+```
+
+前端变量分别见各应用自己的 `.env.example`：
+
+```text
+# apps/admin/.env.example
+DEV_SERVER_HOST=0.0.0.0
+DEV_SERVER_PORT=5173
+VITE_API_BASE_URL=http://localhost:4000
+VITE_BOARD_BASE_URL=http://localhost:5175
+
+# apps/judge/.env.example
+DEV_SERVER_HOST=0.0.0.0
+DEV_SERVER_PORT=5174
+VITE_API_BASE_URL=http://localhost:4000
+
+# apps/board/.env.example
+DEV_SERVER_HOST=0.0.0.0
+DEV_SERVER_PORT=5175
 VITE_API_BASE_URL=http://localhost:4000
 ```
+
+前端 dev server 的 `DEV_SERVER_HOST` 和 `DEV_SERVER_PORT` 由各应用的 `vite.config.ts` 读取。端口被占用时会直接启动失败，不会自动尝试下一个端口。
 
 ## 本地基础设施
 
@@ -122,7 +145,7 @@ pnpm --filter @bjcp-arena/api db:migrate
 执行 Prisma 命令前，需要确保 API 环境变量可用。推荐按本页“环境变量”章节创建：
 
 ```bash
-cp .env.example apps/api/.env
+cp apps/api/.env.example apps/api/.env
 ```
 
 如果缺少 `apps/api/.env`，Prisma 会在读取 `apps/api/prisma/schema.prisma` 时因为找不到 `DATABASE_URL` 报错。
@@ -175,9 +198,11 @@ pnpm dev:board
 ```text
 API 电脑局域网 IP: 192.168.1.23
 VITE_API_BASE_URL=http://192.168.1.23:4000
+VITE_BOARD_BASE_URL=http://192.168.1.23:5175
+JUDGE_APP_BASE_URL=http://192.168.1.23:5174
 ```
 
-当其他设备打开 H5 裁判端时，API 地址不要使用 `localhost`。`localhost` 会指向手机自身，应改用电脑的局域网 IP。
+当其他设备打开 H5 裁判端或大屏端时，前端应用的 `VITE_API_BASE_URL` 不要使用 `localhost`。`localhost` 会指向设备自身，应改用 API 电脑的局域网 IP。后台管理端如果要跳转大屏，也应把 `apps/admin/.env` 里的 `VITE_BOARD_BASE_URL` 改成大屏端的局域网地址。API 生成裁判端二维码时会使用 `JUDGE_APP_BASE_URL`，现场访问时也应改成裁判端的局域网地址。
 
 需要时，将局域网 origin 添加到 API CORS：
 

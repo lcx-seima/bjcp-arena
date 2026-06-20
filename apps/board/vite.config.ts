@@ -1,6 +1,20 @@
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 
-export default defineConfig({
-  plugins: [react()],
+function readPort(value: string | undefined, fallback: number) {
+  const port = Number(value);
+  return Number.isInteger(port) && port > 0 ? port : fallback;
+}
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+
+  return {
+    plugins: [react()],
+    server: {
+      host: env.DEV_SERVER_HOST ?? "0.0.0.0",
+      port: readPort(env.DEV_SERVER_PORT, 5175),
+      strictPort: true,
+    },
+  };
 });
