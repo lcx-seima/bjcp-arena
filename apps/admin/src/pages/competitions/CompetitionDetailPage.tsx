@@ -1,10 +1,9 @@
 import { Badge, Button, Group, Paper, Select, Stack, Text } from "@mantine/core";
-import { ArrowLeft, ExternalLink, QrCode, RefreshCw } from "lucide-react";
+import { ArrowLeft, QrCode, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { BeerStatus } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
-import { boardBaseUrl } from "../../app/env.js";
 import { InlineMessage } from "../../components/ui/InlineMessage.js";
 import { PageHeader } from "../../components/ui/PageHeader.js";
 import {
@@ -187,15 +186,6 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                 variant="default"
               >
                 二维码墙
-              </Button>
-              <Button
-                component="a"
-                href={`${boardBaseUrl.replace(/\/+$/, "")}/competitions/${competition.id}`}
-                leftSection={<ExternalLink size={16} />}
-                target="_blank"
-                variant="default"
-              >
-                大屏入口
               </Button>
               {isUpdatingCompetitionStatus ? (
                 <Text c="dimmed" size="sm">

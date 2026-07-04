@@ -12,8 +12,6 @@ import {
   beerQrCodesPath,
   beerResultSchema,
   beerStatusPath,
-  boardCompetitionSummaryPath,
-  boardCompetitionSummarySchema,
   bootstrapStatusResultSchema,
   bootstrapSuperAdminInputSchema,
   competitionListPath,
@@ -49,7 +47,6 @@ import {
   type BeerListResult,
   type BeerQrCodeListResult,
   type BeerResult,
-  type BoardCompetitionSummary,
   type BootstrapStatusResult,
   type BootstrapSuperAdminInput,
   type CompetitionListResult,
@@ -422,15 +419,5 @@ export function createApiClient(options: CreateApiClientOptions) {
       );
     },
 
-    getBoardCompetitionSummary(competitionId: number): Promise<BoardCompetitionSummary> {
-      return requestJson(
-        fetcher,
-        options.baseUrl,
-        "GET",
-        boardCompetitionSummaryPath(competitionId),
-        (data) => boardCompetitionSummarySchema.parse(data),
-        { token: getToken() }
-      );
-    },
   };
 }

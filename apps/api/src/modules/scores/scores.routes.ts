@@ -1,6 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
-  boardCompetitionSummarySchema,
   judgeBeerResultSchema,
   myScoreResultSchema,
   scoreInputSchema,
@@ -8,8 +7,7 @@ import {
 } from "@bjcp-arena/contracts";
 import { AuthError, type createAuthService } from "../auth/auth.service.js";
 import { CompetitionNotFoundError } from "../competitions/competitions.service.js";
-import { requireAdmin, requireJudge } from "../../shared/http/auth-guards.js";
-import type { ScoreEventHub } from "./score-events.js";
+import { requireJudge } from "../../shared/http/auth-guards.js";
 import {
   BeerNotFoundForScoreError,
   ScoreNotAllowedError,
@@ -65,20 +63,14 @@ function parseBeerId(request: FastifyRequest) {
   return beerId;
 }
 
-function writeSse(reply: FastifyReply, event: string, data: unknown) {
-  reply.raw.write(`event: ${event}\n`);
-  reply.raw.write(`data: ${JSON.stringify(data)}\n\n`);
-}
-
 export function registerScoreRoutes(
   app: FastifyInstance,
   dependencies: {
     auth: AuthService;
     scores: ScoreService;
-    events: ScoreEventHub;
   }
 ) {
-  const { auth, scores, events } = dependencies;
+  const { auth, scores } = dependencies;
 
   app.get(
     "/api/judge/competitions/:competitionId/beers/:beerId",
@@ -148,51 +140,4 @@ export function registerScoreRoutes(
     }
   );
 
-  app.get(
-    "/api/board/competitions/:competitionId/summary",
-    {
-      schema: {
-        response: { 200: boardCompetitionSummarySchema },
-        summary: "Get board competition summary",
-        tags: ["scores"],
-      },
-    },
-    async (request, reply) => {
-      return requireAdmin(auth, request)
-        .then(async () => {
-          const competitionId = parseCompetitionId(request);
-          return boardCompetitionSummarySchema.parse(await scores.getBoardSummary(competitionId));
-        })
-        .catch((error: unknown) => sendRouteError(reply, error));
-    }
-  );
-
-  app.get(
-    "/api/board/competitions/:competitionId/events",
-    {
-      schema: {
-        summary: "Subscribe board competition score events",
-        tags: ["scores"],
-      },
-    },
-    async (request, reply) => {
-      return requireAdmin(auth, request)
-        .then(async () => {
-          const competitionId = parseCompetitionId(request);
-          await scores.getBoardSummary(competitionId);
-          reply.raw.writeHead(200, {
-            "content-type": "text/event-stream; charset=utf-8",
-            "cache-control": "no-cache, no-transform",
-            connection: "keep-alive",
-          });
-          reply.raw.write(": connected\n\n");
-          const unsubscribe = events.subscribe(competitionId, (event) => {
-            writeSse(reply, event.name, event);
-          });
-          request.raw.on("close", unsubscribe);
-          return reply;
-        })
-        .catch((error: unknown) => sendRouteError(reply, error));
-    }
-  );
 }

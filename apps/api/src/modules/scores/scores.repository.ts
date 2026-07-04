@@ -4,7 +4,6 @@ import type { StoredScore, UpsertStoredScoreInput } from "./scores.types.js";
 
 export interface ScoreRepository {
   findScore(beerId: number, judgeUserId: number): Promise<StoredScore | null>;
-  listScoresForBeers(beerIds: number[]): Promise<StoredScore[]>;
   upsertScore(input: UpsertStoredScoreInput): Promise<StoredScore>;
 }
 
@@ -65,19 +64,6 @@ export function createPrismaScoreRepository(prisma: PrismaClient): ScoreReposito
         .then(toStoredScoreOrNull);
     },
 
-    listScoresForBeers(beerIds) {
-      if (beerIds.length === 0) {
-        return Promise.resolve([]);
-      }
-
-      return prisma.score
-        .findMany({
-          where: { beerId: { in: beerIds } },
-          orderBy: { id: "asc" },
-        })
-        .then((scores) => scores.map(toStoredScore));
-    },
-
     async upsertScore(input) {
       const score = await prisma.score.upsert({
         where: {
@@ -106,14 +92,6 @@ export function createMemoryScoreRepository(initialScores: StoredScore[] = []): 
         (candidate) => candidate.beerId === beerId && candidate.judgeUserId === judgeUserId
       );
       return score ? cloneStoredScore(score) : null;
-    },
-
-    async listScoresForBeers(beerIds) {
-      const beerIdSet = new Set(beerIds);
-      return Array.from(scores.values())
-        .filter((score) => beerIdSet.has(score.beerId))
-        .sort((a, b) => a.id - b.id)
-        .map(cloneStoredScore);
     },
 
     async upsertScore(input) {

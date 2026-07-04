@@ -5,8 +5,6 @@ import {
   beerQrCodesPath,
   beerStatusSchema,
   bjcpSubcategories,
-  boardCompetitionEventsPath,
-  boardCompetitionSummaryPath,
   competitionByIdPath,
   competitionListPath,
   competitionStatusPath,
@@ -44,11 +42,9 @@ describe("competition loop contracts", () => {
     expect(() => beerStatusSchema.parse("deleted")).toThrow();
   });
 
-  it("defines judge and board paths", () => {
+  it("defines judge paths", () => {
     expect(judgeBeerDetailPath(2, 5)).toBe("/api/judge/competitions/2/beers/5");
     expect(judgeMyScorePath(2, 5)).toBe("/api/judge/competitions/2/beers/5/my-score");
-    expect(boardCompetitionSummaryPath(2)).toBe("/api/board/competitions/2/summary");
-    expect(boardCompetitionEventsPath(2)).toBe("/api/board/competitions/2/events");
   });
 
   it("parses competition and beer input", () => {

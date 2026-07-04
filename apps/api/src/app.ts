@@ -19,7 +19,6 @@ import { createCompetitionService } from "./modules/competitions/competitions.se
 import { registerBeerRoutes } from "./modules/beers/beers.routes.js";
 import { createBeerService } from "./modules/beers/beers.service.js";
 import { createMemoryBeerRepository, createPrismaBeerRepository, type BeerRepository } from "./modules/beers/beers.repository.js";
-import { createScoreEventHub } from "./modules/scores/score-events.js";
 import { createMemoryScoreRepository, createPrismaScoreRepository, type ScoreRepository } from "./modules/scores/scores.repository.js";
 import { registerScoreRoutes } from "./modules/scores/scores.routes.js";
 import { createScoreService } from "./modules/scores/scores.service.js";
@@ -85,12 +84,10 @@ export function createApp(options: CreateAppOptions = {}) {
   const auth = createAuthService({ users, authUserSnapshots, tokens });
   const competitionService = createCompetitionService({ competitions });
   const beerService = createBeerService({ beers });
-  const scoreEvents = createScoreEventHub();
   const scoreService = createScoreService({
     competitions: competitionService,
     beers: beerService,
     scores,
-    events: scoreEvents,
   });
 
   app.setValidatorCompiler(validatorCompiler);
@@ -141,7 +138,6 @@ export function createApp(options: CreateAppOptions = {}) {
   registerScoreRoutes(app, {
     auth,
     scores: scoreService,
-    events: scoreEvents,
   });
 
   return app;

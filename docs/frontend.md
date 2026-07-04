@@ -1,6 +1,6 @@
 # 前端代码组织约定
 
-本文约束 `apps/admin`、`apps/judge`、`apps/board` 的目录、UI 库、样式和状态管理。项目总览见 `docs/architecture.md`。
+本文约束 `apps/admin` 和 `apps/judge` 的目录、UI 库、样式和状态管理。项目总览见 `docs/architecture.md`。
 
 ## 目标
 
@@ -10,7 +10,6 @@
 
 - `apps/admin` 是后台管理端，按桌面优先设计，同时保证窄屏可用。
 - `apps/judge` 是裁判 H5 端，按移动端优先设计。
-- `apps/board` 是实时大盘端，按大屏展示优先设计，同时保留基础移动可读性。
 
 judge 端开发、适配和人工校验的标准设备为 iPhone 17 竖屏：
 
@@ -119,7 +118,7 @@ pages/users/UsersPage.module.css
 - 不要把 Mantine 的 `Button`、`TextInput` 原样包一层。
 - 项目组件不调用 API、不读 `localStorage`、不依赖业务 contracts，除非它已经属于 `modules/*`。
 
-暂不建立 `packages/ui`。当 admin/judge/board 出现稳定重复的主题、布局或无业务组件后，再评估是否上移共享。
+暂不建立 `packages/ui`。当 admin/judge 出现稳定重复的主题、布局或无业务组件后，再评估是否上移共享。
 
 ## 样式策略
 

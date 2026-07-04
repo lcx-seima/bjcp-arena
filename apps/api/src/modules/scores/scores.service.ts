@@ -7,8 +7,6 @@ import {
   type createCompetitionService,
 } from "../competitions/competitions.service.js";
 import type { StoredCompetition } from "../competitions/competitions.types.js";
-import type { ScoreEventHub } from "./score-events.js";
-import { buildBoardCompetitionSummary } from "./score-summary.js";
 import type { ScoreRepository } from "./scores.repository.js";
 import type { StoredScore, UpsertStoredScoreInput } from "./scores.types.js";
 
@@ -31,7 +29,6 @@ export interface ScoresServiceDependencies {
   competitions: CompetitionService;
   beers: BeerService;
   scores: ScoreRepository;
-  events: ScoreEventHub;
 }
 
 function emptyProfessionalFields() {
@@ -168,7 +165,6 @@ export function createScoreService({
   competitions,
   beers,
   scores,
-  events,
 }: ScoresServiceDependencies) {
   async function getCompetitionBeer(competitionId: number, beerId: number) {
     const competition = await competitions.findCompetition(competitionId);
@@ -215,33 +211,7 @@ export function createScoreService({
       }
 
       const score = await scores.upsertScore(toStoredScoreInput(beerId, currentUser, input));
-      events.publish({
-        name: "score.updated",
-        competitionId,
-        beerId,
-        scoreId: score.id,
-      });
       return toMyScore(score);
-    },
-
-    async getBoardSummary(competitionId: number) {
-      const competition = await competitions.findCompetition(competitionId);
-      if (!competition) {
-        throw new CompetitionNotFoundError(competitionId);
-      }
-
-      const competitionBeers = (await beers.listBeers(competitionId)).filter(
-        (beer) => beer.status !== "removed"
-      );
-      const competitionScores = await scores.listScoresForBeers(
-        competitionBeers.map((beer) => beer.id)
-      );
-
-      return buildBoardCompetitionSummary({
-        competition,
-        beers: competitionBeers,
-        scores: competitionScores,
-      });
     },
   };
 }

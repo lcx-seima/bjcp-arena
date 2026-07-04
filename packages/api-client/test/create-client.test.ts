@@ -604,55 +604,6 @@ describe("createApiClient", () => {
     });
   });
 
-  it("gets board competition summary with bearer token", async () => {
-    const summary = {
-      competition: {
-        id: competition.id,
-        name: competition.name,
-        status: "judging",
-      },
-      beerCount: 1,
-      beers: [
-        {
-          beerId: beer.id,
-          entryNumber: beer.entryNumber,
-          realName: beer.realName,
-          producer: beer.producer,
-          bjcpCategoryCode: beer.bjcpCategoryCode,
-          bjcpCategoryName: beer.bjcpCategoryName,
-          bjcpSubcategoryCode: beer.bjcpSubcategoryCode,
-          bjcpSubcategoryName: beer.bjcpSubcategoryName,
-          professionalJudgeCount: 1,
-          professionalAverageTotalScore: 43,
-          publicJudgeCount: 0,
-          publicAverageOverallPreference: null,
-          publicAverageAromaBodyFoam: null,
-          publicAverageEntryAcceptance: null,
-          publicAverageWillingToDrink: null,
-        },
-      ],
-      updatedAt: "2026-06-14T00:00:00.000Z",
-    };
-    const fetcher: FetchLike = vi.fn(async () => jsonResponse(summary));
-    const client = createApiClient({
-      baseUrl: "http://localhost:4000",
-      fetch: fetcher,
-      getToken: () => "jwt-token",
-    });
-
-    await expect(client.getBoardCompetitionSummary(1)).resolves.toEqual(summary);
-    expect(fetcher).toHaveBeenCalledWith(
-      "http://localhost:4000/api/board/competitions/1/summary",
-      {
-        headers: {
-          Accept: "application/json",
-          Authorization: "Bearer jwt-token",
-        },
-        method: "GET",
-      }
-    );
-  });
-
   it("throws an HTTP error with status when the server response is not ok", async () => {
     const client = createApiClient({
       baseUrl: "http://localhost:4000",

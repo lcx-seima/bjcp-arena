@@ -13,7 +13,6 @@
 - 服务端：`apps/api`
 - 后台管理端：`apps/admin`
 - 裁判 H5 端：`apps/judge`
-- 实时大盘端：`apps/board`
 - 共享契约：`packages/contracts`
 - 共享 API 客户端：`packages/api-client`
 
@@ -25,7 +24,7 @@
 - 当前不建立 `.codex/skills/*`，需要沉淀的说明优先写入 `docs/*`。
 - 不提前引入复杂业务抽象、实时通道或评鉴业务 ORM schema。
 - 后端代码组织详见 `docs/backend.md`，需要修改 `apps/api` 时先读取。
-- 前端代码组织、Mantine 使用和样式策略详见 `docs/frontend.md`，需要修改 `apps/admin`、`apps/judge` 或 `apps/board` 时先读取。
+- 前端代码组织、Mantine 使用和样式策略详见 `docs/frontend.md`，需要修改 `apps/admin` 或 `apps/judge` 时先读取。
 - 测试边界和 UI 冒烟方式详见 `docs/testing.md`。
 
 ## 提交约束
@@ -49,7 +48,6 @@ pnpm verify
 pnpm dev:api
 pnpm dev:admin
 pnpm dev:judge
-pnpm dev:board
 ```
 
 ## 测试边界

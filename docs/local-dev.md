@@ -20,17 +20,16 @@ pnpm install
 cp apps/api/.env.example apps/api/.env
 cp apps/admin/.env.example apps/admin/.env
 cp apps/judge/.env.example apps/judge/.env
-cp apps/board/.env.example apps/board/.env
 ```
 
-API 读取 `apps/api/.env`。Vite 前端读取各自应用目录下的 `.env`，例如 `apps/admin/.env`、`apps/judge/.env` 和 `apps/board/.env`。根目录 `.env` 不作为稳定的应用配置入口。
+API 读取 `apps/api/.env`。Vite 前端读取各自应用目录下的 `.env`，例如 `apps/admin/.env` 和 `apps/judge/.env`。根目录 `.env` 不作为稳定的应用配置入口。
 
 API 变量见 `apps/api/.env.example`：
 
 ```text
 API_HOST=0.0.0.0
 API_PORT=4000
-API_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174,http://localhost:5175
+API_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174
 DATABASE_URL=postgresql://bjcp_arena:bjcp_arena@127.0.0.1:25432/bjcp_arena
 REDIS_URL=redis://127.0.0.1:26379
 JWT_SECRET=local-development-secret-change-me
@@ -46,16 +45,10 @@ JUDGE_APP_BASE_URL=http://localhost:5174
 DEV_SERVER_HOST=0.0.0.0
 DEV_SERVER_PORT=5173
 VITE_API_BASE_URL=http://localhost:4000
-VITE_BOARD_BASE_URL=http://localhost:5175
 
 # apps/judge/.env.example
 DEV_SERVER_HOST=0.0.0.0
 DEV_SERVER_PORT=5174
-VITE_API_BASE_URL=http://localhost:4000
-
-# apps/board/.env.example
-DEV_SERVER_HOST=0.0.0.0
-DEV_SERVER_PORT=5175
 VITE_API_BASE_URL=http://localhost:4000
 ```
 
@@ -177,7 +170,6 @@ pnpm dev
 api    http://localhost:4000
 admin  http://localhost:5173
 judge  http://localhost:5174
-board  http://localhost:5175
 ```
 
 ## 启动单个应用
@@ -186,7 +178,6 @@ board  http://localhost:5175
 pnpm dev:api
 pnpm dev:admin
 pnpm dev:judge
-pnpm dev:board
 ```
 
 ## 局域网访问
@@ -198,16 +189,15 @@ pnpm dev:board
 ```text
 API 电脑局域网 IP: 192.168.1.23
 VITE_API_BASE_URL=http://192.168.1.23:4000
-VITE_BOARD_BASE_URL=http://192.168.1.23:5175
 JUDGE_APP_BASE_URL=http://192.168.1.23:5174
 ```
 
-当其他设备打开 H5 裁判端或大屏端时，前端应用的 `VITE_API_BASE_URL` 不要使用 `localhost`。`localhost` 会指向设备自身，应改用 API 电脑的局域网 IP。后台管理端如果要跳转大屏，也应把 `apps/admin/.env` 里的 `VITE_BOARD_BASE_URL` 改成大屏端的局域网地址。API 生成裁判端二维码时会使用 `JUDGE_APP_BASE_URL`，现场访问时也应改成裁判端的局域网地址。
+当其他设备打开 H5 裁判端时，前端应用的 `VITE_API_BASE_URL` 不要使用 `localhost`。`localhost` 会指向设备自身，应改用 API 电脑的局域网 IP。API 生成裁判端二维码时会使用 `JUDGE_APP_BASE_URL`，现场访问时也应改成裁判端的局域网地址。
 
 需要时，将局域网 origin 添加到 API CORS：
 
 ```text
-API_ALLOWED_ORIGINS=http://192.168.1.23:5173,http://192.168.1.23:5174,http://192.168.1.23:5175
+API_ALLOWED_ORIGINS=http://192.168.1.23:5173,http://192.168.1.23:5174
 ```
 
 为了方便本地开发，可以在逗号分隔列表中同时保留 localhost 和局域网 origin。

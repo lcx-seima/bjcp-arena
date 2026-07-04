@@ -6,5 +6,4 @@ export * from "./bjcp-styles.js";
 export * from "./competitions.js";
 export * from "./beers.js";
 export * from "./scores.js";
-export * from "./board.js";
 export * from "./judge-types.js";

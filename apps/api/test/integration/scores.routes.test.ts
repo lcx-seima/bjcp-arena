@@ -2,9 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   beerListPath,
   beerStatusPath,
-  boardCompetitionEventsPath,
-  boardCompetitionSummaryPath,
-  boardCompetitionSummarySchema,
   competitionListPath,
   competitionStatusPath,
   createBeerInputSchema,
@@ -294,16 +291,6 @@ describe("score routes", () => {
       professionalTotalScore: 43,
     });
 
-    const summaryResponse = await app.inject({
-      method: "GET",
-      url: boardCompetitionSummaryPath(competition.id),
-      headers: { authorization: `Bearer ${adminToken}` },
-    });
-    expect(summaryResponse.statusCode).toBe(200);
-    expect(boardCompetitionSummarySchema.parse(summaryResponse.json()).beers[0]).toMatchObject({
-      professionalJudgeCount: 1,
-      publicJudgeCount: 0,
-    });
     await app.close();
   });
 
@@ -453,77 +440,4 @@ describe("score routes", () => {
     await app.close();
   });
 
-  it("returns board summary aggregates for all competition beers", async () => {
-    const { app } = createTestApp();
-    const adminToken = await bootstrapToken(app);
-    const competition = await createCompetition(app, adminToken);
-    const firstBeer = await createBeer(app, adminToken, competition.id, "first");
-    const secondBeer = await createBeer(app, adminToken, competition.id, "second");
-    await setBeerStatus(app, adminToken, competition.id, firstBeer.id, "published");
-    await setBeerStatus(app, adminToken, competition.id, secondBeer.id, "published");
-    await setCompetitionStatus(app, adminToken, competition.id, "judging");
-    await createJudge(app, adminToken, "summarypro", "professional");
-    await createJudge(app, adminToken, "summarypublic", "public");
-
-    await app.inject({
-      method: "PUT",
-      url: judgeMyScorePath(competition.id, firstBeer.id),
-      headers: { authorization: `Bearer ${await login(app, "summarypro")}` },
-      payload: professionalScore,
-    });
-    await app.inject({
-      method: "PUT",
-      url: judgeMyScorePath(competition.id, firstBeer.id),
-      headers: { authorization: `Bearer ${await login(app, "summarypublic")}` },
-      payload: publicScore,
-    });
-
-    const response = await app.inject({
-      method: "GET",
-      url: boardCompetitionSummaryPath(competition.id),
-      headers: { authorization: `Bearer ${adminToken}` },
-    });
-
-    expect(response.statusCode).toBe(200);
-    const summary = boardCompetitionSummarySchema.parse(response.json());
-    expect(summary.beerCount).toBe(2);
-    expect(summary.beers).toHaveLength(2);
-    expect(summary.beers[0]).toMatchObject({
-      beerId: firstBeer.id,
-      professionalJudgeCount: 1,
-      professionalAverageTotalScore: 43,
-      publicJudgeCount: 1,
-      publicAverageOverallPreference: 8,
-      publicAverageAromaBodyFoam: 4,
-      publicAverageEntryAcceptance: 5,
-      publicAverageWillingToDrink: 4,
-    });
-    expect(summary.beers[1]).toMatchObject({
-      beerId: secondBeer.id,
-      professionalJudgeCount: 0,
-      publicJudgeCount: 0,
-    });
-    await app.close();
-  });
-
-  it("returns 404 for board endpoints when competition does not exist", async () => {
-    const { app } = createTestApp();
-    const adminToken = await bootstrapToken(app);
-    const missingCompetitionId = 999;
-
-    const summaryResponse = await app.inject({
-      method: "GET",
-      url: boardCompetitionSummaryPath(missingCompetitionId),
-      headers: { authorization: `Bearer ${adminToken}` },
-    });
-    expect(summaryResponse.statusCode).toBe(404);
-
-    const eventsResponse = await app.inject({
-      method: "GET",
-      url: boardCompetitionEventsPath(missingCompetitionId),
-      headers: { authorization: `Bearer ${adminToken}` },
-    });
-    expect(eventsResponse.statusCode).toBe(404);
-    await app.close();
-  });
 });
