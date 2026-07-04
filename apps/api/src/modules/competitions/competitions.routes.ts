@@ -1,6 +1,8 @@
 import { AuthError, type createAuthService } from "../auth/auth.service.js";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { ZodError } from "zod";
 import {
+  competitionListQuerySchema,
   competitionListPath,
   competitionListResultSchema,
   competitionResultSchema,
@@ -19,6 +21,12 @@ function sendRouteError(reply: FastifyReply, error: unknown) {
   if (error instanceof AuthError) {
     return reply.status(error.statusCode).send({
       message: error.message,
+    });
+  }
+
+  if (error instanceof ZodError) {
+    return reply.status(400).send({
+      message: "Invalid request",
     });
   }
 
@@ -62,14 +70,23 @@ export function registerCompetitionRoutes(
         tags: ["competitions"],
       },
     },
-    async (_request, reply) => {
-      return requireAdmin(auth, _request)
-        .then(async () => competitions.listCompetitions())
-        .then((competitionsResult) =>
-          competitionListResultSchema.parse({
-            competitions: competitionsResult.map(toCompetitionResult),
-          })
-        )
+    async (request, reply) => {
+      return requireAdmin(auth, request)
+        .then(async () => {
+          const query = competitionListQuerySchema.parse(request.query);
+          const total = await competitions.countCompetitions();
+          const pageCompetitions = await competitions.listCompetitions({
+            limit: query.limit,
+            page: query.page,
+          });
+
+          return competitionListResultSchema.parse({
+            competitions: pageCompetitions.map(toCompetitionResult),
+            total,
+            page: query.page,
+            limit: query.limit,
+          });
+        })
         .catch((error: unknown) => sendRouteError(reply, error));
     }
   );

@@ -358,16 +358,48 @@ describe("createApiClient", () => {
     });
   });
 
-  it("lists competitions with bearer token", async () => {
-    const fetcher: FetchLike = vi.fn(async () => jsonResponse({ competitions: [competition] }));
+  it("lists competitions with bearer token and default pagination", async () => {
+    const fetcher: FetchLike = vi.fn(async () =>
+      jsonResponse({ competitions: [competition], total: 1, page: 1, limit: 50 })
+    );
     const client = createApiClient({
       baseUrl: "http://localhost:4000",
       fetch: fetcher,
       getToken: () => "jwt-token",
     });
 
-    await expect(client.listCompetitions()).resolves.toEqual({ competitions: [competition] });
-    expect(fetcher).toHaveBeenCalledWith("http://localhost:4000/api/competitions", {
+    await expect(client.listCompetitions()).resolves.toEqual({
+      competitions: [competition],
+      total: 1,
+      page: 1,
+      limit: 50,
+    });
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:4000/api/competitions?page=1&limit=50", {
+      headers: {
+        Accept: "application/json",
+        Authorization: "Bearer jwt-token",
+      },
+      method: "GET",
+    });
+  });
+
+  it("passes custom pagination for list competitions", async () => {
+    const fetcher: FetchLike = vi.fn(async () =>
+      jsonResponse({ competitions: [competition], total: 75, page: 2, limit: 25 })
+    );
+    const client = createApiClient({
+      baseUrl: "http://localhost:4000",
+      fetch: fetcher,
+      getToken: () => "jwt-token",
+    });
+
+    await expect(client.listCompetitions({ page: 2, limit: 25 })).resolves.toEqual({
+      competitions: [competition],
+      total: 75,
+      page: 2,
+      limit: 25,
+    });
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:4000/api/competitions?page=2&limit=25", {
       headers: {
         Accept: "application/json",
         Authorization: "Bearer jwt-token",

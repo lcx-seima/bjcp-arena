@@ -1,11 +1,53 @@
-.row {
-  display: grid;
-  align-items: center;
-  gap: var(--mantine-spacing-sm);
-  grid-template-columns: minmax(180px, 1.5fr) minmax(110px, 0.7fr) minmax(180px, 1fr) minmax(160px, 0.8fr);
-  border: 1px solid var(--mantine-color-gray-3);
-  border-radius: var(--mantine-radius-sm);
-  padding: var(--mantine-spacing-sm);
+.table {
+  table-layout: fixed;
+}
+
+.table th,
+.table td {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.cellText {
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tooltipTarget {
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.idColumn {
+  width: 72px;
+}
+
+.statusColumn {
+  width: 96px;
+}
+
+.actionsColumn {
+  background: var(--mantine-color-white);
+  box-shadow: -1px 0 0 var(--mantine-color-gray-3);
+  position: sticky;
+  right: 0;
+  text-align: right;
+  width: 260px;
+  z-index: 1;
+}
+
+th.actionsColumn {
+  z-index: 2;
+}
+
+.actionButton {
+  flex: 0 0 auto;
+  min-width: max-content;
 }
 
 .beerRow {
@@ -31,14 +73,12 @@
 }
 
 @media (max-width: 74em) {
-  .row,
   .beerRow {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 48em) {
-  .row,
   .beerRow,
   .actions {
     grid-template-columns: 1fr;

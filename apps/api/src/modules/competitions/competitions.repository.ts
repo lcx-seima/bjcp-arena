@@ -7,11 +7,17 @@ import {
 } from "./competitions.types.js";
 
 export interface CompetitionRepository {
-  listCompetitions(): Promise<StoredCompetition[]>;
+  countCompetitions(): Promise<number>;
+  listCompetitions(options?: ListCompetitionsOptions): Promise<StoredCompetition[]>;
   findCompetition(id: number): Promise<StoredCompetition | null>;
   createCompetition(input: CreateStoredCompetitionInput): Promise<StoredCompetition>;
   updateCompetition(id: number, input: UpdateStoredCompetitionInput): Promise<StoredCompetition | null>;
   updateCompetitionStatus(id: number, status: CompetitionStatus): Promise<StoredCompetition | null>;
+}
+
+export interface ListCompetitionsOptions {
+  limit?: number;
+  page?: number;
 }
 
 export function cloneStoredCompetition(competition: StoredCompetition): StoredCompetition {
@@ -52,9 +58,16 @@ function toStoredCompetitionOrThrowNull(error: unknown) {
 
 export function createPrismaCompetitionRepository(prisma: PrismaClient): CompetitionRepository {
   return {
-    async listCompetitions() {
+    countCompetitions() {
+      return prisma.competition.count();
+    },
+
+    async listCompetitions(options = {}) {
+      const page = options.page ?? 1;
+      const limit = options.limit;
       const competitions = await prisma.competition.findMany({
         orderBy: { id: "desc" },
+        ...(limit === undefined ? {} : { skip: (page - 1) * limit, take: limit }),
       });
       return competitions.map(toStoredCompetition);
     },
@@ -122,10 +135,19 @@ export function createMemoryCompetitionRepository(
   const now = () => new Date("2026-05-28T00:00:00.000Z");
 
   return {
-    async listCompetitions() {
-      return Array.from(competitions.values())
-        .sort((a, b) => b.id - a.id)
-        .map(cloneStoredCompetition);
+    async countCompetitions() {
+      return competitions.size;
+    },
+
+    async listCompetitions(options = {}) {
+      const page = options.page ?? 1;
+      const sortedCompetitions = Array.from(competitions.values()).sort((a, b) => b.id - a.id);
+      const pageCompetitions =
+        options.limit === undefined
+          ? sortedCompetitions
+          : sortedCompetitions.slice((page - 1) * options.limit, page * options.limit);
+
+      return pageCompetitions.map(cloneStoredCompetition);
     },
 
     async findCompetition(id) {

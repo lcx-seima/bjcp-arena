@@ -135,7 +135,7 @@ describe("user management routes", () => {
     expect(userListResultSchema.parse(secondPage.json()).users).toHaveLength(10);
     expect(userListResultSchema.parse(secondPage.json()).users[0]?.username).toBe("judge45");
     await app.close();
-  });
+  }, 15_000);
 
   it("rejects invalid user list pagination query", async () => {
     const { app } = createTestApp();

@@ -39,6 +39,25 @@ async function createCompetition(app: ReturnType<typeof createTestApp>["app"], t
   return competitionResultSchema.parse(response.json());
 }
 
+async function createCompetitionNamed(
+  app: ReturnType<typeof createTestApp>["app"],
+  token: string,
+  name: string
+) {
+  const response = await app.inject({
+    method: "POST",
+    url: competitionListPath,
+    headers: { authorization: `Bearer ${token}` },
+    payload: createCompetitionInputSchema.parse({
+      name,
+      description: "分页验收",
+    }),
+  });
+
+  expect(response.statusCode).toBe(200);
+  return competitionResultSchema.parse(response.json());
+}
+
 async function createUser(
   app: ReturnType<typeof createTestApp>["app"],
   token: string,
@@ -117,6 +136,81 @@ describe("competition routes", () => {
       id: created.competition.id,
       status: "judging",
     });
+    expect(list).toMatchObject({
+      total: 1,
+      page: 1,
+      limit: 50,
+    });
+    await app.close();
+  });
+
+  it("lists competitions with default 50 item pagination", async () => {
+    const { app } = createTestApp();
+    const token = await bootstrapToken(app);
+
+    for (let index = 1; index <= 55; index += 1) {
+      await createCompetitionNamed(app, token, `分页比赛 ${index}`);
+    }
+
+    const response = await app.inject({
+      method: "GET",
+      url: competitionListPath,
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const result = competitionListResultSchema.parse(response.json());
+    expect(result.total).toBe(55);
+    expect(result.page).toBe(1);
+    expect(result.limit).toBe(50);
+    expect(result.competitions).toHaveLength(50);
+    expect(result.competitions[0]?.name).toBe("分页比赛 55");
+    expect(result.competitions.at(-1)?.name).toBe("分页比赛 6");
+    await app.close();
+  });
+
+  it("lists the second competition page", async () => {
+    const { app } = createTestApp();
+    const token = await bootstrapToken(app);
+
+    for (let index = 1; index <= 55; index += 1) {
+      await createCompetitionNamed(app, token, `分页比赛 ${index}`);
+    }
+
+    const response = await app.inject({
+      method: "GET",
+      url: `${competitionListPath}?page=2&limit=50`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const result = competitionListResultSchema.parse(response.json());
+    expect(result.total).toBe(55);
+    expect(result.page).toBe(2);
+    expect(result.limit).toBe(50);
+    expect(result.competitions).toHaveLength(5);
+    expect(result.competitions[0]?.name).toBe("分页比赛 5");
+    expect(result.competitions.at(-1)?.name).toBe("分页比赛 1");
+    await app.close();
+  });
+
+  it("rejects invalid competition pagination query", async () => {
+    const { app } = createTestApp();
+    const token = await bootstrapToken(app);
+
+    const invalidPage = await app.inject({
+      method: "GET",
+      url: `${competitionListPath}?page=0`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const invalidLimit = await app.inject({
+      method: "GET",
+      url: `${competitionListPath}?limit=101`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(invalidPage.statusCode).toBe(400);
+    expect(invalidLimit.statusCode).toBe(400);
     await app.close();
   });
 

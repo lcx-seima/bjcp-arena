@@ -29,6 +29,11 @@ export const updateCompetitionStatusInputSchema = z.object({
   status: competitionStatusSchema,
 });
 
+export const competitionListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+
 export const competitionSchema = z.object({
   id: z.number().int().positive(),
   name: z.string().min(1).max(120),
@@ -40,6 +45,9 @@ export const competitionSchema = z.object({
 
 export const competitionListResultSchema = z.object({
   competitions: z.array(competitionSchema),
+  total: z.number().int().nonnegative(),
+  page: z.number().int().min(1),
+  limit: z.number().int().min(1).max(100),
 });
 
 export const competitionResultSchema = z.object({
@@ -50,5 +58,6 @@ export type CompetitionStatus = z.infer<typeof competitionStatusSchema>;
 export type CreateCompetitionInput = z.infer<typeof createCompetitionInputSchema>;
 export type UpdateCompetitionInput = z.infer<typeof updateCompetitionInputSchema>;
 export type UpdateCompetitionStatusInput = z.infer<typeof updateCompetitionStatusInputSchema>;
+export type CompetitionListQuery = z.infer<typeof competitionListQuerySchema>;
 export type CompetitionResult = z.infer<typeof competitionResultSchema>;
 export type CompetitionListResult = z.infer<typeof competitionListResultSchema>;

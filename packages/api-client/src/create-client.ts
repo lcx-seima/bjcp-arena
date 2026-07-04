@@ -16,6 +16,7 @@ import {
   bootstrapSuperAdminInputSchema,
   competitionListPath,
   competitionByIdPath,
+  competitionListQuerySchema,
   competitionListResultSchema,
   competitionResultSchema,
   competitionStatusPath,
@@ -51,6 +52,7 @@ import {
   type BootstrapStatusResult,
   type BootstrapSuperAdminInput,
   type CompetitionListResult,
+  type CompetitionListQuery,
   type CompetitionResult,
   type CreateBeerInput,
   type CreateCompetitionInput,
@@ -258,12 +260,13 @@ export function createApiClient(options: CreateApiClientOptions) {
       );
     },
 
-    listCompetitions(): Promise<CompetitionListResult> {
+    listCompetitions(query?: Partial<CompetitionListQuery>): Promise<CompetitionListResult> {
+      const parsedQuery = competitionListQuerySchema.parse(query ?? {});
       return requestJson(
         fetcher,
         options.baseUrl,
         "GET",
-        competitionListPath,
+        withQuery(competitionListPath, parsedQuery),
         (data) => competitionListResultSchema.parse(data),
         { token: getToken() }
       );

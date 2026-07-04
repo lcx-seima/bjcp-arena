@@ -7,6 +7,8 @@ import {
   bjcpSubcategories,
   competitionByIdPath,
   competitionListPath,
+  competitionListQuerySchema,
+  competitionListResultSchema,
   competitionStatusPath,
   competitionStatusSchema,
   judgeBeerResultSchema,
@@ -30,6 +32,44 @@ describe("competition loop contracts", () => {
     expect(competitionStatusSchema.parse("closed")).toBe("closed");
     expect(competitionStatusSchema.parse("published")).toBe("published");
     expect(() => competitionStatusSchema.parse("running")).toThrow();
+  });
+
+  it("defines competition list pagination query defaults and limits", () => {
+    expect(competitionListQuerySchema.parse({})).toEqual({
+      page: 1,
+      limit: 50,
+    });
+    expect(competitionListQuerySchema.parse({ page: "2", limit: "25" })).toEqual({
+      page: 2,
+      limit: 25,
+    });
+    expect(() => competitionListQuerySchema.parse({ page: 0 })).toThrow();
+    expect(() => competitionListQuerySchema.parse({ limit: 101 })).toThrow();
+  });
+
+  it("parses competition list response pagination metadata", () => {
+    expect(
+      competitionListResultSchema.parse({
+        competitions: [],
+        total: 0,
+        page: 1,
+        limit: 50,
+      })
+    ).toEqual({
+      competitions: [],
+      total: 0,
+      page: 1,
+      limit: 50,
+    });
+
+    expect(() =>
+      competitionListResultSchema.parse({
+        competitions: [],
+        total: 0,
+        page: 1,
+        limit: 101,
+      })
+    ).toThrow();
   });
 
   it("defines beer paths and statuses", () => {

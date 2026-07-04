@@ -1,6 +1,7 @@
 import type { CompetitionStatus } from "@bjcp-arena/contracts";
 import type {
   CompetitionRepository,
+  ListCompetitionsOptions,
 } from "./competitions.repository.js";
 import type {
   CreateStoredCompetitionInput,
@@ -18,8 +19,12 @@ export interface CompetitionServiceDependencies {
 }
 
 export function createCompetitionService({ competitions }: CompetitionServiceDependencies) {
-  async function listCompetitions() {
-    return competitions.listCompetitions();
+  async function countCompetitions() {
+    return competitions.countCompetitions();
+  }
+
+  async function listCompetitions(options?: ListCompetitionsOptions) {
+    return competitions.listCompetitions(options);
   }
 
   async function findCompetition(id: number) {
@@ -47,6 +52,7 @@ export function createCompetitionService({ competitions }: CompetitionServiceDep
   }
 
   return {
+    countCompetitions,
     listCompetitions,
     findCompetition,
     ensureCompetitionExists,

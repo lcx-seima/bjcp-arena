@@ -1,6 +1,6 @@
 import { Button, Group, Stack, TextInput, Textarea } from "@mantine/core";
 import { Save } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import type { Competition } from "../competitions-api.js";
 
 export interface CompetitionFormValues {
@@ -11,12 +11,16 @@ export interface CompetitionFormValues {
 export function CompetitionForm({
   competition,
   isSubmitting,
+  onCancel,
   submitLabel,
+  submitLeftSection,
   onSubmit,
 }: {
   competition?: Competition | null;
   isSubmitting: boolean;
+  onCancel?: () => void;
   submitLabel: string;
+  submitLeftSection?: ReactNode;
   onSubmit: (values: CompetitionFormValues) => void;
 }) {
   const [values, setValues] = useState<CompetitionFormValues>({
@@ -57,7 +61,12 @@ export function CompetitionForm({
           }
         />
         <Group justify="flex-end">
-          <Button leftSection={<Save size={16} />} loading={isSubmitting} type="submit">
+          {onCancel ? (
+            <Button variant="default" onClick={onCancel}>
+              取消
+            </Button>
+          ) : null}
+          <Button leftSection={submitLeftSection ?? <Save size={16} />} loading={isSubmitting} type="submit">
             {submitLabel}
           </Button>
         </Group>
