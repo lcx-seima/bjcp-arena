@@ -16,6 +16,11 @@
 - 共享契约：`packages/contracts`
 - 共享 API 客户端：`packages/api-client`
 
+## Git 工作树约束
+
+- 除非用户主动要求使用 `git worktree`，否则默认不创建、不切换额外 worktree。
+- 代码和文档变更默认直接在当前主仓库工作区内进行。
+
 ## 开发原则
 
 - 接口结构优先写到 `packages/contracts`，再由 API 和前端共同消费。
