@@ -23,7 +23,11 @@ export const userRolesSchema = z
   .int()
   .nonnegative()
   .refine((roles) => roles > 0, "At least one role is required")
-  .refine((roles) => (roles & ~(superAdminRole | adminRole | judgeRole)) === 0, "Unknown role bit");
+  .refine((roles) => (roles & ~(superAdminRole | adminRole | judgeRole)) === 0, "Unknown role bit")
+  .refine(
+    (roles) => !(hasRole(roles, superAdminRole) && hasRole(roles, adminRole)),
+    "Super admin and admin roles are mutually exclusive"
+  );
 
 export type UserRole = z.infer<typeof userRoleSchema>;
 export type UserRoles = z.infer<typeof userRolesSchema>;

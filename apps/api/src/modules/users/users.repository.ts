@@ -11,11 +11,17 @@ export interface UpdateStoredUserInput {
   disabled?: boolean;
 }
 
+export interface ListUsersOptions {
+  limit?: number;
+  order?: "asc" | "desc";
+  page?: number;
+}
+
 export interface UserRepository {
   countUsers(): Promise<number>;
   findById(id: number): Promise<StoredUser | null>;
   findByUsername(username: string): Promise<StoredUser | null>;
-  listUsers(): Promise<StoredUser[]>;
+  listUsers(options?: ListUsersOptions): Promise<StoredUser[]>;
   createUser(input: CreateStoredUserInput): Promise<StoredUser>;
   updateUser(id: number, input: UpdateStoredUserInput): Promise<StoredUser | null>;
   resetPassword(id: number, passwordHash: string): Promise<StoredUser | null>;
@@ -89,9 +95,12 @@ export function createPrismaUserRepository(prisma: PrismaClient): UserRepository
         .then((user) => toStoredUserOrNull(user));
     },
 
-    listUsers() {
+    listUsers(options = {}) {
+      const page = options.page ?? 1;
+      const limit = options.limit;
       return prisma.user.findMany({
-        orderBy: { id: "asc" },
+        orderBy: { id: options.order ?? "asc" },
+        ...(limit === undefined ? {} : { skip: (page - 1) * limit, take: limit }),
       }).then((users) => users.map(toStoredUser));
     },
 
@@ -178,9 +187,16 @@ export function createMemoryUserRepository(initialUsers: StoredUser[] = []): Use
       return user ? cloneStoredUser(user) : null;
     },
 
-    async listUsers() {
-      return Array.from(users.values())
-        .sort((a, b) => a.id - b.id)
+    async listUsers(options = {}) {
+      const page = options.page ?? 1;
+      const sortedUsers = Array.from(users.values())
+        .sort((a, b) => (options.order === "desc" ? b.id - a.id : a.id - b.id));
+      const pageUsers =
+        options.limit === undefined
+          ? sortedUsers
+          : sortedUsers.slice((page - 1) * options.limit, page * options.limit);
+
+      return pageUsers
         .map((user) => cloneStoredUser(user));
     },
 

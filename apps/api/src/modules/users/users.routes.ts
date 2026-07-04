@@ -1,9 +1,13 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { ZodError } from "zod";
 import {
   canManageUsers,
   createUserInputSchema,
+  hasRole,
   resetUserPasswordInputSchema,
+  superAdminRole,
   updateUserInputSchema,
+  userListQuerySchema,
   userListResultSchema,
   userResultSchema,
   usersPath,
@@ -34,6 +38,12 @@ function sendRouteError(reply: FastifyReply, error: unknown) {
     });
   }
 
+  if (error instanceof ZodError) {
+    return reply.status(400).send({
+      message: "Invalid request",
+    });
+  }
+
   throw error;
 }
 
@@ -42,6 +52,7 @@ async function requireSuperAdmin(auth: AuthService, request: FastifyRequest) {
   if (!canManageUsers(currentUser.roles)) {
     throw new AuthError("Forbidden", 403);
   }
+  return currentUser;
 }
 
 function parseUserId(request: FastifyRequest) {
@@ -83,6 +94,31 @@ function sendNotFound(reply: FastifyReply) {
   });
 }
 
+async function assertKeepsActiveSuperAdmin(
+  users: UserRepository,
+  existingUser: NonNullable<Awaited<ReturnType<UserRepository["findById"]>>>,
+  input: ReturnType<typeof updateUserInputSchema.parse>
+) {
+  const isActiveSuperAdmin =
+    !existingUser.disabled && hasRole(existingUser.roles, superAdminRole);
+  const removesSuperAdminRole =
+    input.roles !== undefined && !hasRole(input.roles, superAdminRole);
+  const disablesUser = input.disabled === true;
+
+  if (!isActiveSuperAdmin || (!removesSuperAdminRole && !disablesUser)) {
+    return;
+  }
+
+  const activeSuperAdminCount = (await users.listUsers()).filter(
+    (user) => !user.disabled && hasRole(user.roles, superAdminRole)
+  ).length;
+
+  if (activeSuperAdminCount <= 1) {
+    throw new AuthError("Cannot remove the last active super admin", 409);
+  }
+
+}
+
 export function registerUserRoutes(
   app: FastifyInstance,
   dependencies: {
@@ -104,11 +140,22 @@ export function registerUserRoutes(
     },
     async (request, reply) => {
       return requireSuperAdmin(auth, request)
-        .then(async () =>
-          userListResultSchema.parse({
-            users: (await users.listUsers()).map(toPublicUser),
-          })
-        )
+        .then(async () => {
+          const query = userListQuerySchema.parse(request.query);
+          const total = await users.countUsers();
+          const pageUsers = await users.listUsers({
+            limit: query.limit,
+            order: "desc",
+            page: query.page,
+          });
+
+          return userListResultSchema.parse({
+            users: pageUsers.map(toPublicUser),
+            total,
+            page: query.page,
+            limit: query.limit,
+          });
+        })
         .catch((error: unknown) => sendRouteError(reply, error));
     }
   );
@@ -160,6 +207,12 @@ export function registerUserRoutes(
         .then(async () => {
           const id = parseUserId(request);
           const input = updateUserInputSchema.parse(request.body);
+          const existingUser = await users.findById(id);
+          if (!existingUser) {
+            return sendNotFound(reply);
+          }
+          await assertKeepsActiveSuperAdmin(users, existingUser, input);
+
           const user = await users.updateUser(id, toUpdateStoredUserInput(input));
 
           if (!user) {

@@ -83,7 +83,71 @@ describe("user management routes", () => {
     });
 
     expect(listResponse.statusCode).toBe(200);
+    expect(userListResultSchema.parse(listResponse.json())).toMatchObject({
+      total: 2,
+      page: 1,
+      limit: 50,
+    });
     expect(userListResultSchema.parse(listResponse.json()).users).toHaveLength(2);
+    await app.close();
+  });
+
+  it("lists users with default and custom pagination", async () => {
+    const { app } = createTestApp();
+    const token = await bootstrapToken(app);
+
+    for (let index = 1; index <= 55; index += 1) {
+      const suffix = String(index).padStart(2, "0");
+      const response = await createUser(app, token, {
+        username: `judge${suffix}`,
+        password: "secret123",
+        roles: judgeRole,
+      });
+      expect(response.statusCode).toBe(200);
+    }
+
+    const defaultPage = await app.inject({
+      method: "GET",
+      url: usersPath,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const secondPage = await app.inject({
+      method: "GET",
+      url: `${usersPath}?page=2&limit=10`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(defaultPage.statusCode).toBe(200);
+    expect(userListResultSchema.parse(defaultPage.json())).toMatchObject({
+      total: 56,
+      page: 1,
+      limit: 50,
+    });
+    expect(userListResultSchema.parse(defaultPage.json()).users).toHaveLength(50);
+    expect(userListResultSchema.parse(defaultPage.json()).users[0]?.username).toBe("judge55");
+
+    expect(secondPage.statusCode).toBe(200);
+    expect(userListResultSchema.parse(secondPage.json())).toMatchObject({
+      total: 56,
+      page: 2,
+      limit: 10,
+    });
+    expect(userListResultSchema.parse(secondPage.json()).users).toHaveLength(10);
+    expect(userListResultSchema.parse(secondPage.json()).users[0]?.username).toBe("judge45");
+    await app.close();
+  });
+
+  it("rejects invalid user list pagination query", async () => {
+    const { app } = createTestApp();
+    const token = await bootstrapToken(app);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `${usersPath}?page=0&limit=101`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(response.statusCode).toBe(400);
     await app.close();
   });
 
@@ -200,6 +264,34 @@ describe("user management routes", () => {
       disabled: true,
       authVersion: 1,
     });
+    await app.close();
+  });
+
+  it("rejects changes that would remove the last active super admin", async () => {
+    const { app } = createTestApp();
+    const token = await bootstrapToken(app);
+    const me = await app.inject({
+      method: "GET",
+      url: authMePath,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const superAdmin = userResultSchema.parse(me.json()).user;
+
+    const disableResponse = await app.inject({
+      method: "PATCH",
+      url: userByIdPath(superAdmin.id),
+      headers: { authorization: `Bearer ${token}` },
+      payload: { disabled: true },
+    });
+    const demoteResponse = await app.inject({
+      method: "PATCH",
+      url: userByIdPath(superAdmin.id),
+      headers: { authorization: `Bearer ${token}` },
+      payload: { roles: adminRole },
+    });
+
+    expect(disableResponse.statusCode).toBe(409);
+    expect(demoteResponse.statusCode).toBe(409);
     await app.close();
   });
 

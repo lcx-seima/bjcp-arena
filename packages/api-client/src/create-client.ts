@@ -39,6 +39,7 @@ import {
   updateCompetitionStatusInputSchema,
   updateUserInputSchema,
   userByIdPath,
+  userListQuerySchema,
   userListResultSchema,
   userResetPasswordPath,
   userResultSchema,
@@ -67,6 +68,7 @@ import {
   type UpdateCompetitionInput,
   type UpdateCompetitionStatusInput,
   type UpdateUserInput,
+  type UserListQuery,
   type UserListResult,
   type UserResult,
 } from "@bjcp-arena/contracts";
@@ -102,6 +104,14 @@ export class ApiClientHttpError extends Error {
 
 function joinUrl(baseUrl: string, path: string) {
   return `${baseUrl.replace(/\/+$/, "")}${path}`;
+}
+
+function withQuery(path: string, query: Record<string, string | number>) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    params.set(key, String(value));
+  }
+  return `${path}?${params.toString()}`;
 }
 
 function buildHeaders(options: RequestJsonOptions) {
@@ -203,12 +213,13 @@ export function createApiClient(options: CreateApiClientOptions) {
       );
     },
 
-    listUsers(): Promise<UserListResult> {
+    listUsers(query?: Partial<UserListQuery>): Promise<UserListResult> {
+      const parsedQuery = userListQuerySchema.parse(query ?? {});
       return requestJson(
         fetcher,
         options.baseUrl,
         "GET",
-        usersPath,
+        withQuery(usersPath, parsedQuery),
         (data) => userListResultSchema.parse(data),
         { token: getToken() }
       );

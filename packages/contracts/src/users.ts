@@ -35,8 +35,16 @@ export const resetUserPasswordInputSchema = z.object({
   password: passwordSchema,
 });
 
+export const userListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+
 export const userListResultSchema = z.object({
   users: z.array(userPublicSchema),
+  total: z.number().int().nonnegative(),
+  page: z.number().int().min(1),
+  limit: z.number().int().min(1).max(100),
 });
 
 export const userResultSchema = z.object({
@@ -46,5 +54,6 @@ export const userResultSchema = z.object({
 export type CreateUserInput = z.infer<typeof createUserInputSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserInputSchema>;
 export type ResetUserPasswordInput = z.infer<typeof resetUserPasswordInputSchema>;
+export type UserListQuery = z.infer<typeof userListQuerySchema>;
 export type UserListResult = z.infer<typeof userListResultSchema>;
 export type UserResult = z.infer<typeof userResultSchema>;

@@ -234,16 +234,48 @@ describe("createApiClient", () => {
     });
   });
 
-  it("adds bearer token for list users", async () => {
-    const fetcher: FetchLike = vi.fn(async () => jsonResponse({ users: [publicUser] }));
+  it("adds bearer token and default pagination for list users", async () => {
+    const fetcher: FetchLike = vi.fn(async () =>
+      jsonResponse({ users: [publicUser], total: 1, page: 1, limit: 50 })
+    );
     const client = createApiClient({
       baseUrl: "http://localhost:4000",
       fetch: fetcher,
       getToken: () => "jwt-token",
     });
 
-    await expect(client.listUsers()).resolves.toEqual({ users: [publicUser] });
-    expect(fetcher).toHaveBeenCalledWith("http://localhost:4000/api/users", {
+    await expect(client.listUsers()).resolves.toEqual({
+      users: [publicUser],
+      total: 1,
+      page: 1,
+      limit: 50,
+    });
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:4000/api/users?page=1&limit=50", {
+      headers: {
+        Accept: "application/json",
+        Authorization: "Bearer jwt-token",
+      },
+      method: "GET",
+    });
+  });
+
+  it("passes custom pagination for list users", async () => {
+    const fetcher: FetchLike = vi.fn(async () =>
+      jsonResponse({ users: [publicUser], total: 75, page: 2, limit: 25 })
+    );
+    const client = createApiClient({
+      baseUrl: "http://localhost:4000",
+      fetch: fetcher,
+      getToken: () => "jwt-token",
+    });
+
+    await expect(client.listUsers({ page: 2, limit: 25 })).resolves.toEqual({
+      users: [publicUser],
+      total: 75,
+      page: 2,
+      limit: 25,
+    });
+    expect(fetcher).toHaveBeenCalledWith("http://localhost:4000/api/users?page=2&limit=25", {
       headers: {
         Accept: "application/json",
         Authorization: "Bearer jwt-token",

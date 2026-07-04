@@ -7,8 +7,10 @@ import {
   judgeTypeSchema,
   judgeRole,
   resetUserPasswordInputSchema,
+  superAdminRole,
   updateUserInputSchema,
   userByIdPath,
+  userListQuerySchema,
   userListResultSchema,
   userResetPasswordPath,
   userResultSchema,
@@ -75,6 +77,32 @@ describe("users contract", () => {
         roles: adminRole,
       })
     ).toThrow();
+  });
+
+  it("rejects super admin and admin role conflict", () => {
+    expect(() =>
+      createUserInputSchema.parse({
+        password: "secret123",
+        roles: superAdminRole | adminRole,
+      })
+    ).toThrow();
+    expect(() => updateUserInputSchema.parse({ roles: superAdminRole | adminRole })).toThrow();
+    expect(
+      createUserInputSchema.parse({
+        password: "secret123",
+        roles: superAdminRole | judgeRole,
+      }).roles
+    ).toBe(superAdminRole | judgeRole);
+  });
+
+  it("parses user list query defaults and limits", () => {
+    expect(userListQuerySchema.parse({})).toEqual({ page: 1, limit: 50 });
+    expect(userListQuerySchema.parse({ page: "2", limit: "25" })).toEqual({
+      page: 2,
+      limit: 25,
+    });
+    expect(() => userListQuerySchema.parse({ page: "0" })).toThrow();
+    expect(() => userListQuerySchema.parse({ limit: "101" })).toThrow();
   });
 
   it("parses update user input and rejects empty updates", () => {
@@ -157,7 +185,12 @@ describe("users contract", () => {
       updatedAt: "2026-05-28T00:00:00.000Z",
     };
 
-    expect(userListResultSchema.parse({ users: [user] })).toHaveProperty("users.length", 1);
+    expect(userListResultSchema.parse({ users: [user], total: 1, page: 1, limit: 50 })).toEqual({
+      users: [user],
+      total: 1,
+      page: 1,
+      limit: 50,
+    });
     expect(userResultSchema.parse({ user })).toEqual({ user });
   });
 });

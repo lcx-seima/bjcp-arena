@@ -1,18 +1,42 @@
-.tableHead {
-  display: grid;
-  gap: var(--mantine-spacing-sm);
-  grid-template-columns:
-    minmax(120px, 1fr) minmax(120px, 1fr) minmax(150px, 1fr)
-    minmax(110px, 0.7fr) minmax(170px, 1.2fr) minmax(190px, 1fr);
-  color: var(--mantine-color-gray-6);
-  font-size: var(--mantine-font-size-xs);
-  font-weight: 800;
-  padding: 0 var(--mantine-spacing-sm);
-  text-transform: uppercase;
+.table {
+  table-layout: fixed;
 }
 
-@media (max-width: 74em) {
-  .tableHead {
-    display: none;
-  }
+.table th,
+.table td {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.cellText {
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tooltipTarget {
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.idColumn {
+  width: 72px;
+}
+
+.actionsColumn {
+  background: var(--mantine-color-white);
+  box-shadow: -1px 0 0 var(--mantine-color-gray-3);
+  position: sticky;
+  right: 0;
+  text-align: right;
+  width: 240px;
+  z-index: 1;
+}
+
+th.actionsColumn {
+  z-index: 2;
 }
