@@ -52,18 +52,20 @@ export function BeerForm({
             maxLength={160}
             required
             value={values.realName}
-            onChange={(event) =>
-              setValues((current) => ({ ...current, realName: event.currentTarget.value }))
-            }
+            onChange={(event) => {
+              const realName = event.currentTarget.value;
+              setValues((current) => ({ ...current, realName }));
+            }}
           />
           <TextInput
             label="厂牌/出品"
             maxLength={160}
             required
             value={values.producer}
-            onChange={(event) =>
-              setValues((current) => ({ ...current, producer: event.currentTarget.value }))
-            }
+            onChange={(event) => {
+              const producer = event.currentTarget.value;
+              setValues((current) => ({ ...current, producer }));
+            }}
           />
         </Group>
         <Select
@@ -88,9 +90,10 @@ export function BeerForm({
           minRows={4}
           required
           value={values.description}
-          onChange={(event) =>
-            setValues((current) => ({ ...current, description: event.currentTarget.value }))
-          }
+          onChange={(event) => {
+            const description = event.currentTarget.value;
+            setValues((current) => ({ ...current, description }));
+          }}
         />
         <Group justify="flex-end">
           <Button leftSection={<Save size={16} />} loading={isSubmitting} type="submit">

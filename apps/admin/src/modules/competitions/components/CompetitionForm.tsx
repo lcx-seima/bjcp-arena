@@ -48,7 +48,10 @@ export function CompetitionForm({
           maxLength={120}
           required
           value={values.name}
-          onChange={(event) => setValues((current) => ({ ...current, name: event.currentTarget.value }))}
+          onChange={(event) => {
+            const name = event.currentTarget.value;
+            setValues((current) => ({ ...current, name }));
+          }}
         />
         <Textarea
           autosize
@@ -56,9 +59,10 @@ export function CompetitionForm({
           maxLength={2000}
           minRows={3}
           value={values.description}
-          onChange={(event) =>
-            setValues((current) => ({ ...current, description: event.currentTarget.value }))
-          }
+          onChange={(event) => {
+            const description = event.currentTarget.value;
+            setValues((current) => ({ ...current, description }));
+          }}
         />
         <Group justify="flex-end">
           {onCancel ? (
