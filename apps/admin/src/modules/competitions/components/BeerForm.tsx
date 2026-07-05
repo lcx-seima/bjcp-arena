@@ -23,48 +23,61 @@ export function BeerForm({
   onSubmit: (values: BeerFormValues) => void;
 }) {
   const [values, setValues] = useState<BeerFormValues>({
-    realName: beer?.realName ?? "",
-    producer: beer?.producer ?? "",
+    entryCode: beer?.entryCode ?? "",
+    name: beer?.name ?? "",
+    brewery: beer?.brewery ?? "",
     bjcpSubcategoryCode: readSubcategoryCode(beer),
     description: beer?.description ?? "",
   });
 
   useEffect(() => {
     setValues({
-      realName: beer?.realName ?? "",
-      producer: beer?.producer ?? "",
+      entryCode: beer?.entryCode ?? "",
+      name: beer?.name ?? "",
+      brewery: beer?.brewery ?? "",
       bjcpSubcategoryCode: readSubcategoryCode(beer),
       description: beer?.description ?? "",
     });
-  }, [beer?.bjcpSubcategoryCode, beer?.description, beer?.producer, beer?.realName]);
+  }, [beer?.bjcpSubcategoryCode, beer?.brewery, beer?.description, beer?.entryCode, beer?.name]);
 
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        onSubmit(values);
+        onSubmit({ ...values, entryCode: values.entryCode.trim().toUpperCase() });
       }}
     >
       <Stack gap="md">
         <Group grow>
           <TextInput
-            label="真实酒款名"
-            maxLength={160}
+            disabled={Boolean(beer)}
+            label="参赛编号"
+            maxLength={6}
             required
-            value={values.realName}
+            value={values.entryCode}
             onChange={(event) => {
-              const realName = event.currentTarget.value;
-              setValues((current) => ({ ...current, realName }));
+              const entryCode = event.currentTarget.value.toUpperCase();
+              setValues((current) => ({ ...current, entryCode }));
             }}
           />
           <TextInput
-            label="厂牌/出品"
+            label="参赛酒名"
             maxLength={160}
             required
-            value={values.producer}
+            value={values.name}
             onChange={(event) => {
-              const producer = event.currentTarget.value;
-              setValues((current) => ({ ...current, producer }));
+              const name = event.currentTarget.value;
+              setValues((current) => ({ ...current, name }));
+            }}
+          />
+          <TextInput
+            label="参赛酒厂"
+            maxLength={160}
+            required
+            value={values.brewery}
+            onChange={(event) => {
+              const brewery = event.currentTarget.value;
+              setValues((current) => ({ ...current, brewery }));
             }}
           />
         </Group>

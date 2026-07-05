@@ -1,36 +1,25 @@
 import {
-  beerStatuses,
   bjcpSubcategories,
-  competitionStatuses,
+  entityStatuses,
   type BeerResult,
-  type BeerStatus,
   type CompetitionResult,
-  type CompetitionStatus,
+  type EntityStatus,
+  type RoundBeerListResult,
+  type RoundListResult,
 } from "@bjcp-arena/contracts";
 
 export type Competition = CompetitionResult["competition"];
 export type Beer = BeerResult["beer"];
+export type CompetitionRound = RoundListResult["rounds"][number];
+export type RoundBeer = RoundBeerListResult["beers"][number];
 
-export const competitionStatusLabels: Record<CompetitionStatus, string> = {
-  draft: "草稿",
-  judging: "评审中",
-  closed: "已结束",
-  published: "已公布",
+export const entityStatusLabels: Record<EntityStatus, string> = {
+  ongoing: "比赛中",
+  ended: "结束",
 };
 
-export const beerStatusLabels: Record<BeerStatus, string> = {
-  draft: "草稿",
-  published: "比赛中",
-  removed: "已退出",
-};
-
-export const competitionStatusOptions = competitionStatuses.map((status) => ({
-  label: competitionStatusLabels[status],
-  value: status,
-}));
-
-export const beerStatusOptions = beerStatuses.map((status) => ({
-  label: beerStatusLabels[status],
+export const entityStatusOptions = entityStatuses.map((status) => ({
+  label: entityStatusLabels[status],
   value: status,
 }));
 

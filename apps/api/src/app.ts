@@ -13,15 +13,13 @@ import { getApiConfig, type ApiConfig } from "./config.js";
 import { createPrismaClient } from "./db/prisma.js";
 import { registerAuthRoutes } from "./modules/auth/auth.routes.js";
 import { registerUserRoutes } from "./modules/users/users.routes.js";
-import { registerCompetitionRoutes } from "./modules/competitions/competitions.routes.js";
-import { createPrismaCompetitionRepository, createMemoryCompetitionRepository, type CompetitionRepository } from "./modules/competitions/competitions.repository.js";
-import { createCompetitionService } from "./modules/competitions/competitions.service.js";
-import { registerBeerRoutes } from "./modules/beers/beers.routes.js";
-import { createBeerService } from "./modules/beers/beers.service.js";
-import { createMemoryBeerRepository, createPrismaBeerRepository, type BeerRepository } from "./modules/beers/beers.repository.js";
-import { createMemoryScoreRepository, createPrismaScoreRepository, type ScoreRepository } from "./modules/scores/scores.repository.js";
-import { registerScoreRoutes } from "./modules/scores/scores.routes.js";
-import { createScoreService } from "./modules/scores/scores.service.js";
+import {
+  createMemoryCompetitionLoopRepository,
+  createPrismaCompetitionLoopRepository,
+  type CompetitionLoopRepository,
+} from "./modules/competition-loop/competition-loop.repository.js";
+import { createCompetitionLoopService } from "./modules/competition-loop/competition-loop.service.js";
+import { registerCompetitionLoopRoutes } from "./modules/competition-loop/competition-loop.routes.js";
 import {
   createMemoryUserRepository,
   createPrismaUserRepository,
@@ -32,9 +30,7 @@ export interface CreateAppOptions {
   config?: Partial<ApiConfig>;
   allowedOrigins?: string[];
   users?: UserRepository;
-  competitions?: CompetitionRepository;
-  beers?: BeerRepository;
-  scores?: ScoreRepository;
+  competitionLoop?: CompetitionLoopRepository;
   authUserSnapshots?: AuthUserSnapshotStore;
   jwtSecret?: string;
   jwtExpiresIn?: string;
@@ -53,23 +49,14 @@ export function createApp(options: CreateAppOptions = {}) {
   const corsOrigin = allowedOrigins.includes("*") ? true : allowedOrigins;
   let prisma: ReturnType<typeof createPrismaClient> | undefined;
   let users = options.users;
-  let competitions = options.competitions;
-  let beers = options.beers;
-  let scores = options.scores;
+  let competitionLoop = options.competitionLoop;
   if (!users) {
     prisma = createPrismaClient(config.databaseUrl);
     users = createPrismaUserRepository(prisma);
   }
-  if (!competitions) {
+  if (!competitionLoop) {
     prisma ??= createPrismaClient(config.databaseUrl);
-    competitions = createPrismaCompetitionRepository(prisma);
-  }
-  if (!beers) {
-    prisma ??= createPrismaClient(config.databaseUrl);
-    beers = createPrismaBeerRepository(prisma);
-  }
-  if (!scores) {
-    scores = prisma ? createPrismaScoreRepository(prisma) : createMemoryScoreRepository();
+    competitionLoop = createPrismaCompetitionLoopRepository(prisma);
   }
   const authUserSnapshots =
     options.authUserSnapshots ??
@@ -82,13 +69,7 @@ export function createApp(options: CreateAppOptions = {}) {
     jwtExpiresIn: options.jwtExpiresIn ?? config.jwtExpiresIn,
   });
   const auth = createAuthService({ users, authUserSnapshots, tokens });
-  const competitionService = createCompetitionService({ competitions });
-  const beerService = createBeerService({ beers });
-  const scoreService = createScoreService({
-    competitions: competitionService,
-    beers: beerService,
-    scores,
-  });
+  const competitionLoopService = createCompetitionLoopService({ repository: competitionLoop });
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
@@ -128,16 +109,9 @@ export function createApp(options: CreateAppOptions = {}) {
     users,
     authUserSnapshots,
   });
-  registerCompetitionRoutes(app, { auth, competitions: competitionService });
-  registerBeerRoutes(app, {
+  registerCompetitionLoopRoutes(app, {
     auth,
-    competitions: competitionService,
-    beers: beerService,
-    config,
-  });
-  registerScoreRoutes(app, {
-    auth,
-    scores: scoreService,
+    competitionLoop: competitionLoopService,
   });
 
   return app;
@@ -146,15 +120,11 @@ export function createApp(options: CreateAppOptions = {}) {
 export function createTestDependencies() {
   const users = createMemoryUserRepository();
   const authUserSnapshots = createMemoryAuthUserSnapshotStore();
-  const competitions = createMemoryCompetitionRepository();
-  const beers = createMemoryBeerRepository();
-  const scores = createMemoryScoreRepository();
+  const competitionLoop = createMemoryCompetitionLoopRepository();
 
   return {
     users,
     authUserSnapshots,
-    competitions,
-    beers,
-    scores,
+    competitionLoop,
   };
 }

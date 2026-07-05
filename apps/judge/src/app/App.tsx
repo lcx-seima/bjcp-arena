@@ -8,6 +8,9 @@ import { RestoreErrorPage } from "../pages/session/RestoreErrorPage.js";
 import { RoleDeniedPage } from "../pages/session/RoleDeniedPage.js";
 import { UserInfoPage } from "../pages/session/UserInfoPage.js";
 import { ScorePage } from "../pages/score/ScorePage.js";
+import { JudgeCompetitionsPage } from "../pages/competitions/JudgeCompetitionsPage.js";
+import { JudgeRoundsPage } from "../pages/competitions/JudgeRoundsPage.js";
+import { JudgeRoundDetailPage } from "../pages/competitions/JudgeRoundDetailPage.js";
 import { isUnauthorized, readError } from "../utils/errors.js";
 
 interface AppState {
@@ -16,21 +19,37 @@ interface AppState {
   user: UserPublic | null;
 }
 
-function readScoreRoute(pathname: string) {
-  const match = pathname.match(/^\/competitions\/(\d+)\/beers\/(\d+)\/?$/);
-  if (!match) {
-    return null;
+function readJudgeRoute(pathname: string) {
+  const score = pathname.match(/^\/competitions\/(\d+)\/rounds\/(\d+)\/beers\/(\d+)\/?$/);
+  if (score) {
+    return {
+      type: "score" as const,
+      competitionId: Number(score[1]),
+      roundId: Number(score[2]),
+      beerId: Number(score[3]),
+    };
   }
-
-  return {
-    competitionId: Number(match[1]),
-    beerId: Number(match[2]),
-  };
+  const round = pathname.match(/^\/competitions\/(\d+)\/rounds\/(\d+)\/?$/);
+  if (round) {
+    return {
+      type: "round" as const,
+      competitionId: Number(round[1]),
+      roundId: Number(round[2]),
+    };
+  }
+  const competition = pathname.match(/^\/competitions\/(\d+)\/?$/);
+  if (competition) {
+    return {
+      type: "competition" as const,
+      competitionId: Number(competition[1]),
+    };
+  }
+  return { type: "competitions" as const };
 }
 
 export function App() {
   const [state, setState] = useState<AppState>({ error: null, status: "loading", user: null });
-  const scoreRoute = readScoreRoute(window.location.pathname);
+  const judgeRoute = readJudgeRoute(window.location.pathname);
 
   const endSession = useCallback(() => {
     clearToken();
@@ -96,13 +115,24 @@ export function App() {
         <LoginPage onLogin={handleLogin} onUnauthorized={endSession} />
       ) : !canAccessJudgeApp(state.user.roles) ? (
         <RoleDeniedPage user={state.user} onLogout={handleLogout} />
-      ) : scoreRoute ? (
+      ) : judgeRoute.type === "score" ? (
         <ScorePage
-          beerId={scoreRoute.beerId}
-          competitionId={scoreRoute.competitionId}
+          beerId={judgeRoute.beerId}
+          competitionId={judgeRoute.competitionId}
+          roundId={judgeRoute.roundId}
           user={state.user}
           onLogout={handleLogout}
         />
+      ) : judgeRoute.type === "round" ? (
+        <JudgeRoundDetailPage
+          competitionId={judgeRoute.competitionId}
+          roundId={judgeRoute.roundId}
+          onLogout={handleLogout}
+        />
+      ) : judgeRoute.type === "competition" ? (
+        <JudgeRoundsPage competitionId={judgeRoute.competitionId} onLogout={handleLogout} />
+      ) : window.location.pathname === "/" ? (
+        <JudgeCompetitionsPage user={state.user} onLogout={handleLogout} />
       ) : (
         <UserInfoPage user={state.user} onLogout={handleLogout} />
       )}

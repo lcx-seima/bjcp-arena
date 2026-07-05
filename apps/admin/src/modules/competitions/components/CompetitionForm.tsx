@@ -1,11 +1,10 @@
-import { Button, Group, Stack, TextInput, Textarea } from "@mantine/core";
+import { Button, Group, Stack, TextInput } from "@mantine/core";
 import { Save } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import type { Competition } from "../competitions-api.js";
 
 export interface CompetitionFormValues {
   name: string;
-  description: string;
 }
 
 export function CompetitionForm({
@@ -25,15 +24,13 @@ export function CompetitionForm({
 }) {
   const [values, setValues] = useState<CompetitionFormValues>({
     name: competition?.name ?? "",
-    description: competition?.description ?? "",
   });
 
   useEffect(() => {
     setValues({
       name: competition?.name ?? "",
-      description: competition?.description ?? "",
     });
-  }, [competition?.description, competition?.name]);
+  }, [competition?.name]);
 
   return (
     <form
@@ -53,24 +50,17 @@ export function CompetitionForm({
             setValues((current) => ({ ...current, name }));
           }}
         />
-        <Textarea
-          autosize
-          label="比赛说明"
-          maxLength={2000}
-          minRows={3}
-          value={values.description}
-          onChange={(event) => {
-            const description = event.currentTarget.value;
-            setValues((current) => ({ ...current, description }));
-          }}
-        />
         <Group justify="flex-end">
           {onCancel ? (
             <Button variant="default" onClick={onCancel}>
               取消
             </Button>
           ) : null}
-          <Button leftSection={submitLeftSection ?? <Save size={16} />} loading={isSubmitting} type="submit">
+          <Button
+            leftSection={submitLeftSection ?? <Save size={16} />}
+            loading={isSubmitting}
+            type="submit"
+          >
             {submitLabel}
           </Button>
         </Group>

@@ -8,8 +8,7 @@ export function createTestApp() {
     },
     allowedOrigins: ["http://localhost:5173"],
     users: dependencies.users,
-    competitions: dependencies.competitions,
-    beers: dependencies.beers,
+    competitionLoop: dependencies.competitionLoop,
     authUserSnapshots: dependencies.authUserSnapshots,
     jwtSecret: "test-secret",
     jwtExpiresIn: "7d",
@@ -19,7 +18,6 @@ export function createTestApp() {
     app,
     users: dependencies.users,
     authUserSnapshots: dependencies.authUserSnapshots,
-    competitions: dependencies.competitions,
-    beers: dependencies.beers,
+    competitionLoop: dependencies.competitionLoop,
   };
 }

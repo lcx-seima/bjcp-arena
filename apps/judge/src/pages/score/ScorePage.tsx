@@ -9,9 +9,10 @@ import {
   Text,
   Textarea,
 } from "@mantine/core";
-import { LogOut, Send } from "lucide-react";
+import { ArrowLeft, LogOut, Send } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { JudgeBeerResult, MyScoreResult, UserPublic } from "@bjcp-arena/contracts";
+import { professionalScoreGrade } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
 import { InlineError } from "../../components/ui/InlineError.js";
 import { PageHeader } from "../../components/ui/PageHeader.js";
@@ -34,61 +35,90 @@ interface ProfessionalValues {
   overallComment: string;
 }
 
-interface PublicValues {
-  overallPreference: number;
-  aromaBodyFoam: number;
-  entryAcceptance: number;
-  willingToDrink: number;
+interface AmateurValues {
+  drinkability: number;
+  balance: number;
+  flavorAcceptance: number;
+  repeatIntention: number;
   comment: string;
+}
+
+const defaultProfessional: ProfessionalValues = {
+  aroma: 0,
+  appearance: 0,
+  flavor: 0,
+  mouthfeel: 0,
+  overall: 0,
+  aromaComment: "",
+  appearanceComment: "",
+  flavorComment: "",
+  mouthfeelComment: "",
+  overallComment: "",
+};
+
+const defaultAmateur: AmateurValues = {
+  drinkability: 3,
+  balance: 3,
+  flavorAcceptance: 3,
+  repeatIntention: 3,
+  comment: "",
+};
+
+function toNumber(value: string | number) {
+  return typeof value === "number" ? value : Number(value || 0);
 }
 
 export function ScorePage({
   beerId,
   competitionId,
   onLogout,
+  roundId,
   user,
 }: {
   beerId: number;
   competitionId: number;
+  roundId: number;
   onLogout: () => void;
   user: UserPublic;
 }) {
+  const draftKey = `bjcp-score-draft:${user.id}:${competitionId}:${roundId}:${beerId}`;
   const [beer, setBeer] = useState<JudgeBeer | null>(null);
   const [score, setScore] = useState<MyScore | null>(null);
   const [status, setStatus] = useState<"loading" | "ready">("loading");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [draftNotice, setDraftNotice] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [professionalValues, setProfessionalValues] = useState<ProfessionalValues>({
-    aroma: 0,
-    appearance: 0,
-    flavor: 0,
-    mouthfeel: 0,
-    overall: 0,
-    aromaComment: "",
-    appearanceComment: "",
-    flavorComment: "",
-    mouthfeelComment: "",
-    overallComment: "",
-  });
-  const [publicValues, setPublicValues] = useState<PublicValues>({
-    overallPreference: 5,
-    aromaBodyFoam: 3,
-    entryAcceptance: 3,
-    willingToDrink: 3,
-    comment: "",
-  });
+  const [professionalValues, setProfessionalValues] =
+    useState<ProfessionalValues>(defaultProfessional);
+  const [amateurValues, setAmateurValues] = useState<AmateurValues>(defaultAmateur);
 
-  const refreshScore = useCallback(async () => {
-    setError(null);
+  const professionalTotal = useMemo(
+    () =>
+      professionalValues.aroma +
+      professionalValues.appearance +
+      professionalValues.flavor +
+      professionalValues.mouthfeel +
+      professionalValues.overall,
+    [professionalValues]
+  );
+
+  const amateurTotal = useMemo(
+    () =>
+      amateurValues.drinkability +
+      amateurValues.balance +
+      amateurValues.flavorAcceptance +
+      amateurValues.repeatIntention,
+    [amateurValues]
+  );
+
+  const refresh = useCallback(async () => {
     const [beerResult, scoreResult] = await Promise.all([
-      client.getJudgeBeer(competitionId, beerId),
-      client.getMyScore(competitionId, beerId),
+      client.getJudgeBeer(competitionId, roundId, beerId),
+      client.getMyScore(competitionId, roundId, beerId),
     ]);
     setBeer(beerResult.beer);
     setScore(scoreResult.score);
-    setStatus("ready");
-
     if (scoreResult.score?.judgeTypeSnapshot === "professional") {
       setProfessionalValues({
         aroma: scoreResult.score.professionalAromaScore ?? 0,
@@ -102,21 +132,31 @@ export function ScorePage({
         mouthfeelComment: scoreResult.score.professionalMouthfeelComment ?? "",
         overallComment: scoreResult.score.professionalOverallComment ?? "",
       });
-    }
-
-    if (scoreResult.score?.judgeTypeSnapshot === "public") {
-      setPublicValues({
-        overallPreference: scoreResult.score.publicOverallPreferenceScore ?? 5,
-        aromaBodyFoam: scoreResult.score.publicAromaBodyFoamScore ?? 3,
-        entryAcceptance: scoreResult.score.publicEntryAcceptanceScore ?? 3,
-        willingToDrink: scoreResult.score.publicWillingToDrinkScore ?? 3,
-        comment: scoreResult.score.publicComment ?? "",
+    } else if (scoreResult.score?.judgeTypeSnapshot === "public") {
+      setAmateurValues({
+        drinkability: scoreResult.score.amateurDrinkabilityScore ?? 3,
+        balance: scoreResult.score.amateurBalanceScore ?? 3,
+        flavorAcceptance: scoreResult.score.amateurFlavorAcceptanceScore ?? 3,
+        repeatIntention: scoreResult.score.amateurRepeatIntentionScore ?? 3,
+        comment: scoreResult.score.amateurComment ?? "",
       });
+    } else {
+      const draft = localStorage.getItem(draftKey);
+      if (draft) {
+        const parsed = JSON.parse(draft) as {
+          professionalValues?: ProfessionalValues;
+          amateurValues?: AmateurValues;
+        };
+        if (parsed.professionalValues) setProfessionalValues(parsed.professionalValues);
+        if (parsed.amateurValues) setAmateurValues(parsed.amateurValues);
+        setDraftNotice("已恢复本地草稿，请记得提交。");
+      }
     }
-  }, [beerId, competitionId]);
+    setStatus("ready");
+  }, [beerId, competitionId, draftKey, roundId]);
 
   useEffect(() => {
-    void refreshScore().catch((unknownError) => {
+    void refresh().catch((unknownError) => {
       setStatus("ready");
       if (isUnauthorized(unknownError)) {
         onLogout();
@@ -124,27 +164,21 @@ export function ScorePage({
       }
       setError(readError(unknownError));
     });
-  }, [onLogout, refreshScore]);
+  }, [onLogout, refresh]);
 
-  const professionalTotal = useMemo(
-    () =>
-      professionalValues.aroma +
-      professionalValues.appearance +
-      professionalValues.flavor +
-      professionalValues.mouthfeel +
-      professionalValues.overall,
-    [professionalValues]
-  );
+  useEffect(() => {
+    if (status !== "ready" || score) return;
+    localStorage.setItem(draftKey, JSON.stringify({ professionalValues, amateurValues }));
+  }, [amateurValues, draftKey, professionalValues, score, status]);
 
   async function handleSubmit() {
     if (!user.judgeType || !beer) {
-      setError("当前账号未预设评委身份，无法提交评分。");
+      setError("当前账号未预设裁判类型，无法提交评分。");
       return;
     }
     setError(null);
     setNotice(null);
     setIsSubmitting(true);
-
     try {
       const payload =
         user.judgeType === "professional"
@@ -163,14 +197,16 @@ export function ScorePage({
             }
           : {
               judgeType: "public" as const,
-              publicOverallPreferenceScore: publicValues.overallPreference,
-              publicAromaBodyFoamScore: publicValues.aromaBodyFoam,
-              publicEntryAcceptanceScore: publicValues.entryAcceptance,
-              publicWillingToDrinkScore: publicValues.willingToDrink,
-              publicComment: publicValues.comment,
+              amateurDrinkabilityScore: amateurValues.drinkability,
+              amateurBalanceScore: amateurValues.balance,
+              amateurFlavorAcceptanceScore: amateurValues.flavorAcceptance,
+              amateurRepeatIntentionScore: amateurValues.repeatIntention,
+              amateurComment: amateurValues.comment,
             };
-      const result = await client.submitMyScore(competitionId, beer.id, payload);
+      const result = await client.submitMyScore(competitionId, roundId, beer.id, payload);
       setScore(result.score);
+      localStorage.removeItem(draftKey);
+      setDraftNotice(null);
       setNotice("评分已提交");
     } catch (unknownError) {
       if (isUnauthorized(unknownError)) {
@@ -187,26 +223,45 @@ export function ScorePage({
     <Paper className={classes.shell!} p="lg">
       <Stack gap="md">
         <Group justify="space-between" wrap="nowrap">
-          <PageHeader eyebrow="Judge" title={beer ? `评鉴 #${beer.entryNumber}` : "评鉴酒款"} />
+          <PageHeader eyebrow="Score" title={beer ? `评鉴 #${beer.entryNumber}` : "评分"} />
           <Button color="red" leftSection={<LogOut size={16} />} variant="light" onClick={onLogout}>
             退出
           </Button>
         </Group>
+        <Button
+          leftSection={<ArrowLeft size={16} />}
+          variant="default"
+          onClick={() => {
+            window.location.href = `/competitions/${competitionId}/rounds/${roundId}`;
+          }}
+        >
+          返回轮次
+        </Button>
 
         {beer ? (
           <Stack gap="sm">
             <Group gap="xs">
-              <Badge variant="light">{beer.bjcpSubcategoryCode}</Badge>
+              <Badge variant="light">
+                {user.judgeType === "professional" ? "专业裁判表单" : "爱好者裁判表单"}
+              </Badge>
               <Badge color={beer.canScore ? "green" : "gray"} variant="light">
-                {beer.canScore ? "可评分" : "不可评分"}
+                {beer.canScore ? "可评分" : "只读"}
               </Badge>
             </Group>
             <Table withColumnBorders withTableBorder>
               <Table.Tbody>
                 <Table.Tr>
-                  <Table.Th w={110}>类型</Table.Th>
+                  <Table.Th w={110}>比赛序号</Table.Th>
+                  <Table.Td>#{beer.entryNumber}</Table.Td>
+                </Table.Tr>
+                <Table.Tr>
+                  <Table.Th>参赛编号</Table.Th>
+                  <Table.Td>{beer.entryCode}</Table.Td>
+                </Table.Tr>
+                <Table.Tr>
+                  <Table.Th>BJCP</Table.Th>
                   <Table.Td>
-                    {beer.bjcpCategoryName} / {beer.bjcpSubcategoryName}
+                    {beer.bjcpSubcategoryCode} {beer.bjcpSubcategoryName}
                   </Table.Td>
                 </Table.Tr>
                 <Table.Tr>
@@ -218,15 +273,12 @@ export function ScorePage({
           </Stack>
         ) : null}
 
-        <Text c="dimmed" size="sm">
-          当前账号：{user.nickname}（{user.judgeType === "professional" ? "专业裁判" : user.judgeType === "public" ? "大众评委" : "未设置身份"}）
-        </Text>
         {score ? (
           <Text c="dimmed" size="sm">
             上次提交：{new Date(score.submittedAt).toLocaleString()}
           </Text>
         ) : null}
-
+        {draftNotice ? <Text c="orange.8">{draftNotice}</Text> : null}
         {notice ? <Text c="green.8">{notice}</Text> : null}
         {error ? <InlineError>{error}</InlineError> : null}
 
@@ -238,13 +290,14 @@ export function ScorePage({
             onChange={setProfessionalValues}
           />
         ) : user.judgeType === "public" ? (
-          <PublicForm
+          <AmateurForm
             disabled={!beer?.canScore || status === "loading"}
-            values={publicValues}
-            onChange={setPublicValues}
+            total={amateurTotal}
+            values={amateurValues}
+            onChange={setAmateurValues}
           />
         ) : (
-          <InlineError>当前账号没有预设评委身份，请联系管理员。</InlineError>
+          <InlineError>当前账号没有预设裁判类型，请联系管理员。</InlineError>
         )}
 
         <Button
@@ -253,15 +306,11 @@ export function ScorePage({
           loading={isSubmitting}
           onClick={handleSubmit}
         >
-          提交评分
+          {score ? "更新评分" : "提交评分"}
         </Button>
       </Stack>
     </Paper>
   );
-}
-
-function toNumber(value: string | number) {
-  return typeof value === "number" ? value : Number(value || 0);
 }
 
 function ProfessionalForm({
@@ -277,132 +326,160 @@ function ProfessionalForm({
 }) {
   return (
     <Stack gap="md">
-      <Text fw={800}>专业裁判评分，总分 {total}/50</Text>
-      <div className={classes.metricGrid!}>
-        <NumberInput
-          disabled={disabled}
-          label="香气 0-12"
-          max={12}
-          min={0}
-          value={values.aroma}
-          onChange={(value) => onChange({ ...values, aroma: toNumber(value) })}
-        />
-        <NumberInput
-          disabled={disabled}
-          label="外观 0-3"
-          max={3}
-          min={0}
-          value={values.appearance}
-          onChange={(value) => onChange({ ...values, appearance: toNumber(value) })}
-        />
-        <NumberInput
-          disabled={disabled}
-          label="风味 0-20"
-          max={20}
-          min={0}
-          value={values.flavor}
-          onChange={(value) => onChange({ ...values, flavor: toNumber(value) })}
-        />
-        <NumberInput
-          disabled={disabled}
-          label="口感 0-5"
-          max={5}
-          min={0}
-          value={values.mouthfeel}
-          onChange={(value) => onChange({ ...values, mouthfeel: toNumber(value) })}
-        />
-        <NumberInput
-          disabled={disabled}
-          label="总体 0-10"
-          max={10}
-          min={0}
-          value={values.overall}
-          onChange={(value) => onChange({ ...values, overall: toNumber(value) })}
-        />
-      </div>
-      <Textarea
+      <Text fw={800}>
+        专业评分 {total}/50 · {professionalScoreGrade(total)}
+      </Text>
+      <ScoreDimension
+        comment={values.aromaComment}
         disabled={disabled}
-        label="香气评语"
-        value={values.aromaComment}
-        onChange={(event) => onChange({ ...values, aromaComment: event.currentTarget.value })}
+        label="Aroma 香气"
+        max={12}
+        placeholder="请描述麦芽香、酒花香、酯香、酚类、酒精感、氧化味、DMS、双乙酰等香气表现，并说明强弱和是否符合风格。"
+        score={values.aroma}
+        onComment={(aromaComment) => onChange({ ...values, aromaComment })}
+        onScore={(aroma) => onChange({ ...values, aroma })}
       />
-      <Textarea
+      <ScoreDimension
+        comment={values.appearanceComment}
         disabled={disabled}
-        label="外观评语"
-        value={values.appearanceComment}
-        onChange={(event) => onChange({ ...values, appearanceComment: event.currentTarget.value })}
+        label="Appearance 外观"
+        max={3}
+        placeholder="请描述颜色、清澈度、泡沫颜色、泡沫细腻度、泡持、挂杯等视觉表现。"
+        score={values.appearance}
+        onComment={(appearanceComment) => onChange({ ...values, appearanceComment })}
+        onScore={(appearance) => onChange({ ...values, appearance })}
       />
-      <Textarea
+      <ScoreDimension
+        comment={values.flavorComment}
         disabled={disabled}
-        label="风味评语"
-        value={values.flavorComment}
-        onChange={(event) => onChange({ ...values, flavorComment: event.currentTarget.value })}
+        label="Flavor 风味"
+        max={20}
+        placeholder="请描述入口、中段、收口、麦芽表现、酒花风味、苦度、甜度、酸度、发酵特征、余味、平衡感和明显缺陷。"
+        score={values.flavor}
+        onComment={(flavorComment) => onChange({ ...values, flavorComment })}
+        onScore={(flavor) => onChange({ ...values, flavor })}
       />
-      <Textarea
+      <ScoreDimension
+        comment={values.mouthfeelComment}
         disabled={disabled}
-        label="口感评语"
-        value={values.mouthfeelComment}
-        onChange={(event) => onChange({ ...values, mouthfeelComment: event.currentTarget.value })}
+        label="Mouthfeel 口感"
+        max={5}
+        placeholder="请描述酒体、杀口感、顺滑度、酒精温热感、涩感、黏腻感、干爽度等口感表现。"
+        score={values.mouthfeel}
+        onComment={(mouthfeelComment) => onChange({ ...values, mouthfeelComment })}
+        onScore={(mouthfeel) => onChange({ ...values, mouthfeel })}
       />
-      <Textarea
+      <ScoreDimension
+        comment={values.overallComment}
         disabled={disabled}
-        label="总体评语"
-        value={values.overallComment}
-        onChange={(event) => onChange({ ...values, overallComment: event.currentTarget.value })}
+        label="Overall Impression 整体印象"
+        max={10}
+        placeholder="请总结整体完成度、风格准确度、饮用愉悦度、主要优缺点和改进建议。"
+        score={values.overall}
+        onComment={(overallComment) => onChange({ ...values, overallComment })}
+        onScore={(overall) => onChange({ ...values, overall })}
       />
     </Stack>
   );
 }
 
-function PublicForm({
+function ScoreDimension({
+  comment,
+  disabled,
+  label,
+  max,
+  onComment,
+  onScore,
+  placeholder,
+  score,
+}: {
+  comment: string;
+  disabled: boolean;
+  label: string;
+  max: number;
+  onComment: (value: string) => void;
+  onScore: (value: number) => void;
+  placeholder: string;
+  score: number;
+}) {
+  return (
+    <Stack gap="xs">
+      <Text fw={700}>{label}</Text>
+      <NumberInput
+        disabled={disabled}
+        label={`分数 0-${max}`}
+        max={max}
+        min={0}
+        value={score}
+        onChange={(value) => onScore(toNumber(value))}
+      />
+      <Textarea
+        autosize
+        disabled={disabled}
+        minRows={3}
+        placeholder={placeholder}
+        required
+        value={comment}
+        onChange={(event) => onComment(event.currentTarget.value)}
+      />
+    </Stack>
+  );
+}
+
+function AmateurForm({
   disabled,
   onChange,
+  total,
   values,
 }: {
   disabled: boolean;
-  onChange: (values: PublicValues) => void;
-  values: PublicValues;
+  onChange: (values: AmateurValues) => void;
+  total: number;
+  values: AmateurValues;
 }) {
   return (
     <Stack gap="md">
-      <Text fw={800}>大众评委评分</Text>
+      <Text fw={800}>爱好者评分 {total}/20</Text>
       <div className={classes.metricGrid!}>
         <NumberInput
           disabled={disabled}
-          label="总体喜欢程度 1-10"
-          max={10}
+          label="易饮性 1-5"
+          max={5}
           min={1}
-          value={values.overallPreference}
-          onChange={(value) => onChange({ ...values, overallPreference: toNumber(value) })}
+          value={values.drinkability}
+          onChange={(value) => onChange({ ...values, drinkability: toNumber(value) })}
         />
         <NumberInput
           disabled={disabled}
-          label="香气/酒体/泡沫吸引力 1-5"
+          label="平衡感 1-5"
           max={5}
           min={1}
-          value={values.aromaBodyFoam}
-          onChange={(value) => onChange({ ...values, aromaBodyFoam: toNumber(value) })}
+          value={values.balance}
+          onChange={(value) => onChange({ ...values, balance: toNumber(value) })}
         />
         <NumberInput
           disabled={disabled}
-          label="入口接受度 1-5"
+          label="风味接受度 1-5"
           max={5}
           min={1}
-          value={values.entryAcceptance}
-          onChange={(value) => onChange({ ...values, entryAcceptance: toNumber(value) })}
+          value={values.flavorAcceptance}
+          onChange={(value) => onChange({ ...values, flavorAcceptance: toNumber(value) })}
         />
         <NumberInput
           disabled={disabled}
-          label="是否愿意再喝 1-5"
+          label="复饮意愿 1-5"
           max={5}
           min={1}
-          value={values.willingToDrink}
-          onChange={(value) => onChange({ ...values, willingToDrink: toNumber(value) })}
+          value={values.repeatIntention}
+          onChange={(value) => onChange({ ...values, repeatIntention: toNumber(value) })}
         />
       </div>
       <Textarea
+        autosize
         disabled={disabled}
-        label="简短评价"
+        label="总反馈"
+        minRows={4}
+        required
         value={values.comment}
         onChange={(event) => onChange({ ...values, comment: event.currentTarget.value })}
       />

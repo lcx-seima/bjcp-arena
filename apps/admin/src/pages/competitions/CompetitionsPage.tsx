@@ -17,12 +17,10 @@ import { client } from "../../app/api.js";
 import { InlineMessage } from "../../components/ui/InlineMessage.js";
 import { PageHeader } from "../../components/ui/PageHeader.js";
 import {
-  competitionStatusLabels,
+  entityStatusLabels,
   type Competition,
 } from "../../modules/competitions/competitions-api.js";
-import {
-  type CompetitionFormValues,
-} from "../../modules/competitions/components/CompetitionForm.js";
+import { type CompetitionFormValues } from "../../modules/competitions/components/CompetitionForm.js";
 import { CompetitionInfoModal } from "../../modules/competitions/components/CompetitionInfoModal.js";
 import { handleRequestError } from "../../utils/errors.js";
 import classes from "./CompetitionsPage.module.css";
@@ -97,7 +95,6 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
       if (competitionModal.mode === "create") {
         const result = await client.createCompetition({
           name: values.name.trim(),
-          description: values.description.trim() || undefined,
         });
         setNotice(`已创建比赛 ${result.competition.name}`);
         setCompetitionModal(null);
@@ -107,7 +104,6 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
 
       const result = await client.updateCompetition(competitionModal.competition.id, {
         name: values.name.trim(),
-        description: values.description.trim() || undefined,
       });
       setNotice(`已更新比赛 ${result.competition.name}`);
       setCompetitionModal(null);
@@ -142,7 +138,9 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
             <div>
               <Text fw={800}>比赛列表</Text>
               <Text c="dimmed" size="sm">
-                {status === "loading" ? "加载中..." : `共 ${total} 场比赛，每页 ${competitionPageLimit} 条`}
+                {status === "loading"
+                  ? "加载中..."
+                  : `共 ${total} 场比赛，每页 ${competitionPageLimit} 条`}
               </Text>
             </div>
             <Button
@@ -162,7 +160,6 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
                 <Table.Tr>
                   <Table.Th className={classes.idColumn!}>ID</Table.Th>
                   <Table.Th>比赛名称</Table.Th>
-                  <Table.Th>比赛说明</Table.Th>
                   <Table.Th className={classes.statusColumn!}>状态</Table.Th>
                   <Table.Th>创建时间</Table.Th>
                   <Table.Th>更新时间</Table.Th>
@@ -172,8 +169,7 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
               <Table.Tbody>
                 {competitions.map((competition) => {
                   const idText = `#${competition.id}`;
-                  const descriptionText = competition.description || "无说明";
-                  const statusText = competitionStatusLabels[competition.status];
+                  const statusText = entityStatusLabels[competition.status];
                   const createdAtText = new Date(competition.createdAt).toLocaleString();
                   const updatedAtText = new Date(competition.updatedAt).toLocaleString();
 
@@ -190,16 +186,6 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
                         <CellTooltip label={competition.name}>
                           <Text className={classes.cellText!} fw={700}>
                             {competition.name}
-                          </Text>
-                        </CellTooltip>
-                      </Table.Td>
-                      <Table.Td>
-                        <CellTooltip label={descriptionText}>
-                          <Text
-                            c={competition.description ? "gray.9" : "dimmed"}
-                            className={classes.cellText!}
-                          >
-                            {descriptionText}
                           </Text>
                         </CellTooltip>
                       </Table.Td>

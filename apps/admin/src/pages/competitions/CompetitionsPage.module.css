@@ -72,6 +72,12 @@ th.actionsColumn {
   grid-column: 1 / -1;
 }
 
+.roundLayout {
+  display: grid;
+  gap: var(--mantine-spacing-lg);
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+}
+
 @media (max-width: 74em) {
   .beerRow {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -80,7 +86,8 @@ th.actionsColumn {
 
 @media (max-width: 48em) {
   .beerRow,
-  .actions {
+  .actions,
+  .roundLayout {
     grid-template-columns: 1fr;
   }
 }

@@ -19,7 +19,7 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
 
-  scores       Score[]
+  scores Score[]
 
   @@index([roles], map: "users_roles_idx")
   @@index([disabled], map: "users_disabled_idx")
@@ -27,14 +27,16 @@ model User {
 }
 
 model Competition {
-  id          Int      @id @default(autoincrement())
-  name        String
-  description String?
-  status      String   @default("draft")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+  id        Int      @id @default(autoincrement())
+  name      String
+  status    String   @default("ongoing")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
-  beers BeerEntry[]
+  beers       BeerEntry[]
+  rounds      CompetitionRound[]
+  roundBeers  RoundBeer[]
+  scores      Score[]
 
   @@index([status], map: "competitions_status_idx")
   @@map("competitions")
@@ -43,56 +45,97 @@ model Competition {
 model BeerEntry {
   id                  Int      @id @default(autoincrement())
   competitionId       Int      @map("competition_id")
+  entryCode           String   @map("entry_code")
   entryNumber         Int      @map("entry_number")
-  realName            String   @map("real_name")
-  producer            String
   bjcpCategoryCode    String   @map("bjcp_category_code")
   bjcpCategoryName    String   @map("bjcp_category_name")
   bjcpSubcategoryCode String   @map("bjcp_subcategory_code")
   bjcpSubcategoryName String   @map("bjcp_subcategory_name")
   description         String
-  status              String   @default("draft")
+  name                String
+  brewery             String
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @default(now()) @updatedAt @map("updated_at")
 
   competition Competition @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  roundBeers  RoundBeer[]
   scores      Score[]
 
+  @@unique([competitionId, entryCode], map: "beer_entries_competition_entry_code_key")
   @@unique([competitionId, entryNumber], map: "beer_entries_competition_entry_number_key")
-  @@index([competitionId, status], map: "beer_entries_competition_status_idx")
+  @@index([competitionId], map: "beer_entries_competition_idx")
   @@map("beer_entries")
 }
 
+model CompetitionRound {
+  id            Int      @id @default(autoincrement())
+  competitionId Int      @map("competition_id")
+  name          String
+  status        String   @default("ongoing")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  roundBeers  RoundBeer[]
+  scores      Score[]
+
+  @@index([competitionId, status], map: "competition_rounds_competition_status_idx")
+  @@map("competition_rounds")
+}
+
+model RoundBeer {
+  id            Int      @id @default(autoincrement())
+  competitionId Int      @map("competition_id")
+  roundId       Int      @map("round_id")
+  beerId        Int      @map("beer_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  competition Competition      @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  round       CompetitionRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  beer        BeerEntry        @relation(fields: [beerId], references: [id], onDelete: Restrict)
+
+  @@unique([roundId, beerId], map: "round_beers_round_beer_key")
+  @@index([competitionId, roundId], map: "round_beers_competition_round_idx")
+  @@map("round_beers")
+}
+
 model Score {
-  id                              Int      @id @default(autoincrement())
-  beerId                          Int      @map("beer_id")
-  judgeUserId                     Int      @map("judge_user_id")
-  judgeTypeSnapshot               String   @map("judge_type_snapshot")
-  judgeNicknameSnapshot           String   @map("judge_nickname_snapshot")
-  professionalAromaScore          Int?     @map("professional_aroma_score")
-  professionalAromaComment        String?  @map("professional_aroma_comment")
-  professionalAppearanceScore      Int?     @map("professional_appearance_score")
-  professionalAppearanceComment    String?  @map("professional_appearance_comment")
-  professionalFlavorScore          Int?     @map("professional_flavor_score")
-  professionalFlavorComment        String?  @map("professional_flavor_comment")
-  professionalMouthfeelScore      Int?     @map("professional_mouthfeel_score")
-  professionalMouthfeelComment    String?  @map("professional_mouthfeel_comment")
-  professionalOverallScore         Int?     @map("professional_overall_score")
-  professionalOverallComment       String?  @map("professional_overall_comment")
-  professionalTotalScore           Int?     @map("professional_total_score")
-  publicOverallPreferenceScore     Int?     @map("public_overall_preference_score")
-  publicAromaBodyFoamScore        Int?     @map("public_aroma_body_foam_score")
-  publicEntryAcceptanceScore       Int?     @map("public_entry_acceptance_score")
-  publicWillingToDrinkScore       Int?     @map("public_willing_to_drink_score")
-  publicComment                   String?  @map("public_comment")
-  submittedAt                     DateTime @map("submitted_at")
-  createdAt                       DateTime @default(now()) @map("created_at")
-  updatedAt                       DateTime @default(now()) @updatedAt @map("updated_at")
+  id                              Int       @id @default(autoincrement())
+  competitionId                   Int       @map("competition_id")
+  roundId                         Int       @map("round_id")
+  beerId                          Int       @map("beer_id")
+  judgeUserId                     Int       @map("judge_user_id")
+  judgeTypeSnapshot               String    @map("judge_type_snapshot")
+  judgeNicknameSnapshot           String    @map("judge_nickname_snapshot")
+  professionalAromaScore          Int?      @map("professional_aroma_score")
+  professionalAromaComment        String?   @map("professional_aroma_comment")
+  professionalAppearanceScore     Int?      @map("professional_appearance_score")
+  professionalAppearanceComment   String?   @map("professional_appearance_comment")
+  professionalFlavorScore         Int?      @map("professional_flavor_score")
+  professionalFlavorComment       String?   @map("professional_flavor_comment")
+  professionalMouthfeelScore      Int?      @map("professional_mouthfeel_score")
+  professionalMouthfeelComment    String?   @map("professional_mouthfeel_comment")
+  professionalOverallScore        Int?      @map("professional_overall_score")
+  professionalOverallComment      String?   @map("professional_overall_comment")
+  professionalTotalScore          Int?      @map("professional_total_score")
+  professionalGrade               String?   @map("professional_grade")
+  amateurDrinkabilityScore        Int?      @map("amateur_drinkability_score")
+  amateurBalanceScore             Int?      @map("amateur_balance_score")
+  amateurFlavorAcceptanceScore    Int?      @map("amateur_flavor_acceptance_score")
+  amateurRepeatIntentionScore     Int?      @map("amateur_repeat_intention_score")
+  amateurTotalScore               Int?      @map("amateur_total_score")
+  amateurComment                  String?   @map("amateur_comment")
+  submittedAt                     DateTime  @map("submitted_at")
+  deletedAt                       DateTime? @map("deleted_at")
+  createdAt                       DateTime  @default(now()) @map("created_at")
+  updatedAt                       DateTime  @default(now()) @updatedAt @map("updated_at")
 
-  beer      BeerEntry @relation(fields: [beerId], references: [id], onDelete: Restrict)
-  judgeUser User      @relation(fields: [judgeUserId], references: [id], onDelete: Restrict)
+  competition Competition      @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  round       CompetitionRound @relation(fields: [roundId], references: [id], onDelete: Restrict)
+  beer        BeerEntry        @relation(fields: [beerId], references: [id], onDelete: Restrict)
+  judgeUser   User             @relation(fields: [judgeUserId], references: [id], onDelete: Restrict)
 
-  @@unique([beerId, judgeUserId], map: "scores_beer_judge_user_key")
-  @@index([beerId, judgeTypeSnapshot], map: "scores_beer_judge_type_idx")
+  @@index([roundId, beerId, deletedAt], map: "scores_round_beer_deleted_idx")
+  @@index([roundId, judgeUserId, deletedAt], map: "scores_round_judge_deleted_idx")
   @@map("scores")
 }

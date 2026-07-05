@@ -1,0 +1,463 @@
+import { describe, expect, it } from "vitest";
+import {
+  addRoundBeerInputSchema,
+  amateurScoreInputSchema,
+  beerImportPath,
+  beerListPath,
+  beerResultSchema,
+  competitionListPath,
+  competitionListResultSchema,
+  competitionStatusPath,
+  createBeerInputSchema,
+  createCompetitionInputSchema,
+  createRoundInputSchema,
+  createUserInputSchema,
+  importBeersInputSchema,
+  importBeersResultSchema,
+  judgeBeerLookupInputSchema,
+  judgeBeerResultSchema,
+  judgeCompetitionListPath,
+  judgeRole,
+  judgeRoundBeerLookupPath,
+  judgeRoundBeerScorePath,
+  judgeRoundDetailPath,
+  judgeRoundListPath,
+  professionalScoreInputSchema,
+  removeRoundBeerInputSchema,
+  roundBeerPath,
+  roundBeerResultSchema,
+  roundListPath,
+  roundResultSchema,
+  roundStatusPath,
+  submitMyScoreResultSchema,
+  updateCompetitionStatusInputSchema,
+} from "@bjcp-arena/contracts";
+import { createTestApp } from "../helpers/create-test-app.js";
+
+type TestApp = ReturnType<typeof createTestApp>["app"];
+
+async function bootstrapToken(app: TestApp) {
+  const response = await app.inject({
+    method: "POST",
+    url: "/api/auth/bootstrap-super-admin",
+    payload: { password: "secret123" },
+  });
+
+  expect(response.statusCode).toBe(200);
+  return response.json().token as string;
+}
+
+async function createCompetition(app: TestApp, token: string, name = "夏季赛") {
+  const response = await app.inject({
+    method: "POST",
+    url: competitionListPath,
+    headers: { authorization: `Bearer ${token}` },
+    payload: createCompetitionInputSchema.parse({ name }),
+  });
+
+  expect(response.statusCode).toBe(200);
+  return response.json().competition as { id: number };
+}
+
+async function createBeer(app: TestApp, token: string, competitionId: number, entryCode: string) {
+  const response = await app.inject({
+    method: "POST",
+    url: beerListPath(competitionId),
+    headers: { authorization: `Bearer ${token}` },
+    payload: createBeerInputSchema.parse({
+      entryCode,
+      bjcpSubcategoryCode: "21A",
+      description: `介绍 ${entryCode}`,
+      name: `真实酒名 ${entryCode}`,
+      brewery: `酒厂 ${entryCode}`,
+    }),
+  });
+
+  expect(response.statusCode).toBe(200);
+  return beerResultSchema.parse(response.json()).beer;
+}
+
+async function createRound(app: TestApp, token: string, competitionId: number, name = "第一轮") {
+  const response = await app.inject({
+    method: "POST",
+    url: roundListPath(competitionId),
+    headers: { authorization: `Bearer ${token}` },
+    payload: createRoundInputSchema.parse({ name }),
+  });
+
+  expect(response.statusCode).toBe(200);
+  return roundResultSchema.parse(response.json()).round;
+}
+
+async function addRoundBeer(
+  app: TestApp,
+  token: string,
+  competitionId: number,
+  roundId: number,
+  beerId: number
+) {
+  const response = await app.inject({
+    method: "POST",
+    url: roundBeerPath(competitionId, roundId),
+    headers: { authorization: `Bearer ${token}` },
+    payload: addRoundBeerInputSchema.parse({ beerId }),
+  });
+
+  expect(response.statusCode).toBe(200);
+  return roundBeerResultSchema.parse(response.json()).beer;
+}
+
+async function createJudge(
+  app: TestApp,
+  token: string,
+  username: string,
+  judgeType: "professional" | "public"
+) {
+  const response = await app.inject({
+    method: "POST",
+    url: "/api/users",
+    headers: { authorization: `Bearer ${token}` },
+    payload: createUserInputSchema.parse({
+      username,
+      nickname: `${username} 昵称`,
+      password: "secret123",
+      roles: judgeRole,
+      judgeType,
+    }),
+  });
+
+  expect(response.statusCode).toBe(200);
+}
+
+async function login(app: TestApp, username: string) {
+  const response = await app.inject({
+    method: "POST",
+    url: "/api/auth/login",
+    payload: { username, password: "secret123" },
+  });
+
+  expect(response.statusCode).toBe(200);
+  return response.json().token as string;
+}
+
+const professionalScore = professionalScoreInputSchema.parse({
+  professionalAromaScore: 10,
+  professionalAromaComment: "香气干净，酒花明确",
+  professionalAppearanceScore: 3,
+  professionalAppearanceComment: "颜色清澈，泡沫稳定",
+  professionalFlavorScore: 18,
+  professionalFlavorComment: "入口平衡，收口干净",
+  professionalMouthfeelScore: 4,
+  professionalMouthfeelComment: "酒体中等，杀口适中",
+  professionalOverallScore: 8,
+  professionalOverallComment: "整体完成度高",
+});
+
+const amateurScore = amateurScoreInputSchema.parse({
+  amateurDrinkabilityScore: 4,
+  amateurBalanceScore: 5,
+  amateurFlavorAcceptanceScore: 4,
+  amateurRepeatIntentionScore: 5,
+  amateurComment: "轻松顺口，愿意复饮",
+});
+
+describe("competition loop routes", () => {
+  it("lists competitions with pagination query parameters", async () => {
+    const { app } = createTestApp();
+    const token = await bootstrapToken(app);
+    await createCompetition(app, token, "第一场");
+    await createCompetition(app, token, "第二场");
+
+    const response = await app.inject({
+      method: "GET",
+      url: `${competitionListPath}?page=1&limit=1`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const result = competitionListResultSchema.parse(response.json());
+    expect(result).toMatchObject({
+      total: 2,
+      page: 1,
+      limit: 1,
+    });
+    expect(result.competitions).toHaveLength(1);
+    await app.close();
+  });
+
+  it("upserts beers by entry code and keeps entry number stable", async () => {
+    const { app } = createTestApp();
+    const token = await bootstrapToken(app);
+    const competition = await createCompetition(app, token);
+
+    const first = await createBeer(app, token, competition.id, "sa1234");
+    const secondResponse = await app.inject({
+      method: "POST",
+      url: beerListPath(competition.id),
+      headers: { authorization: `Bearer ${token}` },
+      payload: createBeerInputSchema.parse({
+        entryCode: "SA1234",
+        bjcpSubcategoryCode: "21B",
+        description: "更新介绍",
+        name: "更新酒名",
+        brewery: "更新酒厂",
+      }),
+    });
+
+    expect(secondResponse.statusCode).toBe(200);
+    const second = beerResultSchema.parse(secondResponse.json()).beer;
+    expect(second).toMatchObject({
+      id: first.id,
+      entryCode: "SA1234",
+      entryNumber: 1,
+      bjcpSubcategoryCode: "21B",
+      description: "更新介绍",
+      name: "更新酒名",
+      brewery: "更新酒厂",
+    });
+    await app.close();
+  });
+
+  it("imports beers atomically and reports invalid row numbers", async () => {
+    const { app } = createTestApp();
+    const token = await bootstrapToken(app);
+    const competition = await createCompetition(app, token);
+
+    const invalid = await app.inject({
+      method: "POST",
+      url: beerImportPath(competition.id),
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        beers: [
+          {
+            rowNumber: 2,
+            entryCode: "SA1001",
+            bjcpSubcategoryCode: "21A",
+            description: "有效",
+            name: "有效酒",
+            brewery: "有效酒厂",
+          },
+          {
+            rowNumber: 3,
+            entryCode: "BAD",
+            bjcpSubcategoryCode: "21A",
+            description: "无效",
+            name: "无效酒",
+            brewery: "无效酒厂",
+          },
+        ],
+      },
+    });
+
+    expect(invalid.statusCode).toBe(400);
+    expect(invalid.json()).toMatchObject({
+      message: expect.stringContaining("第 3 行"),
+    });
+
+    const valid = await app.inject({
+      method: "POST",
+      url: beerImportPath(competition.id),
+      headers: { authorization: `Bearer ${token}` },
+      payload: importBeersInputSchema.parse({
+        beers: [
+          {
+            rowNumber: 2,
+            entryCode: "SA1001",
+            bjcpSubcategoryCode: "21A",
+            description: "有效",
+            name: "有效酒",
+            brewery: "有效酒厂",
+          },
+        ],
+      }),
+    });
+
+    expect(valid.statusCode).toBe(200);
+    expect(importBeersResultSchema.parse(valid.json())).toMatchObject({
+      created: 1,
+      updated: 0,
+      beers: [{ entryCode: "SA1001", entryNumber: 1 }],
+    });
+    await app.close();
+  });
+
+  it("blocks ending a competition while any round is ongoing and allows confirmed reopen", async () => {
+    const { app } = createTestApp();
+    const token = await bootstrapToken(app);
+    const competition = await createCompetition(app, token);
+    const round = await createRound(app, token, competition.id);
+
+    const blocked = await app.inject({
+      method: "PATCH",
+      url: competitionStatusPath(competition.id),
+      headers: { authorization: `Bearer ${token}` },
+      payload: updateCompetitionStatusInputSchema.parse({ status: "ended" }),
+    });
+    expect(blocked.statusCode).toBe(409);
+
+    const endRound = await app.inject({
+      method: "PATCH",
+      url: roundStatusPath(competition.id, round.id),
+      headers: { authorization: `Bearer ${token}` },
+      payload: { status: "ended" },
+    });
+    expect(endRound.statusCode).toBe(200);
+
+    const ended = await app.inject({
+      method: "PATCH",
+      url: competitionStatusPath(competition.id),
+      headers: { authorization: `Bearer ${token}` },
+      payload: { status: "ended" },
+    });
+    expect(ended.statusCode).toBe(200);
+
+    const reopenWithoutConfirm = await app.inject({
+      method: "PATCH",
+      url: competitionStatusPath(competition.id),
+      headers: { authorization: `Bearer ${token}` },
+      payload: { status: "ongoing" },
+    });
+    expect(reopenWithoutConfirm.statusCode).toBe(409);
+
+    const reopened = await app.inject({
+      method: "PATCH",
+      url: competitionStatusPath(competition.id),
+      headers: { authorization: `Bearer ${token}` },
+      payload: { status: "ongoing", confirm: true },
+    });
+    expect(reopened.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it("soft-deletes scores when removing a scored beer from a round", async () => {
+    const { app } = createTestApp();
+    const adminToken = await bootstrapToken(app);
+    const competition = await createCompetition(app, adminToken);
+    const beer = await createBeer(app, adminToken, competition.id, "SA2001");
+    const round = await createRound(app, adminToken, competition.id);
+    await addRoundBeer(app, adminToken, competition.id, round.id, beer.id);
+    await createJudge(app, adminToken, "projudge", "professional");
+    const judgeToken = await login(app, "projudge");
+
+    const submit = await app.inject({
+      method: "PUT",
+      url: judgeRoundBeerScorePath(competition.id, round.id, beer.id),
+      headers: { authorization: `Bearer ${judgeToken}` },
+      payload: { judgeType: "professional", ...professionalScore },
+    });
+    expect(submit.statusCode).toBe(200);
+
+    const removeWithoutConfirm = await app.inject({
+      method: "DELETE",
+      url: `${roundBeerPath(competition.id, round.id)}/${beer.id}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: removeRoundBeerInputSchema.parse({}),
+    });
+    expect(removeWithoutConfirm.statusCode).toBe(409);
+    expect(removeWithoutConfirm.json()).toMatchObject({ scoreCount: 1 });
+
+    const removed = await app.inject({
+      method: "DELETE",
+      url: `${roundBeerPath(competition.id, round.id)}/${beer.id}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { confirm: true },
+    });
+    expect(removed.statusCode).toBe(200);
+
+    await addRoundBeer(app, adminToken, competition.id, round.id, beer.id);
+    const detail = await app.inject({
+      method: "GET",
+      url: judgeRoundDetailPath(competition.id, round.id),
+      headers: { authorization: `Bearer ${judgeToken}` },
+    });
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json().beers).toEqual([]);
+    await app.close();
+  });
+
+  it("lets judges list competitions, find round beers by entry code and submit scores without private beer fields", async () => {
+    const { app } = createTestApp();
+    const adminToken = await bootstrapToken(app);
+    const competition = await createCompetition(app, adminToken);
+    const beer = await createBeer(app, adminToken, competition.id, "SA3001");
+    const round = await createRound(app, adminToken, competition.id);
+    await addRoundBeer(app, adminToken, competition.id, round.id, beer.id);
+    await createJudge(app, adminToken, "publicjudge", "public");
+    const judgeToken = await login(app, "publicjudge");
+
+    const competitions = await app.inject({
+      method: "GET",
+      url: judgeCompetitionListPath,
+      headers: { authorization: `Bearer ${judgeToken}` },
+    });
+    expect(competitions.statusCode).toBe(200);
+    expect(competitions.json().competitions[0]).toMatchObject({ id: competition.id });
+
+    const rounds = await app.inject({
+      method: "GET",
+      url: judgeRoundListPath(competition.id),
+      headers: { authorization: `Bearer ${judgeToken}` },
+    });
+    expect(rounds.statusCode).toBe(200);
+    expect(rounds.json().rounds[0]).toMatchObject({ id: round.id });
+
+    const lookup = await app.inject({
+      method: "POST",
+      url: judgeRoundBeerLookupPath(competition.id, round.id),
+      headers: { authorization: `Bearer ${judgeToken}` },
+      payload: judgeBeerLookupInputSchema.parse({ entryCode: "sa3001" }),
+    });
+    expect(lookup.statusCode).toBe(200);
+    const judgeBeer = judgeBeerResultSchema.parse(lookup.json()).beer;
+    expect(judgeBeer).toMatchObject({
+      id: beer.id,
+      entryCode: "SA3001",
+      canScore: true,
+    });
+    expect("name" in judgeBeer).toBe(false);
+    expect("brewery" in judgeBeer).toBe(false);
+
+    const submit = await app.inject({
+      method: "PUT",
+      url: judgeRoundBeerScorePath(competition.id, round.id, beer.id),
+      headers: { authorization: `Bearer ${judgeToken}` },
+      payload: { judgeType: "public", ...amateurScore },
+    });
+    expect(submit.statusCode).toBe(200);
+    expect(submitMyScoreResultSchema.parse(submit.json()).score).toMatchObject({
+      roundId: round.id,
+      beerId: beer.id,
+      judgeTypeSnapshot: "public",
+      amateurTotalScore: 18,
+    });
+    await app.close();
+  });
+
+  it("makes ended rounds read-only for judges", async () => {
+    const { app } = createTestApp();
+    const adminToken = await bootstrapToken(app);
+    const competition = await createCompetition(app, adminToken);
+    const beer = await createBeer(app, adminToken, competition.id, "SA4001");
+    const round = await createRound(app, adminToken, competition.id);
+    await addRoundBeer(app, adminToken, competition.id, round.id, beer.id);
+    await createJudge(app, adminToken, "readonlyjudge", "public");
+    const judgeToken = await login(app, "readonlyjudge");
+
+    const ended = await app.inject({
+      method: "PATCH",
+      url: roundStatusPath(competition.id, round.id),
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { status: "ended" },
+    });
+    expect(ended.statusCode).toBe(200);
+
+    const submit = await app.inject({
+      method: "PUT",
+      url: judgeRoundBeerScorePath(competition.id, round.id, beer.id),
+      headers: { authorization: `Bearer ${judgeToken}` },
+      payload: { judgeType: "public", ...amateurScore },
+    });
+    expect(submit.statusCode).toBe(409);
+    await app.close();
+  });
+});

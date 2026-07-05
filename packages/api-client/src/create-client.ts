@@ -1,17 +1,16 @@
 import {
+  addRoundBeerInputSchema,
   authBootstrapStatusPath,
   authBootstrapSuperAdminPath,
   authLoginPath,
   authLogoutPath,
   authMePath,
   authSessionSchema,
+  beerImportPath,
   beerListPath,
   beerListResultSchema,
   beerByIdPath,
-  beerQrCodeListResultSchema,
-  beerQrCodesPath,
   beerResultSchema,
-  beerStatusPath,
   bootstrapStatusResultSchema,
   bootstrapSuperAdminInputSchema,
   competitionListPath,
@@ -22,22 +21,43 @@ import {
   competitionStatusPath,
   createBeerInputSchema,
   createCompetitionInputSchema,
+  createRoundInputSchema,
   createUserInputSchema,
-  judgeBeerDetailPath,
+  importBeersInputSchema,
+  importBeersResultSchema,
+  judgeBeerLookupInputSchema,
   judgeBeerResultSchema,
-  judgeMyScorePath,
+  judgeCompetitionListPath,
+  judgeCompetitionListResultSchema,
+  judgeRoundBeerLookupPath,
+  judgeRoundBeerDetailPath,
+  judgeRoundBeerScorePath,
+  judgeRoundDetailPath,
+  judgeRoundDetailResultSchema,
+  judgeRoundListPath,
+  judgeRoundListResultSchema,
   logoutResultSchema,
   loginInputSchema,
   myScoreResultSchema,
   pingPath,
   pingResultSchema,
+  removeRoundBeerInputSchema,
   resetUserPasswordInputSchema,
+  roundBeerListResultSchema,
+  roundBeerPath,
+  roundBeerResultSchema,
+  roundByIdPath,
+  roundListPath,
+  roundListResultSchema,
+  roundResultSchema,
+  roundStatusPath,
   scoreInputSchema,
   submitMyScoreResultSchema,
   updateBeerInputSchema,
-  updateBeerStatusInputSchema,
   updateCompetitionInputSchema,
   updateCompetitionStatusInputSchema,
+  updateEntityStatusInputSchema,
+  updateRoundInputSchema,
   updateUserInputSchema,
   userByIdPath,
   userListQuerySchema,
@@ -45,30 +65,43 @@ import {
   userResetPasswordPath,
   userResultSchema,
   usersPath,
+  type AddRoundBeerInput,
   type AuthSession,
   type BeerListResult,
-  type BeerQrCodeListResult,
   type BeerResult,
   type BootstrapStatusResult,
   type BootstrapSuperAdminInput,
-  type CompetitionListResult,
   type CompetitionListQuery,
+  type CompetitionListResult,
   type CompetitionResult,
   type CreateBeerInput,
   type CreateCompetitionInput,
+  type CreateRoundInput,
   type CreateUserInput,
+  type ImportBeersInput,
+  type ImportBeersResult,
+  type JudgeBeerLookupInput,
   type JudgeBeerResult,
+  type JudgeCompetitionListResult,
+  type JudgeRoundDetailResult,
+  type JudgeRoundListResult,
   type LoginInput,
   type LogoutResult,
   type MyScoreResult,
   type PingResult,
+  type RemoveRoundBeerInput,
   type ResetUserPasswordInput,
+  type RoundBeerListResult,
+  type RoundBeerResult,
+  type RoundListResult,
+  type RoundResult,
   type ScoreInput,
   type SubmitMyScoreResult,
   type UpdateBeerInput,
-  type UpdateBeerStatusInput,
   type UpdateCompetitionInput,
   type UpdateCompetitionStatusInput,
+  type UpdateEntityStatusInput,
+  type UpdateRoundInput,
   type UpdateUserInput,
   type UserListQuery,
   type UserListResult,
@@ -83,7 +116,7 @@ export interface CreateApiClientOptions {
   getToken?: () => string | null | undefined;
 }
 
-type Method = "GET" | "POST" | "PATCH" | "PUT";
+type Method = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
 interface RequestJsonOptions {
   body?: unknown;
@@ -94,13 +127,15 @@ export class ApiClientHttpError extends Error {
   readonly method: Method;
   readonly path: string;
   readonly status: number;
+  readonly details: unknown;
 
-  constructor(method: Method, path: string, status: number) {
-    super(`${method} ${path} failed with status ${status}`);
+  constructor(method: Method, path: string, status: number, message?: string, details?: unknown) {
+    super(message ?? `${method} ${path} failed with status ${status}`);
     this.name = "ApiClientHttpError";
     this.method = method;
     this.path = path;
     this.status = status;
+    this.details = details;
   }
 }
 
@@ -120,16 +155,21 @@ function buildHeaders(options: RequestJsonOptions) {
   const headers: Record<string, string> = {
     Accept: "application/json",
   };
-
   if (options.body !== undefined) {
     headers["Content-Type"] = "application/json";
   }
-
   if (options.token) {
     headers.Authorization = `Bearer ${options.token}`;
   }
-
   return headers;
+}
+
+async function readJsonSafely(response: Response) {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    return null;
+  }
+  return response.json().catch(() => null);
 }
 
 async function requestJson<TResponse>(
@@ -148,10 +188,25 @@ async function requestJson<TResponse>(
   });
 
   if (!response.ok) {
-    throw new ApiClientHttpError(method, path, response.status);
+    const body = await readJsonSafely(response);
+    const message =
+      body && typeof body === "object" && "message" in body && typeof body.message === "string"
+        ? body.message
+        : undefined;
+    throw new ApiClientHttpError(method, path, response.status, message, body);
   }
 
   return parse(await response.json());
+}
+
+function requestOk(
+  fetcher: FetchLike,
+  baseUrl: string,
+  method: Method,
+  path: string,
+  options: RequestJsonOptions = {}
+) {
+  return requestJson(fetcher, baseUrl, method, path, (data) => data as { ok: true }, options);
 }
 
 export function createApiClient(options: CreateApiClientOptions) {
@@ -344,22 +399,7 @@ export function createApiClient(options: CreateApiClientOptions) {
       );
     },
 
-    getBeer(competitionId: number, beerId: number): Promise<BeerResult> {
-      return requestJson(
-        fetcher,
-        options.baseUrl,
-        "GET",
-        beerByIdPath(competitionId, beerId),
-        (data) => beerResultSchema.parse(data),
-        { token: getToken() }
-      );
-    },
-
-    updateBeer(
-      competitionId: number,
-      beerId: number,
-      input: UpdateBeerInput
-    ): Promise<BeerResult> {
+    updateBeer(competitionId: number, beerId: number, input: UpdateBeerInput): Promise<BeerResult> {
       return requestJson(
         fetcher,
         options.baseUrl,
@@ -370,49 +410,175 @@ export function createApiClient(options: CreateApiClientOptions) {
       );
     },
 
-    updateBeerStatus(
-      competitionId: number,
-      beerId: number,
-      input: UpdateBeerStatusInput
-    ): Promise<BeerResult> {
+    importBeers(competitionId: number, input: ImportBeersInput): Promise<ImportBeersResult> {
       return requestJson(
         fetcher,
         options.baseUrl,
-        "PATCH",
-        beerStatusPath(competitionId, beerId),
-        (data) => beerResultSchema.parse(data),
-        { body: updateBeerStatusInputSchema.parse(input), token: getToken() }
+        "POST",
+        beerImportPath(competitionId),
+        (data) => importBeersResultSchema.parse(data),
+        { body: importBeersInputSchema.parse(input), token: getToken() }
       );
     },
 
-    listBeerQrCodes(competitionId: number): Promise<BeerQrCodeListResult> {
+    listRounds(competitionId: number): Promise<RoundListResult> {
       return requestJson(
         fetcher,
         options.baseUrl,
         "GET",
-        beerQrCodesPath(competitionId),
-        (data) => beerQrCodeListResultSchema.parse(data),
+        roundListPath(competitionId),
+        (data) => roundListResultSchema.parse(data),
         { token: getToken() }
       );
     },
 
-    getJudgeBeer(competitionId: number, beerId: number): Promise<JudgeBeerResult> {
+    createRound(competitionId: number, input: CreateRoundInput): Promise<RoundResult> {
+      return requestJson(
+        fetcher,
+        options.baseUrl,
+        "POST",
+        roundListPath(competitionId),
+        (data) => roundResultSchema.parse(data),
+        { body: createRoundInputSchema.parse(input), token: getToken() }
+      );
+    },
+
+    updateRound(
+      competitionId: number,
+      roundId: number,
+      input: UpdateRoundInput
+    ): Promise<RoundResult> {
+      return requestJson(
+        fetcher,
+        options.baseUrl,
+        "PATCH",
+        roundByIdPath(competitionId, roundId),
+        (data) => roundResultSchema.parse(data),
+        { body: updateRoundInputSchema.parse(input), token: getToken() }
+      );
+    },
+
+    updateRoundStatus(
+      competitionId: number,
+      roundId: number,
+      input: UpdateEntityStatusInput
+    ): Promise<RoundResult> {
+      return requestJson(
+        fetcher,
+        options.baseUrl,
+        "PATCH",
+        roundStatusPath(competitionId, roundId),
+        (data) => roundResultSchema.parse(data),
+        { body: updateEntityStatusInputSchema.parse(input), token: getToken() }
+      );
+    },
+
+    listRoundBeers(competitionId: number, roundId: number): Promise<RoundBeerListResult> {
       return requestJson(
         fetcher,
         options.baseUrl,
         "GET",
-        judgeBeerDetailPath(competitionId, beerId),
+        roundBeerPath(competitionId, roundId),
+        (data) => roundBeerListResultSchema.parse(data),
+        { token: getToken() }
+      );
+    },
+
+    addRoundBeer(
+      competitionId: number,
+      roundId: number,
+      input: AddRoundBeerInput
+    ): Promise<RoundBeerResult> {
+      return requestJson(
+        fetcher,
+        options.baseUrl,
+        "POST",
+        roundBeerPath(competitionId, roundId),
+        (data) => roundBeerResultSchema.parse(data),
+        { body: addRoundBeerInputSchema.parse(input), token: getToken() }
+      );
+    },
+
+    removeRoundBeer(
+      competitionId: number,
+      roundId: number,
+      beerId: number,
+      input: RemoveRoundBeerInput = {}
+    ) {
+      return requestOk(
+        fetcher,
+        options.baseUrl,
+        "DELETE",
+        `${roundBeerPath(competitionId, roundId)}/${beerId}`,
+        { body: removeRoundBeerInputSchema.parse(input), token: getToken() }
+      );
+    },
+
+    listJudgeCompetitions(): Promise<JudgeCompetitionListResult> {
+      return requestJson(
+        fetcher,
+        options.baseUrl,
+        "GET",
+        judgeCompetitionListPath,
+        (data) => judgeCompetitionListResultSchema.parse(data),
+        { token: getToken() }
+      );
+    },
+
+    listJudgeRounds(competitionId: number): Promise<JudgeRoundListResult> {
+      return requestJson(
+        fetcher,
+        options.baseUrl,
+        "GET",
+        judgeRoundListPath(competitionId),
+        (data) => judgeRoundListResultSchema.parse(data),
+        { token: getToken() }
+      );
+    },
+
+    getJudgeRound(competitionId: number, roundId: number): Promise<JudgeRoundDetailResult> {
+      return requestJson(
+        fetcher,
+        options.baseUrl,
+        "GET",
+        judgeRoundDetailPath(competitionId, roundId),
+        (data) => judgeRoundDetailResultSchema.parse(data),
+        { token: getToken() }
+      );
+    },
+
+    lookupJudgeBeer(
+      competitionId: number,
+      roundId: number,
+      input: JudgeBeerLookupInput
+    ): Promise<JudgeBeerResult> {
+      return requestJson(
+        fetcher,
+        options.baseUrl,
+        "POST",
+        judgeRoundBeerLookupPath(competitionId, roundId),
+        (data) => judgeBeerResultSchema.parse(data),
+        { body: judgeBeerLookupInputSchema.parse(input), token: getToken() }
+      );
+    },
+
+    getJudgeBeer(competitionId: number, roundId: number, beerId: number): Promise<JudgeBeerResult> {
+      return requestJson(
+        fetcher,
+        options.baseUrl,
+        "GET",
+        judgeRoundBeerDetailPath(competitionId, roundId, beerId),
         (data) => judgeBeerResultSchema.parse(data),
         { token: getToken() }
       );
     },
 
-    getMyScore(competitionId: number, beerId: number): Promise<MyScoreResult> {
+    getMyScore(competitionId: number, roundId: number, beerId: number): Promise<MyScoreResult> {
       return requestJson(
         fetcher,
         options.baseUrl,
         "GET",
-        judgeMyScorePath(competitionId, beerId),
+        judgeRoundBeerScorePath(competitionId, roundId, beerId),
         (data) => myScoreResultSchema.parse(data),
         { token: getToken() }
       );
@@ -420,6 +586,7 @@ export function createApiClient(options: CreateApiClientOptions) {
 
     submitMyScore(
       competitionId: number,
+      roundId: number,
       beerId: number,
       input: ScoreInput
     ): Promise<SubmitMyScoreResult> {
@@ -427,11 +594,10 @@ export function createApiClient(options: CreateApiClientOptions) {
         fetcher,
         options.baseUrl,
         "PUT",
-        judgeMyScorePath(competitionId, beerId),
+        judgeRoundBeerScorePath(competitionId, roundId, beerId),
         (data) => submitMyScoreResultSchema.parse(data),
         { body: scoreInputSchema.parse(input), token: getToken() }
       );
     },
-
   };
 }
