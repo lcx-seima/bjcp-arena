@@ -11,7 +11,7 @@ import {
 } from "@mantine/core";
 import { ArrowLeft, LogOut, Send } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { JudgeBeerResult, MyScoreResult, UserPublic } from "@bjcp-arena/contracts";
+import type { JudgeBeerResult, JudgeType, MyScoreResult, UserPublic } from "@bjcp-arena/contracts";
 import { professionalScoreGrade } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
 import { InlineError } from "../../components/ui/InlineError.js";
@@ -68,6 +68,12 @@ function toNumber(value: string | number) {
   return typeof value === "number" ? value : Number(value || 0);
 }
 
+function judgeTypeFormLabel(judgeType: JudgeType | null) {
+  if (judgeType === "professional") return "专业裁判表单";
+  if (judgeType === "public") return "爱好者裁判表单";
+  return "未设置裁判类型";
+}
+
 export function ScorePage({
   beerId,
   competitionId,
@@ -111,6 +117,7 @@ export function ScorePage({
       amateurValues.repeatIntention,
     [amateurValues]
   );
+  const effectiveJudgeType = score?.judgeTypeSnapshot ?? user.judgeType;
 
   const refresh = useCallback(async () => {
     const [beerResult, scoreResult] = await Promise.all([
@@ -172,7 +179,7 @@ export function ScorePage({
   }, [amateurValues, draftKey, professionalValues, score, status]);
 
   async function handleSubmit() {
-    if (!user.judgeType || !beer) {
+    if (!effectiveJudgeType || !beer) {
       setError("当前账号未预设裁判类型，无法提交评分。");
       return;
     }
@@ -181,7 +188,7 @@ export function ScorePage({
     setIsSubmitting(true);
     try {
       const payload =
-        user.judgeType === "professional"
+        effectiveJudgeType === "professional"
           ? {
               judgeType: "professional" as const,
               professionalAromaScore: professionalValues.aroma,
@@ -241,9 +248,7 @@ export function ScorePage({
         {beer ? (
           <Stack gap="sm">
             <Group gap="xs">
-              <Badge variant="light">
-                {user.judgeType === "professional" ? "专业裁判表单" : "爱好者裁判表单"}
-              </Badge>
+              <Badge variant="light">{judgeTypeFormLabel(effectiveJudgeType)}</Badge>
               <Badge color={beer.canScore ? "green" : "gray"} variant="light">
                 {beer.canScore ? "可评分" : "只读"}
               </Badge>
@@ -282,14 +287,14 @@ export function ScorePage({
         {notice ? <Text c="green.8">{notice}</Text> : null}
         {error ? <InlineError>{error}</InlineError> : null}
 
-        {user.judgeType === "professional" ? (
+        {effectiveJudgeType === "professional" ? (
           <ProfessionalForm
             disabled={!beer?.canScore || status === "loading"}
             total={professionalTotal}
             values={professionalValues}
             onChange={setProfessionalValues}
           />
-        ) : user.judgeType === "public" ? (
+        ) : effectiveJudgeType === "public" ? (
           <AmateurForm
             disabled={!beer?.canScore || status === "loading"}
             total={amateurTotal}
@@ -301,7 +306,7 @@ export function ScorePage({
         )}
 
         <Button
-          disabled={!beer?.canScore || !user.judgeType}
+          disabled={!beer?.canScore || !effectiveJudgeType}
           leftSection={<Send size={16} />}
           loading={isSubmitting}
           onClick={handleSubmit}

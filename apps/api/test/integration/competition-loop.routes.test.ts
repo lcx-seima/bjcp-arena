@@ -31,6 +31,8 @@ import {
   roundStatusPath,
   submitMyScoreResultSchema,
   updateCompetitionStatusInputSchema,
+  userByIdPath,
+  userResultSchema,
 } from "@bjcp-arena/contracts";
 import { createTestApp } from "../helpers/create-test-app.js";
 
@@ -127,6 +129,7 @@ async function createJudge(
   });
 
   expect(response.statusCode).toBe(200);
+  return userResultSchema.parse(response.json()).user;
 }
 
 async function login(app: TestApp, username: string) {
@@ -430,6 +433,115 @@ describe("competition loop routes", () => {
       judgeTypeSnapshot: "public",
       amateurTotalScore: 18,
     });
+    await app.close();
+  });
+
+  it("keeps existing score judge type when the judge account type changes", async () => {
+    const { app } = createTestApp();
+    const adminToken = await bootstrapToken(app);
+    const competition = await createCompetition(app, adminToken);
+    const beer = await createBeer(app, adminToken, competition.id, "SA3101");
+    const round = await createRound(app, adminToken, competition.id);
+    await addRoundBeer(app, adminToken, competition.id, round.id, beer.id);
+    const judge = await createJudge(app, adminToken, "changedjudge", "public");
+    const publicJudgeToken = await login(app, "changedjudge");
+
+    const firstSubmit = await app.inject({
+      method: "PUT",
+      url: judgeRoundBeerScorePath(competition.id, round.id, beer.id),
+      headers: { authorization: `Bearer ${publicJudgeToken}` },
+      payload: { judgeType: "public", ...amateurScore },
+    });
+    expect(firstSubmit.statusCode).toBe(200);
+
+    const typeChanged = await app.inject({
+      method: "PATCH",
+      url: userByIdPath(judge.id),
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { judgeType: "professional" },
+    });
+    expect(typeChanged.statusCode).toBe(200);
+    const professionalJudgeToken = await login(app, "changedjudge");
+
+    const updatedSubmit = await app.inject({
+      method: "PUT",
+      url: judgeRoundBeerScorePath(competition.id, round.id, beer.id),
+      headers: { authorization: `Bearer ${professionalJudgeToken}` },
+      payload: {
+        judgeType: "public",
+        ...amateurScore,
+        amateurDrinkabilityScore: 5,
+        amateurComment: "身份变更后仍按原大众评分表更新",
+      },
+    });
+
+    expect(updatedSubmit.statusCode).toBe(200);
+    expect(submitMyScoreResultSchema.parse(updatedSubmit.json()).score).toMatchObject({
+      judgeTypeSnapshot: "public",
+      amateurDrinkabilityScore: 5,
+      amateurTotalScore: 19,
+      amateurComment: "身份变更后仍按原大众评分表更新",
+      professionalTotalScore: null,
+    });
+    await app.close();
+  });
+
+  it("rejects changing an existing score to a different judge type", async () => {
+    const { app } = createTestApp();
+    const adminToken = await bootstrapToken(app);
+    const competition = await createCompetition(app, adminToken);
+    const beer = await createBeer(app, adminToken, competition.id, "SA3102");
+    const round = await createRound(app, adminToken, competition.id);
+    await addRoundBeer(app, adminToken, competition.id, round.id, beer.id);
+    const judge = await createJudge(app, adminToken, "switchjudge", "public");
+    const publicJudgeToken = await login(app, "switchjudge");
+
+    const firstSubmit = await app.inject({
+      method: "PUT",
+      url: judgeRoundBeerScorePath(competition.id, round.id, beer.id),
+      headers: { authorization: `Bearer ${publicJudgeToken}` },
+      payload: { judgeType: "public", ...amateurScore },
+    });
+    expect(firstSubmit.statusCode).toBe(200);
+
+    const typeChanged = await app.inject({
+      method: "PATCH",
+      url: userByIdPath(judge.id),
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { judgeType: "professional" },
+    });
+    expect(typeChanged.statusCode).toBe(200);
+    const professionalJudgeToken = await login(app, "switchjudge");
+
+    const switchedSubmit = await app.inject({
+      method: "PUT",
+      url: judgeRoundBeerScorePath(competition.id, round.id, beer.id),
+      headers: { authorization: `Bearer ${professionalJudgeToken}` },
+      payload: { judgeType: "professional", ...professionalScore },
+    });
+
+    expect(switchedSubmit.statusCode).toBe(409);
+    await app.close();
+  });
+
+  it("still rejects creating a new score with a different judge type", async () => {
+    const { app } = createTestApp();
+    const adminToken = await bootstrapToken(app);
+    const competition = await createCompetition(app, adminToken);
+    const beer = await createBeer(app, adminToken, competition.id, "SA3103");
+    const round = await createRound(app, adminToken, competition.id);
+    await addRoundBeer(app, adminToken, competition.id, round.id, beer.id);
+    await createJudge(app, adminToken, "freshprofessional", "professional");
+    const judgeToken = await login(app, "freshprofessional");
+
+    const submit = await app.inject({
+      method: "PUT",
+      url: judgeRoundBeerScorePath(competition.id, round.id, beer.id),
+      headers: { authorization: `Bearer ${judgeToken}` },
+      payload: { judgeType: "public", ...amateurScore },
+    });
+
+    expect(submit.statusCode).toBe(409);
     await app.close();
   });
 

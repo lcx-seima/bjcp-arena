@@ -238,7 +238,7 @@ function beerSnapshot(
 function scoreFields(input: ScoreInput, currentUser: AuthUserSnapshot) {
   const submittedAt = now();
   const base = {
-    judgeTypeSnapshot: currentUser.judgeType ?? input.judgeType,
+    judgeTypeSnapshot: input.judgeType,
     judgeNicknameSnapshot: currentUser.nickname,
     submittedAt,
     deletedAt: null,

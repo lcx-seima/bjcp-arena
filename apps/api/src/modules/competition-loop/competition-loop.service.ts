@@ -547,18 +547,23 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
       currentUser: AuthUserSnapshot,
       score: ScoreInput
     ) {
-      if (!currentUser.judgeType) {
-        throw new CompetitionLoopError("当前账号未设置裁判类型", 409);
-      }
-      if (currentUser.judgeType !== score.judgeType) {
-        throw new CompetitionLoopError("评分表类型与账号裁判类型不一致", 409);
-      }
       const competition = await requireCompetition(competitionId);
       const round = await requireRound(competitionId, roundId);
       assertOngoing(competition.status, "比赛已结束，不能提交评分");
       assertOngoing(round.status, "轮次已结束，不能提交评分");
       const binding = await repository.findRoundBeer(competitionId, roundId, beerId);
       if (!binding) throw new CompetitionLoopError("本轮次未找到该酒款", 404);
+      const existingScore = await repository.findActiveScore(roundId, beerId, currentUser.id);
+      const expectedJudgeType = existingScore?.judgeTypeSnapshot ?? currentUser.judgeType;
+      if (!expectedJudgeType) {
+        throw new CompetitionLoopError("当前账号未设置裁判类型", 409);
+      }
+      if (expectedJudgeType !== score.judgeType) {
+        throw new CompetitionLoopError(
+          existingScore ? "评分表类型与已有评分类型不一致" : "评分表类型与账号裁判类型不一致",
+          409
+        );
+      }
       const saved = await repository.upsertScore({
         competitionId,
         roundId,
