@@ -295,41 +295,98 @@ describe("user management routes", () => {
     await app.close();
   });
 
-  it("stores judge type on judge users and allows clearing it", async () => {
+  it("defaults judge type to professional when judge role is assigned", async () => {
     const { app } = createTestApp();
     const token = await bootstrapToken(app);
 
-    const created = await createUser(app, token, {
+    const createdWithoutJudgeType = await createUser(app, token, {
       username: "judge03",
       nickname: "裁判 03",
       password: "secret123",
       roles: judgeRole,
-      judgeType: judgeTypeProfessional,
+    });
+    const createdWithNullJudgeType = await createUser(app, token, {
+      username: "judge04",
+      nickname: "裁判 04",
+      password: "secret123",
+      roles: judgeRole,
+      judgeType: null,
+    });
+
+    expect(createdWithoutJudgeType.statusCode).toBe(200);
+    expect(userResultSchema.parse(createdWithoutJudgeType.json()).user.judgeType).toBe(
+      judgeTypeProfessional
+    );
+    expect(createdWithNullJudgeType.statusCode).toBe(200);
+    expect(userResultSchema.parse(createdWithNullJudgeType.json()).user.judgeType).toBe(
+      judgeTypeProfessional
+    );
+    await app.close();
+  });
+
+  it("preserves judge type when judge role is removed and restored", async () => {
+    const { app } = createTestApp();
+    const token = await bootstrapToken(app);
+
+    const created = await createUser(app, token, {
+      username: "judge05",
+      nickname: "裁判 05",
+      password: "secret123",
+      roles: judgeRole,
+      judgeType: judgeTypePublic,
     });
 
     expect(created.statusCode).toBe(200);
     const id = userResultSchema.parse(created.json()).user.id;
-    expect(userResultSchema.parse(created.json()).user.judgeType).toBe(judgeTypeProfessional);
+    expect(userResultSchema.parse(created.json()).user.judgeType).toBe(judgeTypePublic);
 
-    const updated = await app.inject({
+    const removedJudgeRole = await app.inject({
       method: "PATCH",
       url: userByIdPath(id),
       headers: { authorization: `Bearer ${token}` },
-      payload: { judgeType: judgeTypePublic },
+      payload: { roles: adminRole },
     });
 
-    expect(updated.statusCode).toBe(200);
-    expect(userResultSchema.parse(updated.json()).user.judgeType).toBe(judgeTypePublic);
+    expect(removedJudgeRole.statusCode).toBe(200);
+    expect(userResultSchema.parse(removedJudgeRole.json()).user.judgeType).toBe(judgeTypePublic);
 
-    const cleared = await app.inject({
+    const restoredJudgeRole = await app.inject({
       method: "PATCH",
       url: userByIdPath(id),
       headers: { authorization: `Bearer ${token}` },
-      payload: { judgeType: null },
+      payload: { roles: judgeRole },
     });
 
-    expect(cleared.statusCode).toBe(200);
-    expect(userResultSchema.parse(cleared.json()).user.judgeType).toBeNull();
+    expect(restoredJudgeRole.statusCode).toBe(200);
+    expect(userResultSchema.parse(restoredJudgeRole.json()).user.judgeType).toBe(judgeTypePublic);
+    await app.close();
+  });
+
+  it("keeps judge type preference on non-judge users", async () => {
+    const { app } = createTestApp();
+    const token = await bootstrapToken(app);
+
+    const created = await createUser(app, token, {
+      username: "admin03",
+      nickname: "管理员 03",
+      password: "secret123",
+      roles: adminRole,
+      judgeType: judgeTypePublic,
+    });
+
+    expect(created.statusCode).toBe(200);
+    const id = userResultSchema.parse(created.json()).user.id;
+    expect(userResultSchema.parse(created.json()).user.judgeType).toBe(judgeTypePublic);
+
+    const promoted = await app.inject({
+      method: "PATCH",
+      url: userByIdPath(id),
+      headers: { authorization: `Bearer ${token}` },
+      payload: { roles: judgeRole },
+    });
+
+    expect(promoted.statusCode).toBe(200);
+    expect(userResultSchema.parse(promoted.json()).user.judgeType).toBe(judgeTypePublic);
     await app.close();
   });
 

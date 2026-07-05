@@ -107,6 +107,7 @@ export function UsersPage({
           nickname: values.nickname.trim() || undefined,
           password: values.password,
           roles: values.roles,
+          judgeType: values.judgeType,
         });
         setNotice(`已创建用户 ${result.user.username}`);
         setUserModal(null);
@@ -118,6 +119,7 @@ export function UsersPage({
         username: values.username.trim(),
         nickname: values.nickname.trim(),
         roles: values.roles,
+        judgeType: values.judgeType,
         disabled: values.disabled,
       });
       setNotice(`已更新用户 ${result.user.username}`);

@@ -1,19 +1,34 @@
-import { Button, Group, Modal, Stack, Switch, Text, TextInput } from "@mantine/core";
+import { Button, Group, Modal, Select, Stack, Switch, Text, TextInput } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { Save, Shuffle, UserPlus } from "lucide-react";
 import { useEffect, useMemo } from "react";
-import { adminRole, hasRole, superAdminRole, type UserPublic } from "@bjcp-arena/contracts";
+import {
+  adminRole,
+  hasRole,
+  judgeRole,
+  judgeTypeProfessional,
+  judgeTypePublic,
+  superAdminRole,
+  type JudgeType,
+  type UserPublic,
+} from "@bjcp-arena/contracts";
 import { InlineMessage } from "../../../components/ui/InlineMessage.js";
 import { randomAlphaNumeric, randomNumericPassword } from "../../../utils/random.js";
 import { RoleCheckboxGroup } from "./RoleCheckboxGroup.js";
 
 export interface UserInfoFormValues {
   disabled: boolean;
+  judgeType: JudgeType | null;
   nickname: string;
   password: string;
   roles: number;
   username: string;
 }
+
+const judgeTypeOptions = [
+  { label: "专业裁判", value: judgeTypeProfessional },
+  { label: "大众评委", value: judgeTypePublic },
+] as const;
 
 export function UserInfoModal({
   activeSuperAdminCount,
@@ -39,6 +54,7 @@ export function UserInfoModal({
   const form = useForm<UserInfoFormValues>({
     initialValues: {
       disabled: false,
+      judgeType: null,
       nickname: "",
       password: "",
       roles: adminRole,
@@ -59,19 +75,30 @@ export function UserInfoModal({
 
     form.setValues({
       disabled: user?.disabled ?? false,
+      judgeType: user?.judgeType ?? null,
       nickname: user?.nickname ?? "",
       password: "",
       roles: user?.roles ?? adminRole,
       username: user?.username ?? "",
     });
     form.clearErrors();
-  }, [opened, mode, user?.disabled, user?.nickname, user?.roles, user?.username]);
+  }, [opened, mode, user?.disabled, user?.judgeType, user?.nickname, user?.roles, user?.username]);
 
   const isCurrentUser = user?.id === currentUserId;
   const isExistingSuperAdmin = user ? hasRole(user.roles, superAdminRole) : false;
   const isActiveSuperAdmin = isExistingSuperAdmin && user?.disabled === false;
   const isOnlyActiveSuperAdmin = isActiveSuperAdmin && activeSuperAdminCount <= 1;
   const selectedHasSuperAdmin = hasRole(form.values.roles, superAdminRole);
+  const selectedHasJudge = hasRole(form.values.roles, judgeRole);
+
+  function handleRoleChange(nextRoles: number) {
+    form.setValues({
+      roles: nextRoles,
+      judgeType: hasRole(nextRoles, judgeRole)
+        ? (form.values.judgeType ?? judgeTypeProfessional)
+        : form.values.judgeType,
+    });
+  }
 
   const protectionError = useMemo(() => {
     if (mode !== "edit" || !user) {
@@ -174,8 +201,20 @@ export function UserInfoModal({
               mode === "edit" && ((isCurrentUser && isExistingSuperAdmin) || isOnlyActiveSuperAdmin)
             }
             value={form.values.roles}
-            onChange={(value) => form.setFieldValue("roles", value)}
+            onChange={handleRoleChange}
           />
+          {selectedHasJudge ? (
+            <Select
+              allowDeselect={false}
+              data={judgeTypeOptions}
+              label="裁判类型"
+              required
+              value={form.values.judgeType ?? judgeTypeProfessional}
+              onChange={(value) =>
+                form.setFieldValue("judgeType", (value as JudgeType | null) ?? judgeTypeProfessional)
+              }
+            />
+          ) : null}
           {mode === "edit" ? (
             <Switch
               checked={!form.values.disabled}

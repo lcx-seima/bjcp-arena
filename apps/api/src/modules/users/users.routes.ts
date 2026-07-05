@@ -4,6 +4,9 @@ import {
   canManageUsers,
   createUserInputSchema,
   hasRole,
+  judgeRole,
+  judgeTypeProfessional,
+  type JudgeType,
   resetUserPasswordInputSchema,
   superAdminRole,
   updateUserInputSchema,
@@ -84,6 +87,25 @@ function toUpdateStoredUserInput(input: ReturnType<typeof updateUserInputSchema.
   if (input.disabled !== undefined) {
     update.disabled = input.disabled;
   }
+
+  return update;
+}
+
+function normalizeJudgeType(roles: number, judgeType: JudgeType | null | undefined) {
+  return hasRole(roles, judgeRole) ? (judgeType ?? judgeTypeProfessional) : (judgeType ?? null);
+}
+
+function toNormalizedUpdateStoredUserInput(
+  existingUser: NonNullable<Awaited<ReturnType<UserRepository["findById"]>>>,
+  input: ReturnType<typeof updateUserInputSchema.parse>
+) {
+  const update = toUpdateStoredUserInput(input);
+  const nextRoles = input.roles ?? existingUser.roles;
+
+  update.judgeType = normalizeJudgeType(
+    nextRoles,
+    input.judgeType === undefined ? existingUser.judgeType : input.judgeType
+  );
 
   return update;
 }
@@ -179,7 +201,7 @@ export function registerUserRoutes(
             nickname: input.nickname ?? createRandomNickname(),
             passwordHash: await hashPassword(input.password),
             roles: input.roles,
-            judgeType: input.judgeType ?? null,
+            judgeType: normalizeJudgeType(input.roles, input.judgeType),
           });
 
           await authUserSnapshots.set(toAuthUserSnapshot(user));
@@ -213,7 +235,10 @@ export function registerUserRoutes(
           }
           await assertKeepsActiveSuperAdmin(users, existingUser, input);
 
-          const user = await users.updateUser(id, toUpdateStoredUserInput(input));
+          const user = await users.updateUser(
+            id,
+            toNormalizedUpdateStoredUserInput(existingUser, input)
+          );
 
           if (!user) {
             return sendNotFound(reply);
