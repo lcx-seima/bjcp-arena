@@ -1,6 +1,5 @@
-import { Button, Group, Modal, Select, Stack, Switch, Text, TextInput } from "@mantine/core";
-import { useForm } from "@mantine/form";
-import { Save, Shuffle, UserPlus } from "lucide-react";
+import { ThunderboltOutlined } from "@ant-design/icons";
+import { Button, Checkbox, Form, Input, Modal, Select, Switch, Typography } from "antd";
 import { useEffect, useMemo } from "react";
 import {
   adminRole,
@@ -28,7 +27,15 @@ export interface UserInfoFormValues {
 const judgeTypeOptions = [
   { label: "专业裁判", value: judgeTypeProfessional },
   { label: "大众评委", value: judgeTypePublic },
-] as const;
+];
+
+const resetFieldNames: Array<keyof UserInfoFormValues> = [
+  "username",
+  "nickname",
+  "password",
+  "roles",
+  "judgeType",
+];
 
 export function UserInfoModal({
   activeSuperAdminCount,
@@ -51,29 +58,17 @@ export function UserInfoModal({
   onClose: () => void;
   onSubmit: (values: UserInfoFormValues) => void;
 }) {
-  const form = useForm<UserInfoFormValues>({
-    initialValues: {
-      disabled: false,
-      judgeType: null,
-      nickname: "",
-      password: "",
-      roles: adminRole,
-      username: "",
-    },
-    validate: {
-      nickname: (value) => (mode === "edit" && !value.trim() ? "请填写昵称" : null),
-      password: (value) => (mode === "create" && !value ? "请填写初始密码" : null),
-      roles: (value) => (value <= 0 ? "请至少选择 1 个角色" : null),
-      username: (value) => (mode === "edit" && !value.trim() ? "请填写用户名" : null),
-    },
-  });
+  const [form] = Form.useForm<UserInfoFormValues>();
+  const roles = Form.useWatch("roles", form) ?? adminRole;
+  const disabled = Form.useWatch("disabled", form) ?? false;
+  const selectedHasJudge = hasRole(roles, judgeRole);
 
   useEffect(() => {
     if (!opened) {
       return;
     }
 
-    form.setValues({
+    form.setFieldsValue({
       disabled: user?.disabled ?? false,
       judgeType: user?.judgeType ?? null,
       nickname: user?.nickname ?? "",
@@ -81,31 +76,21 @@ export function UserInfoModal({
       roles: user?.roles ?? adminRole,
       username: user?.username ?? "",
     });
-    form.clearErrors();
-  }, [opened, mode, user?.disabled, user?.judgeType, user?.nickname, user?.roles, user?.username]);
+    form.setFields(resetFieldNames.map((name) => ({ errors: [], name })));
+  }, [form, opened, user]);
 
   const isCurrentUser = user?.id === currentUserId;
   const isExistingSuperAdmin = user ? hasRole(user.roles, superAdminRole) : false;
   const isActiveSuperAdmin = isExistingSuperAdmin && user?.disabled === false;
   const isOnlyActiveSuperAdmin = isActiveSuperAdmin && activeSuperAdminCount <= 1;
-  const selectedHasSuperAdmin = hasRole(form.values.roles, superAdminRole);
-  const selectedHasJudge = hasRole(form.values.roles, judgeRole);
-
-  function handleRoleChange(nextRoles: number) {
-    form.setValues({
-      roles: nextRoles,
-      judgeType: hasRole(nextRoles, judgeRole)
-        ? (form.values.judgeType ?? judgeTypeProfessional)
-        : form.values.judgeType,
-    });
-  }
+  const selectedHasSuperAdmin = hasRole(roles, superAdminRole);
 
   const protectionError = useMemo(() => {
     if (mode !== "edit" || !user) {
       return null;
     }
 
-    if (isCurrentUser && form.values.disabled) {
+    if (isCurrentUser && disabled) {
       return "不能停用当前登录账号。";
     }
 
@@ -113,7 +98,7 @@ export function UserInfoModal({
       return "不能把当前登录账号降权为非超级管理员。";
     }
 
-    if (isOnlyActiveSuperAdmin && form.values.disabled) {
+    if (isOnlyActiveSuperAdmin && disabled) {
       return "系统只有 1 个未停用超级管理员，不能停用该账号。";
     }
 
@@ -123,7 +108,7 @@ export function UserInfoModal({
 
     return null;
   }, [
-    form.values.disabled,
+    disabled,
     isCurrentUser,
     isExistingSuperAdmin,
     isOnlyActiveSuperAdmin,
@@ -135,115 +120,127 @@ export function UserInfoModal({
   return (
     <Modal
       centered
-      opened={opened}
+      confirmLoading={isSubmitting}
+      okButtonProps={{ disabled: protectionError !== null }}
+      okText={mode === "create" ? "创建用户" : "保存"}
+      open={opened}
       title={mode === "create" ? "新建用户" : `编辑用户 ${user?.username ?? ""}`}
-      onClose={onClose}
+      onCancel={onClose}
+      onOk={() => form.submit()}
     >
-      <form onSubmit={form.onSubmit(onSubmit)}>
-        <Stack gap="md">
-          <TextInput
-            label="用户名"
-            pattern="[A-Za-z0-9]+"
+      <Form form={form} layout="vertical" onFinish={onSubmit}>
+        <Form.Item
+          label="用户名"
+          name="username"
+          rules={[
+            ...(mode === "edit" ? [{ required: true, message: "请填写用户名" }] : []),
+            { pattern: /^[A-Za-z0-9]*$/, message: "用户名只能包含字母和数字" },
+          ]}
+        >
+          <Input
             placeholder={mode === "create" ? "留空由后端生成" : undefined}
-            required={mode === "edit"}
-            rightSection={
+            suffix={
               mode === "create" ? (
                 <Button
                   aria-label="随机用户名"
-                  size="compact-xs"
-                  variant="subtle"
+                  icon={<ThunderboltOutlined />}
+                  size="small"
+                  type="text"
                   onClick={() => form.setFieldValue("username", randomAlphaNumeric(6))}
-                >
-                  <Shuffle size={14} />
-                </Button>
+                />
               ) : null
             }
-            {...form.getInputProps("username")}
           />
-          <TextInput
-            label="昵称"
+        </Form.Item>
+
+        <Form.Item
+          label="昵称"
+          name="nickname"
+          rules={mode === "edit" ? [{ required: true, message: "请填写昵称" }] : []}
+        >
+          <Input
             placeholder={mode === "create" ? "留空由后端生成" : undefined}
-            required={mode === "edit"}
-            rightSection={
+            suffix={
               mode === "create" ? (
                 <Button
                   aria-label="随机昵称"
-                  size="compact-xs"
-                  variant="subtle"
+                  icon={<ThunderboltOutlined />}
+                  size="small"
+                  type="text"
                   onClick={() => form.setFieldValue("nickname", `bjcp_${randomAlphaNumeric(6)}`)}
-                >
-                  <Shuffle size={14} />
-                </Button>
+                />
               ) : null
             }
-            {...form.getInputProps("nickname")}
           />
-          {mode === "create" ? (
-            <TextInput
-              label="初始密码"
-              minLength={6}
-              required
-              rightSection={
+        </Form.Item>
+
+        {mode === "create" ? (
+          <Form.Item
+            label="初始密码"
+            name="password"
+            rules={[{ min: 6, required: true, message: "请填写至少 6 位初始密码" }]}
+          >
+            <Input
+              suffix={
                 <Button
-                  aria-label="随机密码"
-                  size="compact-xs"
-                  variant="subtle"
+                aria-label="随机密码"
+                icon={<ThunderboltOutlined />}
+                  size="small"
+                  type="text"
                   onClick={() => form.setFieldValue("password", randomNumericPassword())}
-                >
-                  <Shuffle size={14} />
-                </Button>
+                />
               }
-              {...form.getInputProps("password")}
             />
-          ) : null}
+          </Form.Item>
+        ) : null}
+
+        <Form.Item
+          label="角色"
+          name="roles"
+          rules={[
+            {
+              validator: (_, value: number) =>
+                value > 0 ? Promise.resolve() : Promise.reject(new Error("请至少选择 1 个角色")),
+            },
+          ]}
+        >
           <RoleCheckboxGroup
             disabledSuperAdminRemoval={
               mode === "edit" && ((isCurrentUser && isExistingSuperAdmin) || isOnlyActiveSuperAdmin)
             }
-            value={form.values.roles}
-            onChange={handleRoleChange}
           />
-          {selectedHasJudge ? (
-            <Select
-              allowDeselect={false}
-              data={judgeTypeOptions}
-              label="裁判类型"
-              required
-              value={form.values.judgeType ?? judgeTypeProfessional}
-              onChange={(value) =>
-                form.setFieldValue("judgeType", (value as JudgeType | null) ?? judgeTypeProfessional)
-              }
-            />
-          ) : null}
-          {mode === "edit" ? (
+        </Form.Item>
+
+        {selectedHasJudge ? (
+          <Form.Item
+            label="裁判类型"
+            name="judgeType"
+            rules={[{ required: true, message: "请选择裁判类型" }]}
+          >
+            <Select options={judgeTypeOptions} />
+          </Form.Item>
+        ) : null}
+
+        {mode === "edit" ? (
+          <Form.Item label="状态">
             <Switch
-              checked={!form.values.disabled}
+              checked={!disabled}
+              checkedChildren="已启用"
               disabled={isCurrentUser || isOnlyActiveSuperAdmin}
-              label={form.values.disabled ? "已停用" : "已启用"}
-              onChange={(event) => form.setFieldValue("disabled", !event.currentTarget.checked)}
+              unCheckedChildren="已停用"
+              onChange={(checked) => form.setFieldValue("disabled", !checked)}
             />
-          ) : null}
-          {protectionError ? (
-            <Text c="orange.8" size="sm">
-              {protectionError}
-            </Text>
-          ) : null}
-          {error ? <InlineMessage type="error">{error}</InlineMessage> : null}
-          <Group justify="flex-end">
-            <Button variant="default" onClick={onClose}>
-              取消
-            </Button>
-            <Button
-              disabled={protectionError !== null}
-              leftSection={mode === "create" ? <UserPlus size={16} /> : <Save size={16} />}
-              loading={isSubmitting}
-              type="submit"
-            >
-              {mode === "create" ? "创建用户" : "保存"}
-            </Button>
-          </Group>
-        </Stack>
-      </form>
+          </Form.Item>
+        ) : null}
+
+        {protectionError ? (
+          <Typography.Text type="warning">{protectionError}</Typography.Text>
+        ) : null}
+        {error ? <InlineMessage type="error">{error}</InlineMessage> : null}
+        <Form.Item hidden name="disabled">
+          <Checkbox />
+        </Form.Item>
+      </Form>
     </Modal>
   );
 }

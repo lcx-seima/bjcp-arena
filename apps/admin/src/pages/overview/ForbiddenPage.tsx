@@ -1,13 +1,13 @@
-import { Paper, Stack, Text } from "@mantine/core";
+import { Card, Typography } from "antd";
 import { PageHeader } from "../../components/ui/PageHeader.js";
 
 export function ForbiddenPage() {
   return (
-    <Paper p="lg">
-      <Stack gap="md">
+    <Card>
+      <div className="stack-md">
         <PageHeader eyebrow="Forbidden" title="无权访问" />
-        <Text c="dimmed">账号管理仅超级管理员可见。</Text>
-      </Stack>
-    </Paper>
+        <Typography.Text type="secondary">账号管理仅超级管理员可见。</Typography.Text>
+      </div>
+    </Card>
   );
 }

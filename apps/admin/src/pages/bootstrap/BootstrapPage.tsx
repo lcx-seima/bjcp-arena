@@ -1,6 +1,5 @@
-import { Button, PasswordInput, SimpleGrid, Stack, TextInput } from "@mantine/core";
-import { useForm } from "@mantine/form";
-import { KeyRound } from "lucide-react";
+import { KeyOutlined } from "@ant-design/icons";
+import { Button, Form, Input } from "antd";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { type UserPublic } from "@bjcp-arena/contracts";
@@ -17,13 +16,8 @@ export function BootstrapPage({
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const form = useForm({
-    initialValues: {
-      password: "",
-    },
-  });
 
-  async function handleSubmit(values: typeof form.values) {
+  async function handleSubmit(values: { password: string }) {
     setError(null);
     setIsSubmitting(true);
 
@@ -39,33 +33,37 @@ export function BootstrapPage({
   }
 
   return (
-    <form onSubmit={form.onSubmit(handleSubmit)}>
-      <Stack gap="md">
+    <Form layout="vertical" onFinish={handleSubmit}>
+      <div className="stack-md">
         <PageHeader
           eyebrow="Bootstrap"
           title="初始化超级管理员"
           description="系统尚无用户，请设置初始超级管理员密码。"
         />
 
-        <SimpleGrid cols={{ base: 1, xs: 2 }}>
-          <TextInput label="用户名" readOnly value="superadmin" />
-          <TextInput label="昵称" readOnly value="superadmin" />
-        </SimpleGrid>
+        <div className="form-grid-2">
+          <Form.Item label="用户名">
+            <Input readOnly value="superadmin" />
+          </Form.Item>
+          <Form.Item label="昵称">
+            <Input readOnly value="superadmin" />
+          </Form.Item>
+        </div>
 
-        <PasswordInput
-          autoComplete="new-password"
+        <Form.Item
           label="密码"
-          minLength={6}
-          required
-          {...form.getInputProps("password")}
-        />
+          name="password"
+          rules={[{ min: 6, required: true, message: "请填写至少 6 位密码" }]}
+        >
+          <Input.Password autoComplete="new-password" />
+        </Form.Item>
 
         {error ? <InlineMessage type="error">{error}</InlineMessage> : null}
 
-        <Button leftSection={<KeyRound size={16} />} loading={isSubmitting} type="submit">
+        <Button htmlType="submit" icon={<KeyOutlined />} loading={isSubmitting} type="primary">
           创建并登录
         </Button>
-      </Stack>
-    </form>
+      </div>
+    </Form>
   );
 }

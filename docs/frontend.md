@@ -4,7 +4,7 @@
 
 ## 目标
 
-前端代码按路由、业务 UI 模块、通用组件和应用胶水拆分，避免 `main.tsx` 或单个页面持续膨胀。当前阶段不建立大型设计系统，但统一使用 Mantine 作为基础 UI 库。
+前端代码按路由、业务 UI 模块、通用组件和应用胶水拆分，避免 `main.tsx` 或单个页面持续膨胀。当前阶段不建立大型设计系统，`admin` 和 `judge` 按各自设备形态使用不同 Ant Design 方案。
 
 ## 应用形态
 
@@ -25,14 +25,14 @@ judge 端开发、适配和人工校验的标准设备为 iPhone 17 竖屏：
 
 ## UI 技术选择
 
-- UI 库：Mantine。
-- 图标：`lucide-react`。
-- 表单：`@mantine/form`，复杂校验继续以 `packages/contracts` 的 Zod schema 为准。
-- 通知：`@mantine/notifications`。
-- 弹窗：`@mantine/modals`。
-- 日期组件：需要日期输入时再引入 `@mantine/dates`。
+- `apps/admin` 使用 `antd` 和 `@ant-design/icons`。
+- `apps/judge` 使用 `antd-mobile`。
+- 表单校验可以使用 UI 库表单能力；复杂业务校验继续以 `packages/contracts` 的 Zod schema 为准。
+- 不要混用 Mantine、MUI、shadcn/ui 或 Tailwind。
 
-不要混用 Ant Design、MUI、shadcn/ui 或 Tailwind。
+admin 使用 `ConfigProvider` 和 antd `App` 作为全局 Provider。后台 CRUD 默认采用“表格 + 操作按钮 + Modal/Drawer 表单”模式：列表页优先展示表格和详情区，新增、编辑、重置密码、导入等操作由按钮唤起 `Modal` 或 `Drawer`，不要把大段管理表单平铺在列表页。
+
+judge 使用 antd-mobile 组件。登录、查找、提交评分等瞬时成功/失败反馈默认用 `Toast.show`；确认类交互用 `Dialog.confirm`；加载失败、无权限、角色不匹配、登录态恢复失败等需要用户阅读或处理的阻断状态保留页面级错误组件。
 
 ## 推荐目录
 
@@ -68,9 +68,9 @@ apps/admin/src/
   modules/
     users/
       components/
-        CreateUserPanel.tsx
-        UserRow.tsx
-        RoleSelect.tsx
+        UserInfoModal.tsx
+        ResetPasswordModal.tsx
+        RoleCheckboxGroup.tsx
       hooks/
         useUsers.ts
       users-api.ts
@@ -115,23 +115,23 @@ pages/users/UsersPage.module.css
 ## components 约束
 
 - `components/ui` 只放无业务语义的项目通用组件，例如 `PageHeader`、`InlineMessage`、`EmptyState`。
-- 不要把 Mantine 的 `Button`、`TextInput` 原样包一层。
+- 不要把 antd 或 antd-mobile 的 `Button`、`Input` 原样包一层。
 - 项目组件不调用 API、不读 `localStorage`、不依赖业务 contracts，除非它已经属于 `modules/*`。
 
 暂不建立 `packages/ui`。当 admin/judge 出现稳定重复的主题、布局或无业务组件后，再评估是否上移共享。
 
 ## 样式策略
 
-使用 Mantine theme + CSS Modules。
+admin 优先使用 antd theme、组件 props 和少量 CSS Modules；judge 优先使用 antd-mobile 组件 props 和移动端页面级 CSS。
 
 优先级：
 
-1. `MantineProvider` 的 theme 和 defaultProps。
-2. Mantine 组件 props，例如 `size`、`variant`、`c`、`mt`。
-3. CSS Modules + Mantine `classNames`。
+1. `ConfigProvider` theme 或 antd-mobile 全局变量。
+2. UI 组件 props，例如 `type`、`color`、`size`、`status`。
+3. CSS Modules 或页面级 class。
 4. 少量全局 CSS。
 
-禁止大量通过 `.mantine-*` 全局选择器硬覆盖组件内部样式。
+禁止大量通过 `.ant-*` 或 `.adm-*` 全局选择器硬覆盖组件内部样式。
 
 全局样式只放：
 
@@ -152,7 +152,8 @@ pages/users/UsersPage.module.css
 
 ## 表单规则
 
-- Mantine form 负责交互状态和字段错误展示。
+- admin 表单优先使用 antd `Form`。
+- judge 表单优先使用 antd-mobile `Form` 或适合移动端的受控输入组件。
 - 业务校验优先复用 `packages/contracts` 的 Zod schema。
 - 不在页面里复制与后端不一致的校验规则。
 
@@ -163,7 +164,7 @@ main.tsx -> app
 app -> pages/layouts/components/utils
 pages -> modules/components/utils/app
 modules -> components/utils/app/api/contracts
-components/ui -> React/Mantine/CSS Modules
+components/ui -> React/UI 库/CSS Modules
 utils -> 不依赖 React，不依赖 app/pages/modules
 ```
 

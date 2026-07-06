@@ -14,3 +14,90 @@ body {
   min-width: 320px;
   background: #f4f6f8;
 }
+
+.center-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+}
+
+.center-shell--padded {
+  padding: 24px;
+}
+
+.auth-shell {
+  display: grid;
+  min-height: 100vh;
+  padding: 24px;
+  place-items: center;
+}
+
+.auth-card,
+.restore-card {
+  width: min(100%, 440px);
+}
+
+.page-header {
+  display: grid;
+  gap: 6px;
+}
+
+.page-header__eyebrow {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.stack-md {
+  display: grid;
+  gap: 16px;
+}
+
+.stack-lg {
+  display: grid;
+  gap: 24px;
+}
+
+.stack-xs {
+  display: grid;
+  gap: 6px;
+}
+
+.form-grid-2,
+.form-grid-3,
+.metric-grid,
+.role-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.role-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.metric-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 900px) {
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .form-grid-2,
+  .form-grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .role-grid {
+    grid-template-columns: 1fr;
+  }
+}

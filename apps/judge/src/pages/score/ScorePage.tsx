@@ -1,15 +1,4 @@
-import {
-  Badge,
-  Button,
-  Group,
-  NumberInput,
-  Paper,
-  Stack,
-  Table,
-  Text,
-  Textarea,
-} from "@mantine/core";
-import { ArrowLeft, LogOut, Send } from "lucide-react";
+import { Button, Card, Dialog, Stepper, Tag, TextArea, Toast } from "antd-mobile";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { JudgeBeerResult, JudgeType, MyScoreResult, UserPublic } from "@bjcp-arena/contracts";
 import { professionalScoreGrade } from "@bjcp-arena/contracts";
@@ -64,8 +53,8 @@ const defaultAmateur: AmateurValues = {
   comment: "",
 };
 
-function toNumber(value: string | number) {
-  return typeof value === "number" ? value : Number(value || 0);
+function toNumber(value: number | null) {
+  return Number(value ?? 0);
 }
 
 function judgeTypeFormLabel(judgeType: JudgeType | null) {
@@ -92,7 +81,6 @@ export function ScorePage({
   const [score, setScore] = useState<MyScore | null>(null);
   const [status, setStatus] = useState<"loading" | "ready">("loading");
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [draftNotice, setDraftNotice] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [professionalValues, setProfessionalValues] =
@@ -157,6 +145,7 @@ export function ScorePage({
         if (parsed.professionalValues) setProfessionalValues(parsed.professionalValues);
         if (parsed.amateurValues) setAmateurValues(parsed.amateurValues);
         setDraftNotice("已恢复本地草稿，请记得提交。");
+        Toast.show({ content: "已恢复本地草稿", icon: "success" });
       }
     }
     setStatus("ready");
@@ -180,11 +169,21 @@ export function ScorePage({
 
   async function handleSubmit() {
     if (!effectiveJudgeType || !beer) {
-      setError("当前账号未预设裁判类型，无法提交评分。");
+      const message = "当前账号未预设裁判类型，无法提交评分。";
+      setError(message);
+      Toast.show({ content: message, icon: "fail" });
       return;
     }
+
+    const confirmed = await Dialog.confirm({
+      content: score ? "确认更新本次评分？" : "确认提交本次评分？",
+      title: score ? "更新评分" : "提交评分",
+    });
+    if (!confirmed) {
+      return;
+    }
+
     setError(null);
-    setNotice(null);
     setIsSubmitting(true);
     try {
       const payload =
@@ -214,30 +213,31 @@ export function ScorePage({
       setScore(result.score);
       localStorage.removeItem(draftKey);
       setDraftNotice(null);
-      setNotice("评分已提交");
+      Toast.show({ content: "评分已提交", icon: "success" });
     } catch (unknownError) {
       if (isUnauthorized(unknownError)) {
         onLogout();
         return;
       }
-      setError(readError(unknownError));
+      const message = readError(unknownError);
+      setError(message);
+      Toast.show({ content: message, icon: "fail" });
     } finally {
       setIsSubmitting(false);
     }
   }
 
   return (
-    <Paper className={classes.shell!} p="lg">
-      <Stack gap="md">
-        <Group justify="space-between" wrap="nowrap">
+    <Card className="mobile-card">
+      <div className="stack-md">
+        <div className="top-row">
           <PageHeader eyebrow="Score" title={beer ? `评鉴 #${beer.entryNumber}` : "评分"} />
-          <Button color="red" leftSection={<LogOut size={16} />} variant="light" onClick={onLogout}>
+          <Button color="danger" fill="outline" size="small" onClick={onLogout}>
             退出
           </Button>
-        </Group>
+        </div>
         <Button
-          leftSection={<ArrowLeft size={16} />}
-          variant="default"
+          block
           onClick={() => {
             window.location.href = `/competitions/${competitionId}/rounds/${roundId}`;
           }}
@@ -246,45 +246,42 @@ export function ScorePage({
         </Button>
 
         {beer ? (
-          <Stack gap="sm">
-            <Group gap="xs">
-              <Badge variant="light">{judgeTypeFormLabel(effectiveJudgeType)}</Badge>
-              <Badge color={beer.canScore ? "green" : "gray"} variant="light">
+          <div className="stack-xs">
+            <div className="tag-row">
+              <Tag color="primary">{judgeTypeFormLabel(effectiveJudgeType)}</Tag>
+              <Tag color={beer.canScore ? "success" : "default"}>
                 {beer.canScore ? "可评分" : "只读"}
-              </Badge>
-            </Group>
-            <Table withColumnBorders withTableBorder>
-              <Table.Tbody>
-                <Table.Tr>
-                  <Table.Th w={110}>比赛序号</Table.Th>
-                  <Table.Td>#{beer.entryNumber}</Table.Td>
-                </Table.Tr>
-                <Table.Tr>
-                  <Table.Th>参赛编号</Table.Th>
-                  <Table.Td>{beer.entryCode}</Table.Td>
-                </Table.Tr>
-                <Table.Tr>
-                  <Table.Th>BJCP</Table.Th>
-                  <Table.Td>
+              </Tag>
+            </div>
+            <table className="info-table">
+              <tbody>
+                <tr>
+                  <th>比赛序号</th>
+                  <td>#{beer.entryNumber}</td>
+                </tr>
+                <tr>
+                  <th>参赛编号</th>
+                  <td>{beer.entryCode}</td>
+                </tr>
+                <tr>
+                  <th>BJCP</th>
+                  <td>
                     {beer.bjcpSubcategoryCode} {beer.bjcpSubcategoryName}
-                  </Table.Td>
-                </Table.Tr>
-                <Table.Tr>
-                  <Table.Th>介绍</Table.Th>
-                  <Table.Td style={{ whiteSpace: "pre-wrap" }}>{beer.description}</Table.Td>
-                </Table.Tr>
-              </Table.Tbody>
-            </Table>
-          </Stack>
+                  </td>
+                </tr>
+                <tr>
+                  <th>介绍</th>
+                  <td style={{ whiteSpace: "pre-wrap" }}>{beer.description}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         ) : null}
 
         {score ? (
-          <Text c="dimmed" size="sm">
-            上次提交：{new Date(score.submittedAt).toLocaleString()}
-          </Text>
+          <div className="muted-text">上次提交：{new Date(score.submittedAt).toLocaleString()}</div>
         ) : null}
-        {draftNotice ? <Text c="orange.8">{draftNotice}</Text> : null}
-        {notice ? <Text c="green.8">{notice}</Text> : null}
+        {draftNotice ? <div className="warning-text">{draftNotice}</div> : null}
         {error ? <InlineError>{error}</InlineError> : null}
 
         {effectiveJudgeType === "professional" ? (
@@ -306,15 +303,16 @@ export function ScorePage({
         )}
 
         <Button
+          block
+          color="primary"
           disabled={!beer?.canScore || !effectiveJudgeType}
-          leftSection={<Send size={16} />}
           loading={isSubmitting}
           onClick={handleSubmit}
         >
           {score ? "更新评分" : "提交评分"}
         </Button>
-      </Stack>
-    </Paper>
+      </div>
+    </Card>
   );
 }
 
@@ -330,10 +328,10 @@ function ProfessionalForm({
   values: ProfessionalValues;
 }) {
   return (
-    <Stack gap="md">
-      <Text fw={800}>
+    <div className="stack-md">
+      <div className="section-label">
         专业评分 {total}/50 · {professionalScoreGrade(total)}
-      </Text>
+      </div>
       <ScoreDimension
         comment={values.aromaComment}
         disabled={disabled}
@@ -384,7 +382,7 @@ function ProfessionalForm({
         onComment={(overallComment) => onChange({ ...values, overallComment })}
         onScore={(overall) => onChange({ ...values, overall })}
       />
-    </Stack>
+    </div>
   );
 }
 
@@ -408,26 +406,25 @@ function ScoreDimension({
   score: number;
 }) {
   return (
-    <Stack gap="xs">
-      <Text fw={700}>{label}</Text>
-      <NumberInput
+    <div className="score-dimension">
+      <div className="score-dimension__header">
+        <strong>{label}</strong>
+        <Stepper
+          disabled={disabled}
+          max={max}
+          min={0}
+          value={score}
+          onChange={(value) => onScore(toNumber(value))}
+        />
+      </div>
+      <TextArea
+        autoSize={{ minRows: 3 }}
         disabled={disabled}
-        label={`分数 0-${max}`}
-        max={max}
-        min={0}
-        value={score}
-        onChange={(value) => onScore(toNumber(value))}
-      />
-      <Textarea
-        autosize
-        disabled={disabled}
-        minRows={3}
         placeholder={placeholder}
-        required
         value={comment}
-        onChange={(event) => onComment(event.currentTarget.value)}
+        onChange={onComment}
       />
-    </Stack>
+    </div>
   );
 }
 
@@ -443,51 +440,68 @@ function AmateurForm({
   values: AmateurValues;
 }) {
   return (
-    <Stack gap="md">
-      <Text fw={800}>爱好者评分 {total}/20</Text>
+    <div className="stack-md">
+      <div className="section-label">爱好者评分 {total}/20</div>
       <div className={classes.metricGrid!}>
-        <NumberInput
+        <AmateurMetric
           disabled={disabled}
-          label="易饮性 1-5"
-          max={5}
-          min={1}
+          label="易饮性"
           value={values.drinkability}
-          onChange={(value) => onChange({ ...values, drinkability: toNumber(value) })}
+          onChange={(drinkability) => onChange({ ...values, drinkability })}
         />
-        <NumberInput
+        <AmateurMetric
           disabled={disabled}
-          label="平衡感 1-5"
-          max={5}
-          min={1}
+          label="平衡感"
           value={values.balance}
-          onChange={(value) => onChange({ ...values, balance: toNumber(value) })}
+          onChange={(balance) => onChange({ ...values, balance })}
         />
-        <NumberInput
+        <AmateurMetric
           disabled={disabled}
-          label="风味接受度 1-5"
-          max={5}
-          min={1}
+          label="风味接受度"
           value={values.flavorAcceptance}
-          onChange={(value) => onChange({ ...values, flavorAcceptance: toNumber(value) })}
+          onChange={(flavorAcceptance) => onChange({ ...values, flavorAcceptance })}
         />
-        <NumberInput
+        <AmateurMetric
           disabled={disabled}
-          label="复饮意愿 1-5"
-          max={5}
-          min={1}
+          label="复饮意愿"
           value={values.repeatIntention}
-          onChange={(value) => onChange({ ...values, repeatIntention: toNumber(value) })}
+          onChange={(repeatIntention) => onChange({ ...values, repeatIntention })}
         />
       </div>
-      <Textarea
-        autosize
+      <div className="score-dimension">
+        <strong>总反馈</strong>
+        <TextArea
+          autoSize={{ minRows: 4 }}
+          disabled={disabled}
+          value={values.comment}
+          onChange={(comment) => onChange({ ...values, comment })}
+        />
+      </div>
+    </div>
+  );
+}
+
+function AmateurMetric({
+  disabled,
+  label,
+  value,
+  onChange,
+}: {
+  disabled: boolean;
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div className="metric-control">
+      <strong>{label} 1-5</strong>
+      <Stepper
         disabled={disabled}
-        label="总反馈"
-        minRows={4}
-        required
-        value={values.comment}
-        onChange={(event) => onChange({ ...values, comment: event.currentTarget.value })}
+        max={5}
+        min={1}
+        value={value}
+        onChange={(next) => onChange(toNumber(next))}
       />
-    </Stack>
+    </div>
   );
 }

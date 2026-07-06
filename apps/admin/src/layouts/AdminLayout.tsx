@@ -1,6 +1,6 @@
-import { AppShell, Button, Group, Stack, Text } from "@mantine/core";
-import { LogOut, UsersRound, LayoutDashboard, Trophy } from "lucide-react";
-import { NavLink as RouterNavLink, Routes, Route, Navigate } from "react-router-dom";
+import { DashboardOutlined, LogoutOutlined, TeamOutlined, TrophyOutlined } from "@ant-design/icons";
+import { Button, Layout, Menu, Space, Typography } from "antd";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { canManageUsers, type UserPublic } from "@bjcp-arena/contracts";
 import { describeRoles } from "../utils/roles.js";
 import { ForbiddenPage } from "../pages/overview/ForbiddenPage.js";
@@ -11,68 +11,67 @@ import { CompetitionDetailPage } from "../pages/competitions/CompetitionDetailPa
 import classes from "./AdminLayout.module.css";
 
 export function AdminLayout({ user, onLogout }: { user: UserPublic; onLogout: () => void }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const selectedKey = location.pathname.startsWith("/competitions")
+    ? "/competitions"
+    : location.pathname.startsWith("/users")
+      ? "/users"
+      : "/";
+
+  const items = [
+    {
+      icon: <DashboardOutlined />,
+      key: "/",
+      label: "概览",
+    },
+    {
+      icon: <TrophyOutlined />,
+      key: "/competitions",
+      label: "比赛管理",
+    },
+    ...(canManageUsers(user.roles)
+      ? [
+          {
+            icon: <TeamOutlined />,
+            key: "/users",
+            label: "账号管理",
+          },
+        ]
+      : []),
+  ];
+
   return (
-    <AppShell navbar={{ width: 252, breakpoint: "sm" }} padding="lg">
-      <AppShell.Navbar className={classes.navbar!} p="lg">
-        <Stack gap="lg" h="100%">
-          <Stack gap={2}>
-            <Text c="gray.9" fw={850}>
-              BJCP Arena
-            </Text>
-            <Text c="dimmed" size="sm">
-              后台管理
-            </Text>
-          </Stack>
+    <Layout className={classes.shell!}>
+      <Layout.Sider breakpoint="lg" className={classes.sider!} collapsedWidth={0} width={252}>
+        <div className={classes.navbar!}>
+          <Space className={classes.brand!} direction="vertical" size={2}>
+            <Typography.Text strong>BJCP Arena</Typography.Text>
+            <Typography.Text type="secondary">后台管理</Typography.Text>
+          </Space>
 
-          <Stack gap={6}>
-            <RouterNavLink className={classes.navLink!} end to="/">
-              {({ isActive }) => (
-                <Group data-active={isActive} gap="xs" p="sm" className={classes.navLink!}>
-                  <LayoutDashboard size={16} />
-                  <span>概览</span>
-                </Group>
-              )}
-            </RouterNavLink>
-            <RouterNavLink className={classes.navLink!} to="/competitions">
-              {({ isActive }) => (
-                <Group data-active={isActive} gap="xs" p="sm" className={classes.navLink!}>
-                  <Trophy size={16} />
-                  <span>比赛管理</span>
-                </Group>
-              )}
-            </RouterNavLink>
-            {canManageUsers(user.roles) ? (
-              <RouterNavLink className={classes.navLink!} to="/users">
-                {({ isActive }) => (
-                  <Group data-active={isActive} gap="xs" p="sm" className={classes.navLink!}>
-                    <UsersRound size={16} />
-                    <span>账号管理</span>
-                  </Group>
-                )}
-              </RouterNavLink>
-            ) : null}
-          </Stack>
+          <Menu
+            items={items}
+            mode="inline"
+            selectedKeys={[selectedKey]}
+            onClick={({ key }) => navigate(key)}
+          />
 
-          <Stack gap="xs" mt="auto">
-            <Text fw={700} style={{ overflowWrap: "anywhere" }}>
+          <div className={classes.account!}>
+            <Typography.Text strong style={{ overflowWrap: "anywhere" }}>
               {user.nickname}
-            </Text>
-            <Text c="dimmed" size="sm" style={{ overflowWrap: "anywhere" }}>
+            </Typography.Text>
+            <Typography.Text style={{ overflowWrap: "anywhere" }} type="secondary">
               {describeRoles(user.roles)}
-            </Text>
-            <Button
-              fullWidth
-              leftSection={<LogOut size={16} />}
-              variant="default"
-              onClick={onLogout}
-            >
+            </Typography.Text>
+            <Button block icon={<LogoutOutlined />} onClick={onLogout}>
               退出登录
             </Button>
-          </Stack>
-        </Stack>
-      </AppShell.Navbar>
+          </div>
+        </div>
+      </Layout.Sider>
 
-      <AppShell.Main className={classes.page!}>
+      <Layout.Content className={classes.page!}>
         <Routes>
           <Route index element={<OverviewPage user={user} />} />
           <Route path="/competitions" element={<CompetitionsPage onLogout={onLogout} />} />
@@ -92,7 +91,7 @@ export function AdminLayout({ user, onLogout }: { user: UserPublic; onLogout: ()
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </AppShell.Main>
-    </AppShell>
+      </Layout.Content>
+    </Layout>
   );
 }

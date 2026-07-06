@@ -1,5 +1,4 @@
-import { Button, Group, Paper, Stack } from "@mantine/core";
-import { LogOut, RotateCw } from "lucide-react";
+import { Button, Card, Space } from "antd-mobile";
 import { InlineError } from "../../components/ui/InlineError.js";
 import { PageHeader } from "../../components/ui/PageHeader.js";
 
@@ -13,19 +12,19 @@ export function RestoreErrorPage({
   onRetry: () => void;
 }) {
   return (
-    <Paper maw={420} mx="auto" p="lg" w="100%">
-      <Stack gap="md">
+    <Card className="mobile-card">
+      <div className="stack-md">
         <PageHeader eyebrow="Judge H5" title="恢复登录态失败" />
         <InlineError>{error}</InlineError>
-        <Group grow>
-          <Button leftSection={<RotateCw size={16} />} variant="default" onClick={onRetry}>
+        <Space block direction="vertical">
+          <Button block onClick={onRetry}>
             重试
           </Button>
-          <Button leftSection={<LogOut size={16} />} variant="default" onClick={onLogout}>
+          <Button block onClick={onLogout}>
             退出登录
           </Button>
-        </Group>
-      </Stack>
-    </Paper>
+        </Space>
+      </div>
+    </Card>
   );
 }

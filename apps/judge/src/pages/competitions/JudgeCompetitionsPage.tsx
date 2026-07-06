@@ -1,5 +1,4 @@
-import { Badge, Button, Group, Paper, Stack, Text } from "@mantine/core";
-import { LogOut } from "lucide-react";
+import { Button, Card, List, Tag } from "antd-mobile";
 import { useEffect, useState } from "react";
 import type { JudgeCompetitionListResult, UserPublic } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
@@ -33,33 +32,34 @@ export function JudgeCompetitionsPage({
   }, [onLogout]);
 
   return (
-    <Paper p="lg" style={{ maxWidth: 520, width: "100%" }}>
-      <Stack gap="md">
-        <Group justify="space-between" wrap="nowrap">
+    <Card className="mobile-card">
+      <div className="stack-md">
+        <div className="top-row">
           <PageHeader eyebrow="Judge" title="比赛列表" description={`当前账号：${user.nickname}`} />
-          <Button color="red" leftSection={<LogOut size={16} />} variant="light" onClick={onLogout}>
+          <Button color="danger" fill="outline" size="small" onClick={onLogout}>
             退出
           </Button>
-        </Group>
+        </div>
         {error ? <InlineError>{error}</InlineError> : null}
-        <Stack gap="sm">
+        <List>
           {competitions.map((competition) => (
-            <Button
-              h="auto"
-              justify="space-between"
+            <List.Item
+              arrow
               key={competition.id}
-              p="md"
-              variant="light"
+              extra={
+                <Tag color={competition.status === "ongoing" ? "primary" : "default"}>
+                  {competition.status === "ongoing" ? "比赛中" : "结束"}
+                </Tag>
+              }
               onClick={() => {
                 window.location.href = `/competitions/${competition.id}`;
               }}
             >
-              <Text fw={800}>{competition.name}</Text>
-              <Badge variant="white">{competition.status === "ongoing" ? "比赛中" : "结束"}</Badge>
-            </Button>
+              {competition.name}
+            </List.Item>
           ))}
-        </Stack>
-      </Stack>
-    </Paper>
+        </List>
+      </div>
+    </Card>
   );
 }

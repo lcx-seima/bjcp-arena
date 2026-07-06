@@ -14,3 +14,151 @@ body {
   min-width: 320px;
   background: #f4f6f8;
 }
+
+.judge-center-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+}
+
+.judge-center-shell--padded {
+  padding: 14px;
+}
+
+.mobile-card {
+  width: min(100%, 520px);
+}
+
+.stack-xs {
+  display: grid;
+  gap: 8px;
+}
+
+.stack-md {
+  display: grid;
+  gap: 16px;
+}
+
+.page-header {
+  display: grid;
+  gap: 6px;
+}
+
+.page-header__eyebrow {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.page-header h1 {
+  color: #172033;
+  font-size: 24px;
+  line-height: 1.18;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.page-header p {
+  color: #6b7280;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.top-row {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.info-table {
+  border: 1px solid #e5e7eb;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.info-table th,
+.info-table td {
+  border: 1px solid #e5e7eb;
+  padding: 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.info-table th {
+  color: #4b5563;
+  width: 96px;
+}
+
+.section-label {
+  color: #6b7280;
+  font-weight: 700;
+}
+
+.score-shell {
+  padding-bottom: 72px;
+}
+
+.bottom-action {
+  bottom: 18px;
+  left: 18px;
+  position: fixed;
+  right: 18px;
+  z-index: 20;
+}
+
+.entry-code-boxes {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.entry-code-box {
+  align-items: center;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  display: flex;
+  font-size: 20px;
+  font-weight: 900;
+  height: 44px;
+  justify-content: center;
+}
+
+.keypad-grid {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.muted-text {
+  color: #6b7280;
+}
+
+.warning-text {
+  color: #b45309;
+}
+
+.score-dimension {
+  display: grid;
+  gap: 8px;
+}
+
+.score-dimension__header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.metric-control {
+  display: grid;
+  gap: 8px;
+}

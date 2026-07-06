@@ -1,17 +1,6 @@
-import {
-  Badge,
-  Button,
-  Group,
-  Pagination,
-  Paper,
-  ScrollArea,
-  Stack,
-  Table,
-  Text,
-  Tooltip,
-} from "@mantine/core";
-import { Edit3, KeyRound, Plus, RefreshCw } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { EditOutlined, KeyOutlined, PlusOutlined, ReloadOutlined } from "@ant-design/icons";
+import { Button, Card, Flex, Pagination, Space, Table, Tag, Tooltip, Typography } from "antd";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { hasRole, superAdminRole, type UserPublic } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
 import { PageHeader } from "../../components/ui/PageHeader.js";
@@ -23,16 +12,17 @@ import {
 import { ResetPasswordModal } from "../../modules/users/components/ResetPasswordModal.js";
 import { describeRoles } from "../../utils/roles.js";
 import { handleRequestError } from "../../utils/errors.js";
-import classes from "./UsersPage.module.css";
 
 const userPageLimit = 50;
 
 type UserModalState = { mode: "create"; user: null } | { mode: "edit"; user: UserPublic };
 
-function CellTooltip({ children, label }: { children: ReactNode; label: string }) {
+function EllipsisCell({ children }: { children: string }) {
   return (
-    <Tooltip label={label} openDelay={300} position="top-start" withArrow withinPortal>
-      <span className={classes.tooltipTarget!}>{children}</span>
+    <Tooltip title={children}>
+      <Typography.Text ellipsis style={{ maxWidth: "100%" }}>
+        {children}
+      </Typography.Text>
     </Tooltip>
   );
 }
@@ -153,33 +143,32 @@ export function UsersPage({
   }
 
   return (
-    <Stack gap="lg">
-      <Group justify="space-between">
+    <div className="stack-lg">
+      <Flex align="center" gap={16} justify="space-between" wrap>
         <PageHeader eyebrow="Users" title="账号管理" />
-        <Button
-          leftSection={<RefreshCw size={16} />}
-          loading={status === "loading"}
-          variant="default"
-          onClick={handleRefresh}
-        >
+        <Button icon={<ReloadOutlined />} loading={status === "loading"} onClick={handleRefresh}>
           刷新
         </Button>
-      </Group>
+      </Flex>
 
       {notice ? <InlineMessage type="success">{notice}</InlineMessage> : null}
       {error ? <InlineMessage type="error">{error}</InlineMessage> : null}
 
-      <Paper p="lg">
-        <Stack gap="md">
-          <Group justify="space-between">
+      <Card>
+        <div className="stack-md">
+          <Flex align="center" gap={16} justify="space-between" wrap>
             <div>
-              <Text fw={800}>用户列表</Text>
-              <Text c="dimmed" size="sm">
-                {status === "loading" ? "加载中..." : `共 ${total} 个账号，每页 ${userPageLimit} 条`}
-              </Text>
+              <Typography.Text strong>用户列表</Typography.Text>
+              <br />
+              <Typography.Text type="secondary">
+                {status === "loading"
+                  ? "加载中..."
+                  : `共 ${total} 个账号，每页 ${userPageLimit} 条`}
+              </Typography.Text>
             </div>
             <Button
-              leftSection={<Plus size={16} />}
+              icon={<PlusOutlined />}
+              type="primary"
               onClick={() => {
                 setModalError(null);
                 setUserModal({ mode: "create", user: null });
@@ -187,123 +176,112 @@ export function UsersPage({
             >
               新建用户
             </Button>
-          </Group>
+          </Flex>
 
-          <ScrollArea>
-            <Table className={classes.table!} highlightOnHover miw={1040} verticalSpacing="sm">
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th className={classes.idColumn!}>ID</Table.Th>
-                  <Table.Th>用户名</Table.Th>
-                  <Table.Th>昵称</Table.Th>
-                  <Table.Th>角色</Table.Th>
-                  <Table.Th>状态</Table.Th>
-                  <Table.Th>创建时间</Table.Th>
-                  <Table.Th>更新时间</Table.Th>
-                  <Table.Th className={classes.actionsColumn!}>操作</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {users.map((user) => {
-                  const idText = `#${user.id}`;
-                  const roleText = describeRoles(user.roles);
-                  const statusText = user.disabled ? "已停用" : "已启用";
-                  const createdAtText = new Date(user.createdAt).toLocaleString();
-                  const updatedAtText = new Date(user.updatedAt).toLocaleString();
+          <Table<UserPublic>
+            columns={[
+              {
+                dataIndex: "id",
+                fixed: "left",
+                render: (id: number) => <Typography.Text type="secondary">#{id}</Typography.Text>,
+                title: "ID",
+                width: 80,
+              },
+              {
+                dataIndex: "username",
+                render: (value: string) => <EllipsisCell>{value}</EllipsisCell>,
+                title: "用户名",
+                width: 160,
+              },
+              {
+                dataIndex: "nickname",
+                render: (value: string) => <EllipsisCell>{value}</EllipsisCell>,
+                title: "昵称",
+                width: 160,
+              },
+              {
+                dataIndex: "roles",
+                render: (roles: number) => <EllipsisCell>{describeRoles(roles)}</EllipsisCell>,
+                title: "角色",
+                width: 180,
+              },
+              {
+                dataIndex: "disabled",
+                render: (disabled: boolean) => (
+                  <Tag color={disabled ? "default" : "success"}>
+                    {disabled ? "已停用" : "已启用"}
+                  </Tag>
+                ),
+                title: "状态",
+                width: 100,
+              },
+              {
+                dataIndex: "createdAt",
+                render: (value: string) => (
+                  <Typography.Text type="secondary">
+                    {new Date(value).toLocaleString()}
+                  </Typography.Text>
+                ),
+                title: "创建时间",
+                width: 190,
+              },
+              {
+                dataIndex: "updatedAt",
+                render: (value: string) => (
+                  <Typography.Text type="secondary">
+                    {new Date(value).toLocaleString()}
+                  </Typography.Text>
+                ),
+                title: "更新时间",
+                width: 190,
+              },
+              {
+                fixed: "right",
+                render: (_, user) => (
+                  <Space>
+                    <Button
+                      icon={<EditOutlined />}
+                      onClick={() => {
+                        setModalError(null);
+                        setUserModal({ mode: "edit", user });
+                      }}
+                    >
+                      编辑
+                    </Button>
+                    <Button
+                      icon={<KeyOutlined />}
+                      onClick={() => {
+                        setResetError(null);
+                        setResetPasswordUser(user);
+                      }}
+                    >
+                      重置密码
+                    </Button>
+                  </Space>
+                ),
+                title: "操作",
+                width: 240,
+              },
+            ]}
+            dataSource={users}
+            loading={status === "loading"}
+            pagination={false}
+            rowKey="id"
+            scroll={{ x: 1300 }}
+          />
 
-                  return (
-                    <Table.Tr key={user.id}>
-                      <Table.Td className={classes.idColumn!}>
-                        <CellTooltip label={idText}>
-                          <Text c="dimmed" className={classes.cellText!} fw={700} size="sm">
-                            {idText}
-                          </Text>
-                        </CellTooltip>
-                      </Table.Td>
-                      <Table.Td>
-                        <CellTooltip label={user.username}>
-                          <Text className={classes.cellText!} fw={700}>
-                            {user.username}
-                          </Text>
-                        </CellTooltip>
-                      </Table.Td>
-                      <Table.Td>
-                        <CellTooltip label={user.nickname}>
-                          <Text className={classes.cellText!}>{user.nickname}</Text>
-                        </CellTooltip>
-                      </Table.Td>
-                      <Table.Td>
-                        <CellTooltip label={roleText}>
-                          <Text className={classes.cellText!}>{roleText}</Text>
-                        </CellTooltip>
-                      </Table.Td>
-                      <Table.Td>
-                        <CellTooltip label={statusText}>
-                          <Badge color={user.disabled ? "gray" : "green"} variant="light">
-                            {statusText}
-                          </Badge>
-                        </CellTooltip>
-                      </Table.Td>
-                      <Table.Td>
-                        <CellTooltip label={createdAtText}>
-                          <Text c="dimmed" className={classes.cellText!} size="sm">
-                            {createdAtText}
-                          </Text>
-                        </CellTooltip>
-                      </Table.Td>
-                      <Table.Td>
-                        <CellTooltip label={updatedAtText}>
-                          <Text c="dimmed" className={classes.cellText!} size="sm">
-                            {updatedAtText}
-                          </Text>
-                        </CellTooltip>
-                      </Table.Td>
-                      <Table.Td className={classes.actionsColumn!}>
-                        <Group gap="xs" justify="flex-end" wrap="nowrap">
-                          <Button
-                            leftSection={<Edit3 size={16} />}
-                            size="sm"
-                            variant="default"
-                            onClick={() => {
-                              setModalError(null);
-                              setUserModal({ mode: "edit", user });
-                            }}
-                          >
-                            编辑
-                          </Button>
-                          <Button
-                            leftSection={<KeyRound size={16} />}
-                            size="sm"
-                            variant="default"
-                            onClick={() => {
-                              setResetError(null);
-                              setResetPasswordUser(user);
-                            }}
-                          >
-                            重置密码
-                          </Button>
-                        </Group>
-                      </Table.Td>
-                    </Table.Tr>
-                  );
-                })}
-              </Table.Tbody>
-            </Table>
-          </ScrollArea>
-
-          {status === "ready" && users.length === 0 ? (
-            <Paper p="lg" withBorder={false}>
-              <Text c="dimmed" ta="center">
-                暂无用户。
-              </Text>
-            </Paper>
-          ) : null}
-
-          <Group justify="flex-end">
-            <Pagination disabled={status === "loading"} total={pageCount} value={page} onChange={setPage} />
-          </Group>
-        </Stack>
-      </Paper>
+          <Flex justify="flex-end">
+            <Pagination
+              current={page}
+              disabled={status === "loading"}
+              pageSize={userPageLimit}
+              showSizeChanger={false}
+              total={pageCount * userPageLimit}
+              onChange={setPage}
+            />
+          </Flex>
+        </div>
+      </Card>
 
       <UserInfoModal
         activeSuperAdminCount={activeSuperAdminCount}
@@ -330,6 +308,6 @@ export function UsersPage({
         }}
         onSubmit={handleResetPassword}
       />
-    </Stack>
+    </div>
   );
 }

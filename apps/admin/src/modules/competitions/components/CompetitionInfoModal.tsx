@@ -1,5 +1,5 @@
-import { Modal, Stack } from "@mantine/core";
-import { Save, Trophy } from "lucide-react";
+import { SaveOutlined, TrophyOutlined } from "@ant-design/icons";
+import { Modal } from "antd";
 import { InlineMessage } from "../../../components/ui/InlineMessage.js";
 import type { Competition } from "../competitions-api.js";
 import { CompetitionForm, type CompetitionFormValues } from "./CompetitionForm.js";
@@ -24,21 +24,22 @@ export function CompetitionInfoModal({
   return (
     <Modal
       centered
-      opened={opened}
+      footer={null}
+      open={opened}
       title={mode === "create" ? "新建比赛" : `编辑比赛 ${competition?.name ?? ""}`}
-      onClose={onClose}
+      onCancel={onClose}
     >
-      <Stack gap="md">
+      <div className="stack-md">
         <CompetitionForm
           competition={competition}
           isSubmitting={isSubmitting}
           onCancel={onClose}
           submitLabel={mode === "create" ? "创建比赛" : "保存"}
-          submitLeftSection={mode === "create" ? <Trophy size={16} /> : <Save size={16} />}
+          submitLeftSection={mode === "create" ? <TrophyOutlined /> : <SaveOutlined />}
           onSubmit={onSubmit}
         />
         {error ? <InlineMessage type="error">{error}</InlineMessage> : null}
-      </Stack>
+      </div>
     </Modal>
   );
 }

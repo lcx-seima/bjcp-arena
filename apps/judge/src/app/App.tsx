@@ -1,4 +1,4 @@
-import { Center, Loader } from "@mantine/core";
+import { DotLoading } from "antd-mobile";
 import { useCallback, useEffect, useState } from "react";
 import { canAccessJudgeApp, type UserPublic } from "@bjcp-arena/contracts";
 import { client } from "./api.js";
@@ -97,14 +97,14 @@ export function App() {
 
   if (state.status === "loading") {
     return (
-      <Center mih="100vh" p="md">
-        <Loader />
-      </Center>
+      <main className="judge-center-shell">
+        <DotLoading color="primary" />
+      </main>
     );
   }
 
   return (
-    <Center mih="100vh" p="md">
+    <main className="judge-center-shell judge-center-shell--padded">
       {state.status === "restore-error" ? (
         <RestoreErrorPage
           error={state.error ?? "恢复登录态失败，请稍后重试"}
@@ -136,6 +136,6 @@ export function App() {
       ) : (
         <UserInfoPage user={state.user} onLogout={handleLogout} />
       )}
-    </Center>
+    </main>
   );
 }

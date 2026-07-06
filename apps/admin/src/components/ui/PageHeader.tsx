@@ -1,4 +1,6 @@
-import { Stack, Text, Title } from "@mantine/core";
+import { Typography } from "antd";
+
+const { Text, Title } = Typography;
 
 export function PageHeader({
   eyebrow,
@@ -10,18 +12,18 @@ export function PageHeader({
   description?: string | undefined;
 }) {
   return (
-    <Stack gap={6}>
-      <Text c="dimmed" fw={800} size="xs" tt="uppercase">
+    <div className="page-header">
+      <Text className="page-header__eyebrow" type="secondary">
         {eyebrow}
       </Text>
-      <Title order={1} size="h2">
+      <Title level={2} style={{ margin: 0 }}>
         {title}
       </Title>
       {description ? (
-        <Text c="dimmed" style={{ overflowWrap: "anywhere" }}>
+        <Text style={{ overflowWrap: "anywhere" }} type="secondary">
           {description}
         </Text>
       ) : null}
-    </Stack>
+    </div>
   );
 }

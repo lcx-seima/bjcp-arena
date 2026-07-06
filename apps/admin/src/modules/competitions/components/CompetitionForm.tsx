@@ -1,6 +1,6 @@
-import { Button, Group, Stack, TextInput } from "@mantine/core";
-import { Save } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { SaveOutlined } from "@ant-design/icons";
+import { Button, Form, Input, Space } from "antd";
+import { type ReactNode, useEffect } from "react";
 import type { Competition } from "../competitions-api.js";
 
 export interface CompetitionFormValues {
@@ -22,49 +22,36 @@ export function CompetitionForm({
   submitLeftSection?: ReactNode;
   onSubmit: (values: CompetitionFormValues) => void;
 }) {
-  const [values, setValues] = useState<CompetitionFormValues>({
-    name: competition?.name ?? "",
-  });
+  const [form] = Form.useForm<CompetitionFormValues>();
 
   useEffect(() => {
-    setValues({
+    form.setFieldsValue({
       name: competition?.name ?? "",
     });
-  }, [competition?.name]);
+  }, [competition?.name, form]);
 
   return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSubmit(values);
-      }}
-    >
-      <Stack gap="md">
-        <TextInput
-          label="比赛名称"
-          maxLength={120}
-          required
-          value={values.name}
-          onChange={(event) => {
-            const name = event.currentTarget.value;
-            setValues((current) => ({ ...current, name }));
-          }}
-        />
-        <Group justify="flex-end">
-          {onCancel ? (
-            <Button variant="default" onClick={onCancel}>
-              取消
-            </Button>
-          ) : null}
+    <Form form={form} layout="vertical" onFinish={onSubmit}>
+      <Form.Item
+        label="比赛名称"
+        name="name"
+        rules={[{ max: 120, required: true, message: "请填写比赛名称" }]}
+      >
+        <Input />
+      </Form.Item>
+      <Form.Item>
+        <Space>
+          {onCancel ? <Button onClick={onCancel}>取消</Button> : null}
           <Button
-            leftSection={submitLeftSection ?? <Save size={16} />}
+            htmlType="submit"
+            icon={submitLeftSection ?? <SaveOutlined />}
             loading={isSubmitting}
-            type="submit"
+            type="primary"
           >
             {submitLabel}
           </Button>
-        </Group>
-      </Stack>
-    </form>
+        </Space>
+      </Form.Item>
+    </Form>
   );
 }

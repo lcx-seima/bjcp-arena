@@ -1,6 +1,5 @@
-import { Button, Group, Modal, Stack, TextInput } from "@mantine/core";
-import { useForm } from "@mantine/form";
-import { KeyRound, Shuffle } from "lucide-react";
+import { KeyOutlined, ThunderboltOutlined } from "@ant-design/icons";
+import { Button, Form, Input, Modal } from "antd";
 import { useEffect } from "react";
 import type { UserPublic } from "@bjcp-arena/contracts";
 import { InlineMessage } from "../../../components/ui/InlineMessage.js";
@@ -21,53 +20,45 @@ export function ResetPasswordModal({
   onClose: () => void;
   onSubmit: (password: string) => void;
 }) {
-  const form = useForm({
-    initialValues: {
-      password: "",
-    },
-    validate: {
-      password: (value) => (!value ? "请填写新密码" : null),
-    },
-  });
+  const [form] = Form.useForm<{ password: string }>();
 
   useEffect(() => {
     if (opened) {
-      form.setFieldValue("password", "");
-      form.clearErrors();
+      form.resetFields();
     }
-  }, [opened]);
+  }, [form, opened]);
 
   return (
-    <Modal centered opened={opened} title={`重置密码 ${user?.username ?? ""}`} onClose={onClose}>
-      <form onSubmit={form.onSubmit((values) => onSubmit(values.password))}>
-        <Stack gap="md">
-          <TextInput
-            label="新密码"
-            minLength={6}
-            required
-            rightSection={
+    <Modal
+      centered
+      confirmLoading={isSubmitting}
+      okText="重置密码"
+      open={opened}
+      title={`重置密码 ${user?.username ?? ""}`}
+      onCancel={onClose}
+      onOk={() => form.submit()}
+    >
+      <Form form={form} layout="vertical" onFinish={(values) => onSubmit(values.password)}>
+        <Form.Item
+          label="新密码"
+          name="password"
+          rules={[{ min: 6, required: true, message: "请填写至少 6 位新密码" }]}
+        >
+          <Input
+            suffix={
               <Button
                 aria-label="随机密码"
-                size="compact-xs"
-                variant="subtle"
+                icon={<ThunderboltOutlined />}
+                size="small"
+                type="text"
                 onClick={() => form.setFieldValue("password", randomNumericPassword())}
-              >
-                <Shuffle size={14} />
-              </Button>
+              />
             }
-            {...form.getInputProps("password")}
           />
-          {error ? <InlineMessage type="error">{error}</InlineMessage> : null}
-          <Group justify="flex-end">
-            <Button variant="default" onClick={onClose}>
-              取消
-            </Button>
-            <Button leftSection={<KeyRound size={16} />} loading={isSubmitting} type="submit">
-              重置密码
-            </Button>
-          </Group>
-        </Stack>
-      </form>
+        </Form.Item>
+        {error ? <InlineMessage type="error">{error}</InlineMessage> : null}
+        <KeyOutlined style={{ display: "none" }} />
+      </Form>
     </Modal>
   );
 }

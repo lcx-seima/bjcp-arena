@@ -1,5 +1,5 @@
-import { Center, Loader, Paper, Stack, Button } from "@mantine/core";
-import { RotateCw, LogOut } from "lucide-react";
+import { LogoutOutlined, ReloadOutlined } from "@ant-design/icons";
+import { Button, Card, Flex, Space, Spin } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { canAccessAdminApp, type UserPublic } from "@bjcp-arena/contracts";
@@ -82,9 +82,9 @@ export function App() {
 
   if (state.status === "loading") {
     return (
-      <Center mih="100vh">
-        <Loader />
-      </Center>
+      <main className="center-shell">
+        <Spin size="large" />
+      </main>
     );
   }
 
@@ -137,9 +137,9 @@ export function App() {
                 canAccessAdminApp(state.user.roles) ? (
                   <AdminLayout user={state.user} onLogout={handleLogout} />
                 ) : (
-                  <Center mih="100vh" p="lg">
+                  <main className="center-shell center-shell--padded">
                     <RoleMismatchPage user={state.user} onLogout={handleLogout} />
-                  </Center>
+                  </main>
                 )
               ) : (
                 <Navigate to="/login" replace />
@@ -164,31 +164,21 @@ function RestoreErrorPage({
   onRetry: () => void;
 }) {
   return (
-    <Center mih="100vh" p="lg">
-      <Paper maw={440} p="xl" w="100%">
-        <Stack gap="md">
+    <main className="center-shell center-shell--padded">
+      <Card className="restore-card">
+        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
           <PageHeader eyebrow="Admin Console" title="恢复登录态失败" />
           <InlineMessage type="error">{error}</InlineMessage>
-          <Button.Group>
-            <Button
-              fullWidth
-              leftSection={<RotateCw size={16} />}
-              variant="default"
-              onClick={onRetry}
-            >
+          <Flex gap={8}>
+            <Button block icon={<ReloadOutlined />} onClick={onRetry}>
               重试
             </Button>
-            <Button
-              fullWidth
-              leftSection={<LogOut size={16} />}
-              variant="default"
-              onClick={onLogout}
-            >
+            <Button block icon={<LogoutOutlined />} onClick={onLogout}>
               退出登录
             </Button>
-          </Button.Group>
-        </Stack>
-      </Paper>
-    </Center>
+          </Flex>
+        </Space>
+      </Card>
+    </main>
   );
 }

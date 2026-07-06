@@ -1,16 +1,11 @@
-import { MantineProvider } from "@mantine/core";
-import { ModalsProvider } from "@mantine/modals";
-import { Notifications } from "@mantine/notifications";
+import { App as AntdApp, ConfigProvider } from "antd";
 import { type PropsWithChildren } from "react";
 import { theme } from "./theme.js";
 
 export function AppProviders({ children }: PropsWithChildren) {
   return (
-    <MantineProvider defaultColorScheme="light" theme={theme}>
-      <ModalsProvider>
-        <Notifications position="top-right" />
-        {children}
-      </ModalsProvider>
-    </MantineProvider>
+    <ConfigProvider theme={theme}>
+      <AntdApp>{children}</AntdApp>
+    </ConfigProvider>
   );
 }

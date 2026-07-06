@@ -1,10 +1,5 @@
-import { Alert } from "@mantine/core";
-import { AlertCircle } from "lucide-react";
+import { ErrorBlock } from "antd-mobile";
 
 export function InlineError({ children }: { children: string }) {
-  return (
-    <Alert color="red" icon={<AlertCircle size={16} />} variant="light">
-      {children}
-    </Alert>
-  );
+  return <ErrorBlock description={children} status="default" title="操作失败" />;
 }

@@ -1,17 +1,6 @@
-import {
-  Badge,
-  Button,
-  Group,
-  Pagination,
-  Paper,
-  ScrollArea,
-  Stack,
-  Table,
-  Text,
-  Tooltip,
-} from "@mantine/core";
-import { Edit3, Eye, Plus, RefreshCw } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { EditOutlined, EyeOutlined, PlusOutlined, ReloadOutlined } from "@ant-design/icons";
+import { Button, Card, Flex, Pagination, Space, Table, Tag, Tooltip, Typography } from "antd";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { client } from "../../app/api.js";
 import { InlineMessage } from "../../components/ui/InlineMessage.js";
@@ -23,7 +12,6 @@ import {
 import { type CompetitionFormValues } from "../../modules/competitions/components/CompetitionForm.js";
 import { CompetitionInfoModal } from "../../modules/competitions/components/CompetitionInfoModal.js";
 import { handleRequestError } from "../../utils/errors.js";
-import classes from "./CompetitionsPage.module.css";
 
 const competitionPageLimit = 50;
 
@@ -31,10 +19,12 @@ type CompetitionModalState =
   | { mode: "create"; competition: null }
   | { mode: "edit"; competition: Competition };
 
-function CellTooltip({ children, label }: { children: ReactNode; label: string }) {
+function EllipsisCell({ children }: { children: string }) {
   return (
-    <Tooltip label={label} openDelay={300} position="top-start" withArrow withinPortal>
-      <span className={classes.tooltipTarget!}>{children}</span>
+    <Tooltip title={children}>
+      <Typography.Text ellipsis style={{ maxWidth: "100%" }}>
+        {children}
+      </Typography.Text>
     </Tooltip>
   );
 }
@@ -49,8 +39,6 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
   const [competitionModal, setCompetitionModal] = useState<CompetitionModalState | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
   const [isSubmittingCompetition, setIsSubmittingCompetition] = useState(false);
-
-  const pageCount = Math.max(1, Math.ceil(total / competitionPageLimit));
 
   const refreshCompetitions = useCallback(
     async (nextPage = page) => {
@@ -116,35 +104,32 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
   }
 
   return (
-    <Stack gap="lg">
-      <Group justify="space-between">
+    <div className="stack-lg">
+      <Flex align="center" gap={16} justify="space-between" wrap>
         <PageHeader eyebrow="Competitions" title="比赛管理" />
-        <Button
-          leftSection={<RefreshCw size={16} />}
-          loading={status === "loading"}
-          variant="default"
-          onClick={handleRefresh}
-        >
+        <Button icon={<ReloadOutlined />} loading={status === "loading"} onClick={handleRefresh}>
           刷新
         </Button>
-      </Group>
+      </Flex>
 
       {notice ? <InlineMessage type="success">{notice}</InlineMessage> : null}
       {error ? <InlineMessage type="error">{error}</InlineMessage> : null}
 
-      <Paper p="lg">
-        <Stack gap="md">
-          <Group justify="space-between">
+      <Card>
+        <div className="stack-md">
+          <Flex align="center" gap={16} justify="space-between" wrap>
             <div>
-              <Text fw={800}>比赛列表</Text>
-              <Text c="dimmed" size="sm">
+              <Typography.Text strong>比赛列表</Typography.Text>
+              <br />
+              <Typography.Text type="secondary">
                 {status === "loading"
                   ? "加载中..."
                   : `共 ${total} 场比赛，每页 ${competitionPageLimit} 条`}
-              </Text>
+              </Typography.Text>
             </div>
             <Button
-              leftSection={<Plus size={16} />}
+              icon={<PlusOutlined />}
+              type="primary"
               onClick={() => {
                 setModalError(null);
                 setCompetitionModal({ mode: "create", competition: null });
@@ -152,113 +137,94 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
             >
               新建比赛
             </Button>
-          </Group>
+          </Flex>
 
-          <ScrollArea>
-            <Table className={classes.table!} highlightOnHover miw={1180} verticalSpacing="sm">
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th className={classes.idColumn!}>ID</Table.Th>
-                  <Table.Th>比赛名称</Table.Th>
-                  <Table.Th className={classes.statusColumn!}>状态</Table.Th>
-                  <Table.Th>创建时间</Table.Th>
-                  <Table.Th>更新时间</Table.Th>
-                  <Table.Th className={classes.actionsColumn!}>操作</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {competitions.map((competition) => {
-                  const idText = `#${competition.id}`;
-                  const statusText = entityStatusLabels[competition.status];
-                  const createdAtText = new Date(competition.createdAt).toLocaleString();
-                  const updatedAtText = new Date(competition.updatedAt).toLocaleString();
+          <Table<Competition>
+            columns={[
+              {
+                dataIndex: "id",
+                fixed: "left",
+                render: (id: number) => <Typography.Text type="secondary">#{id}</Typography.Text>,
+                title: "ID",
+                width: 80,
+              },
+              {
+                dataIndex: "name",
+                render: (value: string) => <EllipsisCell>{value}</EllipsisCell>,
+                title: "比赛名称",
+                width: 280,
+              },
+              {
+                dataIndex: "status",
+                render: (status: Competition["status"]) => (
+                  <Tag color={status === "ongoing" ? "processing" : "default"}>
+                    {entityStatusLabels[status]}
+                  </Tag>
+                ),
+                title: "状态",
+                width: 110,
+              },
+              {
+                dataIndex: "createdAt",
+                render: (value: string) => (
+                  <Typography.Text type="secondary">
+                    {new Date(value).toLocaleString()}
+                  </Typography.Text>
+                ),
+                title: "创建时间",
+                width: 190,
+              },
+              {
+                dataIndex: "updatedAt",
+                render: (value: string) => (
+                  <Typography.Text type="secondary">
+                    {new Date(value).toLocaleString()}
+                  </Typography.Text>
+                ),
+                title: "更新时间",
+                width: 190,
+              },
+              {
+                fixed: "right",
+                render: (_, competition) => (
+                  <Space>
+                    <Button icon={<EyeOutlined />}>
+                      <Link to={`/competitions/${competition.id}`}>进入详情</Link>
+                    </Button>
+                    <Button
+                      icon={<EditOutlined />}
+                      onClick={() => {
+                        setModalError(null);
+                        setCompetitionModal({ mode: "edit", competition });
+                      }}
+                    >
+                      编辑
+                    </Button>
+                  </Space>
+                ),
+                title: "操作",
+                width: 230,
+              },
+            ]}
+            dataSource={competitions}
+            loading={status === "loading"}
+            pagination={false}
+            rowKey="id"
+            scroll={{ x: 1080 }}
+          />
 
-                  return (
-                    <Table.Tr key={competition.id}>
-                      <Table.Td className={classes.idColumn!}>
-                        <CellTooltip label={idText}>
-                          <Text c="dimmed" className={classes.cellText!} fw={700} size="sm">
-                            {idText}
-                          </Text>
-                        </CellTooltip>
-                      </Table.Td>
-                      <Table.Td>
-                        <CellTooltip label={competition.name}>
-                          <Text className={classes.cellText!} fw={700}>
-                            {competition.name}
-                          </Text>
-                        </CellTooltip>
-                      </Table.Td>
-                      <Table.Td className={classes.statusColumn!}>
-                        <CellTooltip label={statusText}>
-                          <Badge variant="light">{statusText}</Badge>
-                        </CellTooltip>
-                      </Table.Td>
-                      <Table.Td>
-                        <CellTooltip label={createdAtText}>
-                          <Text c="dimmed" className={classes.cellText!} size="sm">
-                            {createdAtText}
-                          </Text>
-                        </CellTooltip>
-                      </Table.Td>
-                      <Table.Td>
-                        <CellTooltip label={updatedAtText}>
-                          <Text c="dimmed" className={classes.cellText!} size="sm">
-                            {updatedAtText}
-                          </Text>
-                        </CellTooltip>
-                      </Table.Td>
-                      <Table.Td className={classes.actionsColumn!}>
-                        <Group gap="xs" justify="flex-end" wrap="nowrap">
-                          <Button
-                            className={classes.actionButton!}
-                            component={Link}
-                            leftSection={<Eye size={16} />}
-                            size="sm"
-                            to={`/competitions/${competition.id}`}
-                            variant="default"
-                          >
-                            进入详情
-                          </Button>
-                          <Button
-                            className={classes.actionButton!}
-                            leftSection={<Edit3 size={16} />}
-                            size="sm"
-                            variant="default"
-                            onClick={() => {
-                              setModalError(null);
-                              setCompetitionModal({ mode: "edit", competition });
-                            }}
-                          >
-                            编辑
-                          </Button>
-                        </Group>
-                      </Table.Td>
-                    </Table.Tr>
-                  );
-                })}
-              </Table.Tbody>
-            </Table>
-          </ScrollArea>
-
-          {status === "ready" && competitions.length === 0 ? (
-            <Paper p="lg" withBorder={false}>
-              <Text c="dimmed" ta="center">
-                暂无比赛。
-              </Text>
-            </Paper>
-          ) : null}
-
-          <Group justify="flex-end">
+          <Flex justify="flex-end">
             <Pagination
+              current={page}
               disabled={status === "loading"}
-              total={pageCount}
-              value={page}
+              pageSize={competitionPageLimit}
+              showSizeChanger={false}
+              total={total}
               onChange={setPage}
             />
-          </Group>
-        </Stack>
-      </Paper>
+          </Flex>
+        </div>
+      </Card>
 
       <CompetitionInfoModal
         competition={competitionModal?.competition ?? null}
@@ -272,6 +238,6 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
         }}
         onSubmit={handleCompetitionSubmit}
       />
-    </Stack>
+    </div>
   );
 }

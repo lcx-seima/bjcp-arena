@@ -1,6 +1,4 @@
-import { Button, Paper, PasswordInput, Stack, TextInput } from "@mantine/core";
-import { useForm } from "@mantine/form";
-import { LogIn } from "lucide-react";
+import { Button, Card, Form, Input, Toast } from "antd-mobile";
 import { useState } from "react";
 import { type UserPublic } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
@@ -18,66 +16,59 @@ export function LoginPage({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const form = useForm({
-    initialValues: {
-      username: "",
-      password: "",
-    },
-  });
 
-  async function handleSubmit(values: typeof form.values) {
+  async function handleSubmit(values: { password: string; username: string }) {
     setError(null);
     setIsSubmitting(true);
 
     try {
       const session = await client.login(values);
+      Toast.show({ content: "登录成功", icon: "success" });
       onLogin(session.token, session.user);
     } catch (unknownError) {
+      const message = isUnauthorized(unknownError) ? "用户名或密码错误" : readError(unknownError);
       if (isUnauthorized(unknownError)) {
         onUnauthorized();
-        setError("用户名或密码错误");
-      } else {
-        setError(readError(unknownError));
       }
+      setError(message);
+      Toast.show({ content: message, icon: "fail" });
     } finally {
       setIsSubmitting(false);
     }
   }
 
   return (
-    <Paper
-      component="form"
-      maw={420}
-      mx="auto"
-      p="lg"
-      w="100%"
-      onSubmit={form.onSubmit(handleSubmit)}
-    >
-      <Stack gap="md">
+    <Card className="mobile-card">
+      <div className="stack-md">
         <PageHeader eyebrow="Judge H5" title="裁判端登录" description={`API：${apiBaseUrl}`} />
 
-        <TextInput
-          autoComplete="username"
-          inputMode="text"
-          label="用户名"
-          pattern="[A-Za-z0-9]+"
-          required
-          {...form.getInputProps("username")}
-        />
-        <PasswordInput
-          autoComplete="current-password"
-          label="密码"
-          minLength={6}
-          required
-          {...form.getInputProps("password")}
-        />
+        <Form
+          footer={
+            <Button block color="primary" loading={isSubmitting} type="submit">
+              登录
+            </Button>
+          }
+          layout="vertical"
+          onFinish={handleSubmit}
+        >
+          <Form.Item
+            label="用户名"
+            name="username"
+            rules={[{ pattern: /^[A-Za-z0-9]+$/, required: true, message: "请填写用户名" }]}
+          >
+            <Input autoComplete="username" />
+          </Form.Item>
+          <Form.Item
+            label="密码"
+            name="password"
+            rules={[{ min: 6, required: true, message: "请填写密码" }]}
+          >
+            <Input autoComplete="current-password" type="password" />
+          </Form.Item>
+        </Form>
 
         {error ? <InlineError>{error}</InlineError> : null}
-
-        <Button leftSection={<LogIn size={16} />} loading={isSubmitting} type="submit">
-          登录
-        </Button>
-      </Stack>
-    </Paper>
+      </div>
+    </Card>
   );
 }

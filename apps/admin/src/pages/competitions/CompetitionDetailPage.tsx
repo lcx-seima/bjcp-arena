@@ -1,18 +1,24 @@
 import {
-  Badge,
+  ArrowLeftOutlined,
+  DeleteOutlined,
+  FileExcelOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+} from "@ant-design/icons";
+import {
+  App as AntdApp,
   Button,
-  Group,
-  Modal,
-  Paper,
-  ScrollArea,
+  Card,
+  Drawer,
+  Flex,
+  Input,
   Select,
-  Stack,
+  Space,
   Table,
   Tabs,
-  Text,
-  TextInput,
-} from "@mantine/core";
-import { ArrowLeft, FileSpreadsheet, Plus, RefreshCw, Trash2 } from "lucide-react";
+  Tag,
+  Typography,
+} from "antd";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import * as XLSX from "xlsx";
@@ -61,6 +67,7 @@ function parseExcelRows(file: File): Promise<ImportBeerRow[]> {
 }
 
 export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
+  const { modal } = AntdApp.useApp();
   const { competitionId: competitionIdParam } = useParams();
   const competitionId = readCompetitionId(competitionIdParam);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -72,7 +79,9 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
   const [status, setStatus] = useState<"loading" | "ready">("loading");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [editingBeer, setEditingBeer] = useState<Beer | null>(null);
+  const [beerDrawer, setBeerDrawer] = useState<
+    { mode: "create"; beer: null } | { mode: "edit"; beer: Beer } | null
+  >(null);
   const [newRoundName, setNewRoundName] = useState("");
   const [roundBeerToAdd, setRoundBeerToAdd] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
@@ -124,11 +133,16 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
     }
   }
 
-  async function handleCompetitionStatus(nextStatus: string | null) {
-    if (!competitionId || !nextStatus || !competition) return;
+  async function handleCompetitionStatus(nextStatus: string) {
+    if (!competitionId || !competition) return;
     const confirm = competition.status === "ended" && nextStatus === "ongoing";
-    if (confirm && !window.confirm("确认重新打开比赛？裁判将可以继续修改允许状态下的评分。"))
-      return;
+    if (confirm) {
+      const confirmed = await modal.confirm({
+        content: "裁判将可以继续修改允许状态下的评分。",
+        title: "确认重新打开比赛？",
+      });
+      if (!confirmed) return;
+    }
     await runAction(async () => {
       const result = await client.updateCompetitionStatus(competitionId, {
         status: nextStatus as EntityStatus,
@@ -143,21 +157,22 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
     if (!competitionId) return;
     await runAction(async () => {
       const result = await client.createBeer(competitionId, values);
+      setBeerDrawer(null);
       await refreshDetail();
       setNotice(`已保存 #${result.beer.entryNumber} ${result.beer.entryCode}`);
     });
   }
 
   async function handleSaveBeer(values: BeerFormValues) {
-    if (!competitionId || !editingBeer) return;
+    if (!competitionId || beerDrawer?.mode !== "edit") return;
     await runAction(async () => {
-      await client.updateBeer(competitionId, editingBeer.id, {
+      await client.updateBeer(competitionId, beerDrawer.beer.id, {
         name: values.name,
         brewery: values.brewery,
         bjcpSubcategoryCode: values.bjcpSubcategoryCode,
         description: values.description,
       });
-      setEditingBeer(null);
+      setBeerDrawer(null);
       await refreshDetail();
       setNotice("酒款已保存");
     });
@@ -184,10 +199,16 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
     });
   }
 
-  async function handleRoundStatus(nextStatus: string | null) {
-    if (!competitionId || !selectedRound || !nextStatus) return;
+  async function handleRoundStatus(nextStatus: string) {
+    if (!competitionId || !selectedRound) return;
     const confirm = selectedRound.status === "ended" && nextStatus === "ongoing";
-    if (confirm && !window.confirm("确认重新打开轮次？裁判将可以继续修改本轮评分。")) return;
+    if (confirm) {
+      const confirmed = await modal.confirm({
+        content: "裁判将可以继续修改本轮评分。",
+        title: "确认重新打开轮次？",
+      });
+      if (!confirmed) return;
+    }
     await runAction(async () => {
       await client.updateRoundStatus(competitionId, selectedRound.id, {
         status: nextStatus as EntityStatus,
@@ -212,10 +233,13 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
 
   async function handleRemoveRoundBeer(beer: RoundBeer) {
     if (!competitionId || !selectedRound) return;
-    const confirm =
-      beer.scoreCount > 0 &&
-      !window.confirm(`该酒款已有 ${beer.scoreCount} 条评价，确认移除并软删除这些评价？`);
-    if (confirm) return;
+    if (beer.scoreCount > 0) {
+      const confirmed = await modal.confirm({
+        content: `该酒款已有 ${beer.scoreCount} 条评价，确认移除并软删除这些评价？`,
+        title: "确认移除酒款？",
+      });
+      if (!confirmed) return;
+    }
     await runAction(async () => {
       await client.removeRoundBeer(competitionId, selectedRound.id, beer.beerId, {
         confirm: beer.scoreCount > 0,
@@ -226,33 +250,26 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
   }
 
   return (
-    <Stack gap="lg">
-      <Group justify="space-between">
-        <Group>
-          <Button
-            component={Link}
-            leftSection={<ArrowLeft size={16} />}
-            to="/competitions"
-            variant="default"
-          >
-            返回
+    <div className="stack-lg">
+      <Flex align="center" gap={16} justify="space-between" wrap>
+        <Space>
+          <Button icon={<ArrowLeftOutlined />}>
+            <Link to="/competitions">返回</Link>
           </Button>
           <PageHeader eyebrow="Competition" title={competition?.name ?? "比赛详情"} />
-        </Group>
-        <Group>
+        </Space>
+        <Space wrap>
           {competition ? (
             <Select
-              allowDeselect={false}
-              data={entityStatusOptions}
+              options={entityStatusOptions}
+              style={{ width: 140 }}
               value={competition.status}
-              w={140}
               onChange={handleCompetitionStatus}
             />
           ) : null}
           <Button
-            leftSection={<RefreshCw size={16} />}
+            icon={<ReloadOutlined />}
             loading={status === "loading"}
-            variant="default"
             onClick={() => {
               setStatus("loading");
               void refreshDetail().catch((unknownError) => {
@@ -263,213 +280,223 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
           >
             刷新
           </Button>
-        </Group>
-      </Group>
+        </Space>
+      </Flex>
 
       {notice ? <InlineMessage type="success">{notice}</InlineMessage> : null}
       {error ? <InlineMessage type="error">{error}</InlineMessage> : null}
 
-      <Tabs defaultValue="rounds">
-        <Tabs.List>
-          <Tabs.Tab value="rounds">轮次</Tabs.Tab>
-          <Tabs.Tab value="beers">酒款</Tabs.Tab>
-        </Tabs.List>
+      <Tabs
+        defaultActiveKey="rounds"
+        items={[
+          {
+            key: "rounds",
+            label: "轮次",
+            children: (
+              <div className={classes.roundLayout!}>
+                <Card>
+                  <div className="stack-md">
+                    <Typography.Text strong>轮次</Typography.Text>
+                    <Space.Compact style={{ width: "100%" }}>
+                      <Input
+                        placeholder="轮次名"
+                        value={newRoundName}
+                        onChange={(event) => setNewRoundName(event.currentTarget.value)}
+                      />
+                      <Button icon={<PlusOutlined />} type="primary" onClick={handleCreateRound}>
+                        新增
+                      </Button>
+                    </Space.Compact>
+                    <div className="stack-xs">
+                      {rounds.map((round) => (
+                        <Button
+                          block
+                          key={round.id}
+                          type={round.id === selectedRoundId ? "primary" : "default"}
+                          onClick={() => {
+                            setSelectedRoundId(round.id);
+                            if (competitionId) {
+                              void client
+                                .listRoundBeers(competitionId, round.id)
+                                .then((result) => setRoundBeers(result.beers))
+                                .catch((unknownError) =>
+                                  setError(handleRequestError(unknownError, onLogout))
+                                );
+                            }
+                          }}
+                        >
+                          {round.name}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </Card>
 
-        <Tabs.Panel pt="lg" value="beers">
-          <Stack gap="lg">
-            <Paper p="lg">
-              <Group justify="space-between" mb="md">
-                <Text fw={800}>录入酒款</Text>
-                <Group>
-                  <input
-                    accept=".xlsx,.xls"
-                    hidden
-                    ref={fileInputRef}
-                    type="file"
-                    onChange={(event) => {
-                      const file = event.currentTarget.files?.[0] ?? null;
-                      event.currentTarget.value = "";
-                      void handleImport(file);
-                    }}
-                  />
-                  <Button
-                    leftSection={<FileSpreadsheet size={16} />}
-                    variant="default"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    Excel 导入
-                  </Button>
-                </Group>
-              </Group>
-              <BeerForm
-                isSubmitting={isBusy}
-                submitLabel="新增或更新酒款"
-                onSubmit={handleCreateBeer}
-              />
-            </Paper>
+                <Card>
+                  {selectedRound ? (
+                    <div className="stack-md">
+                      <Flex align="center" gap={16} justify="space-between" wrap>
+                        <Space>
+                          <Typography.Text strong>{selectedRound.name}</Typography.Text>
+                          <Tag>{entityStatusLabels[selectedRound.status]}</Tag>
+                        </Space>
+                        <Select
+                          options={entityStatusOptions}
+                          style={{ width: 140 }}
+                          value={selectedRound.status}
+                          onChange={handleRoundStatus}
+                        />
+                      </Flex>
+                      <Space.Compact block>
+                        <Select
+                          options={beers.map((beer) => ({
+                            label: `#${beer.entryNumber} ${beer.entryCode} ${beer.bjcpSubcategoryCode}`,
+                            value: String(beer.id),
+                          }))}
+                          placeholder="选择酒款"
+                          showSearch
+                          style={{ minWidth: 280, width: "100%" }}
+                          value={roundBeerToAdd}
+                          onChange={setRoundBeerToAdd}
+                        />
+                        <Button type="primary" onClick={handleAddRoundBeer}>
+                          添加到轮次
+                        </Button>
+                      </Space.Compact>
+                      <Table<RoundBeer>
+                        columns={[
+                          {
+                            dataIndex: "entryNumber",
+                            render: (value: number) => `#${value}`,
+                            title: "序号",
+                          },
+                          { dataIndex: "entryCode", title: "参赛编号" },
+                          { dataIndex: "bjcpSubcategoryCode", title: "BJCP" },
+                          { dataIndex: "scoreCount", title: "评价数" },
+                          {
+                            render: (_, beer) => (
+                              <Button
+                                danger
+                                icon={<DeleteOutlined />}
+                                size="small"
+                                onClick={() => void handleRemoveRoundBeer(beer)}
+                              >
+                                移除
+                              </Button>
+                            ),
+                            title: "操作",
+                            width: 120,
+                          },
+                        ]}
+                        dataSource={roundBeers}
+                        pagination={false}
+                        rowKey="beerId"
+                      />
+                    </div>
+                  ) : (
+                    <Typography.Text type="secondary">暂无轮次。</Typography.Text>
+                  )}
+                </Card>
+              </div>
+            ),
+          },
+          {
+            key: "beers",
+            label: "酒款",
+            children: (
+              <div className="stack-lg">
+                <Card>
+                  <Flex align="center" gap={16} justify="space-between" wrap>
+                    <div>
+                      <Typography.Text strong>酒款列表</Typography.Text>
+                      <br />
+                      <Typography.Text type="secondary">{beers.length} 款酒</Typography.Text>
+                    </div>
+                    <Space>
+                      <input
+                        accept=".xlsx,.xls"
+                        hidden
+                        ref={fileInputRef}
+                        type="file"
+                        onChange={(event) => {
+                          const file = event.currentTarget.files?.[0] ?? null;
+                          event.currentTarget.value = "";
+                          void handleImport(file);
+                        }}
+                      />
+                      <Button
+                        icon={<FileExcelOutlined />}
+                        loading={isBusy}
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        Excel 导入
+                      </Button>
+                      <Button
+                        icon={<PlusOutlined />}
+                        type="primary"
+                        onClick={() => setBeerDrawer({ mode: "create", beer: null })}
+                      >
+                        新增酒款
+                      </Button>
+                    </Space>
+                  </Flex>
+                </Card>
 
-            <Paper p="lg">
-              <Group justify="space-between" mb="md">
-                <Text fw={800}>酒款列表</Text>
-                <Text c="dimmed" size="sm">
-                  {beers.length} 款酒
-                </Text>
-              </Group>
-              <ScrollArea>
-                <Table miw={980} verticalSpacing="sm">
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>序号</Table.Th>
-                      <Table.Th>参赛编号</Table.Th>
-                      <Table.Th>BJCP</Table.Th>
-                      <Table.Th>参赛酒名</Table.Th>
-                      <Table.Th>参赛酒厂</Table.Th>
-                      <Table.Th>介绍</Table.Th>
-                      <Table.Th>操作</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {beers.map((beer) => (
-                      <Table.Tr key={beer.id}>
-                        <Table.Td>#{beer.entryNumber}</Table.Td>
-                        <Table.Td>{beer.entryCode}</Table.Td>
-                        <Table.Td>{beer.bjcpSubcategoryCode}</Table.Td>
-                        <Table.Td>{beer.name}</Table.Td>
-                        <Table.Td>{beer.brewery}</Table.Td>
-                        <Table.Td>{beer.description}</Table.Td>
-                        <Table.Td>
-                          <Button size="xs" variant="default" onClick={() => setEditingBeer(beer)}>
+                <Card>
+                  <Table<Beer>
+                    columns={[
+                      {
+                        dataIndex: "entryNumber",
+                        render: (value: number) => `#${value}`,
+                        title: "序号",
+                        width: 90,
+                      },
+                      { dataIndex: "entryCode", title: "参赛编号", width: 120 },
+                      { dataIndex: "bjcpSubcategoryCode", title: "BJCP", width: 100 },
+                      { dataIndex: "name", title: "参赛酒名", width: 180 },
+                      { dataIndex: "brewery", title: "参赛酒厂", width: 180 },
+                      { dataIndex: "description", ellipsis: true, title: "介绍", width: 260 },
+                      {
+                        fixed: "right",
+                        render: (_, beer) => (
+                          <Button
+                            size="small"
+                            onClick={() => setBeerDrawer({ mode: "edit", beer })}
+                          >
                             编辑
                           </Button>
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
-              </ScrollArea>
-            </Paper>
-          </Stack>
-        </Tabs.Panel>
-
-        <Tabs.Panel pt="lg" value="rounds">
-          <div className={classes.roundLayout!}>
-            <Paper p="md">
-              <Stack gap="sm">
-                <Text fw={800}>轮次</Text>
-                <Group gap="xs">
-                  <TextInput
-                    placeholder="轮次名"
-                    value={newRoundName}
-                    onChange={(event) => setNewRoundName(event.currentTarget.value)}
+                        ),
+                        title: "操作",
+                        width: 100,
+                      },
+                    ]}
+                    dataSource={beers}
+                    loading={status === "loading"}
+                    pagination={false}
+                    rowKey="id"
+                    scroll={{ x: 1040 }}
                   />
-                  <Button leftSection={<Plus size={16} />} onClick={handleCreateRound}>
-                    新增
-                  </Button>
-                </Group>
-                <Stack gap={6}>
-                  {rounds.map((round) => (
-                    <Button
-                      justify="space-between"
-                      key={round.id}
-                      variant={round.id === selectedRoundId ? "filled" : "light"}
-                      onClick={() => {
-                        setSelectedRoundId(round.id);
-                        if (competitionId) {
-                          void client
-                            .listRoundBeers(competitionId, round.id)
-                            .then((result) => setRoundBeers(result.beers))
-                            .catch((unknownError) =>
-                              setError(handleRequestError(unknownError, onLogout))
-                            );
-                        }
-                      }}
-                    >
-                      {round.name}
-                    </Button>
-                  ))}
-                </Stack>
-              </Stack>
-            </Paper>
+                </Card>
+              </div>
+            ),
+          },
+        ]}
+      />
 
-            <Paper p="lg">
-              {selectedRound ? (
-                <Stack gap="md">
-                  <Group justify="space-between">
-                    <Group>
-                      <Text fw={800}>{selectedRound.name}</Text>
-                      <Badge variant="light">{entityStatusLabels[selectedRound.status]}</Badge>
-                    </Group>
-                    <Select
-                      allowDeselect={false}
-                      data={entityStatusOptions}
-                      value={selectedRound.status}
-                      w={140}
-                      onChange={handleRoundStatus}
-                    />
-                  </Group>
-                  <Group align="end">
-                    <Select
-                      data={beers.map((beer) => ({
-                        label: `#${beer.entryNumber} ${beer.entryCode} ${beer.bjcpSubcategoryCode}`,
-                        value: String(beer.id),
-                      }))}
-                      label="添加酒款到轮次"
-                      placeholder="选择酒款"
-                      searchable
-                      value={roundBeerToAdd}
-                      onChange={setRoundBeerToAdd}
-                    />
-                    <Button onClick={handleAddRoundBeer}>添加</Button>
-                  </Group>
-                  <Table verticalSpacing="sm">
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th>序号</Table.Th>
-                        <Table.Th>参赛编号</Table.Th>
-                        <Table.Th>BJCP</Table.Th>
-                        <Table.Th>评价数</Table.Th>
-                        <Table.Th>操作</Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {roundBeers.map((beer) => (
-                        <Table.Tr key={beer.beerId}>
-                          <Table.Td>#{beer.entryNumber}</Table.Td>
-                          <Table.Td>{beer.entryCode}</Table.Td>
-                          <Table.Td>{beer.bjcpSubcategoryCode}</Table.Td>
-                          <Table.Td>{beer.scoreCount}</Table.Td>
-                          <Table.Td>
-                            <Button
-                              color="red"
-                              leftSection={<Trash2 size={14} />}
-                              size="xs"
-                              variant="light"
-                              onClick={() => void handleRemoveRoundBeer(beer)}
-                            >
-                              移除
-                            </Button>
-                          </Table.Td>
-                        </Table.Tr>
-                      ))}
-                    </Table.Tbody>
-                  </Table>
-                </Stack>
-              ) : (
-                <Text c="dimmed">暂无轮次。</Text>
-              )}
-            </Paper>
-          </div>
-        </Tabs.Panel>
-      </Tabs>
-
-      <Modal opened={editingBeer !== null} title="编辑酒款" onClose={() => setEditingBeer(null)}>
+      <Drawer
+        destroyOnClose
+        open={beerDrawer !== null}
+        title={beerDrawer?.mode === "edit" ? "编辑酒款" : "新增酒款"}
+        width={640}
+        onClose={() => setBeerDrawer(null)}
+      >
         <BeerForm
-          beer={editingBeer}
+          beer={beerDrawer?.mode === "edit" ? beerDrawer.beer : null}
           isSubmitting={isBusy}
-          submitLabel="保存酒款"
-          onSubmit={handleSaveBeer}
+          submitLabel={beerDrawer?.mode === "edit" ? "保存酒款" : "新增或更新酒款"}
+          onSubmit={beerDrawer?.mode === "edit" ? handleSaveBeer : handleCreateBeer}
         />
-      </Modal>
-    </Stack>
+      </Drawer>
+    </div>
   );
 }

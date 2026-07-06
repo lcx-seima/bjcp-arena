@@ -1,5 +1,4 @@
-import { Badge, Button, Group, Modal, Paper, SimpleGrid, Stack, Text } from "@mantine/core";
-import { ArrowLeft, Delete, LogOut, Search } from "lucide-react";
+import { Button, Card, List, Popup, Space, Tag, Toast } from "antd-mobile";
 import { useEffect, useState } from "react";
 import type { JudgeRoundDetailResult } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
@@ -48,108 +47,102 @@ export function JudgeRoundDetailPage({
         onLogout();
         return;
       }
-      setError(readError(unknownError));
+      const message = readError(unknownError);
+      Toast.show({ content: message, icon: "fail" });
+      setError(message);
     }
   }
 
   const canStart = detail?.round.status === "ongoing";
 
   return (
-    <Paper p="lg" style={{ maxWidth: 520, width: "100%" }}>
-      <Stack gap="md" pb={72}>
-        <Group justify="space-between" wrap="nowrap">
-          <PageHeader eyebrow="Round" title={detail?.round.name ?? "轮次"} />
-          <Button color="red" leftSection={<LogOut size={16} />} variant="light" onClick={onLogout}>
-            退出
-          </Button>
-        </Group>
-        <Button
-          leftSection={<ArrowLeft size={16} />}
-          variant="default"
-          onClick={() => (window.location.href = `/competitions/${competitionId}`)}
-        >
-          返回轮次列表
-        </Button>
-        {error ? <InlineError>{error}</InlineError> : null}
-        <Text c="dimmed">已提交酒款</Text>
-        <Stack gap="sm">
-          {detail?.beers.map((beer) => (
-            <Button
-              h="auto"
-              justify="space-between"
-              key={beer.id}
-              p="md"
-              variant="light"
-              onClick={() => {
-                window.location.href = `/competitions/${competitionId}/rounds/${roundId}/beers/${beer.id}`;
-              }}
-            >
-              <Stack align="start" gap={2}>
-                <Text fw={800}>
-                  #{beer.entryNumber} {beer.entryCode}
-                </Text>
-                <Text size="sm">
-                  {beer.bjcpSubcategoryCode} {beer.bjcpSubcategoryName}
-                </Text>
-              </Stack>
-              <Badge variant="white">{new Date(beer.submittedAt).toLocaleTimeString()}</Badge>
+    <Card className="mobile-card">
+      <div className="score-shell">
+        <div className="stack-md">
+          <div className="top-row">
+            <PageHeader eyebrow="Round" title={detail?.round.name ?? "轮次"} />
+            <Button color="danger" fill="outline" size="small" onClick={onLogout}>
+              退出
             </Button>
-          ))}
-        </Stack>
-      </Stack>
-
-      <Button
-        disabled={!canStart}
-        leftSection={<Search size={16} />}
-        pos="fixed"
-        bottom={18}
-        left={18}
-        right={18}
-        onClick={() => setSheetOpened(true)}
-      >
-        开始评比
-      </Button>
-
-      <Modal
-        opened={sheetOpened}
-        title="输入参赛编号"
-        yOffset="35vh"
-        onClose={() => setSheetOpened(false)}
-      >
-        <Stack gap="md">
-          <Group grow gap={6}>
-            {Array.from({ length: 6 }).map((_, index) => (
-              <Paper key={index} p="sm" ta="center" withBorder>
-                <Text fw={900}>{entryCode[index] ?? ""}</Text>
-              </Paper>
+          </div>
+          <Button
+            block
+            onClick={() => {
+              window.location.href = `/competitions/${competitionId}`;
+            }}
+          >
+            返回轮次列表
+          </Button>
+          {error ? <InlineError>{error}</InlineError> : null}
+          <div className="section-label">已提交酒款</div>
+          <List>
+            {detail?.beers.map((beer) => (
+              <List.Item
+                arrow
+                key={beer.id}
+                description={`${beer.bjcpSubcategoryCode} ${beer.bjcpSubcategoryName}`}
+                extra={<Tag>{new Date(beer.submittedAt).toLocaleTimeString()}</Tag>}
+                onClick={() => {
+                  window.location.href = `/competitions/${competitionId}/rounds/${roundId}/beers/${beer.id}`;
+                }}
+              >
+                #{beer.entryNumber} {beer.entryCode}
+              </List.Item>
             ))}
-          </Group>
-          <SimpleGrid cols={6} spacing={6}>
+          </List>
+        </div>
+
+        <Button
+          block
+          className="bottom-action"
+          color="primary"
+          disabled={!canStart}
+          onClick={() => setSheetOpened(true)}
+        >
+          开始评比
+        </Button>
+      </div>
+
+      <Popup
+        bodyStyle={{ borderRadius: "8px 8px 0 0", padding: 16 }}
+        visible={sheetOpened}
+        onMaskClick={() => setSheetOpened(false)}
+      >
+        <div className="stack-md">
+          <PageHeader eyebrow="Entry Code" title="输入参赛编号" />
+          <div className="entry-code-boxes">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div className="entry-code-box" key={index}>
+                {entryCode[index] ?? ""}
+              </div>
+            ))}
+          </div>
+          <div className="keypad-grid">
             {keypad.map((key) => (
               <Button
                 disabled={entryCode.length >= 6}
                 key={key}
-                variant="default"
                 onClick={() => setEntryCode((current) => `${current}${key}`.slice(0, 6))}
               >
                 {key}
               </Button>
             ))}
-          </SimpleGrid>
-          <Group grow>
-            <Button
-              leftSection={<Delete size={16} />}
-              variant="default"
-              onClick={() => setEntryCode("")}
-            >
+          </div>
+          <Space block direction="vertical">
+            <Button block onClick={() => setEntryCode("")}>
               清除
             </Button>
-            <Button disabled={entryCode.length !== 6} onClick={() => void handleLookup()}>
+            <Button
+              block
+              color="primary"
+              disabled={entryCode.length !== 6}
+              onClick={() => void handleLookup()}
+            >
               查询
             </Button>
-          </Group>
-        </Stack>
-      </Modal>
-    </Paper>
+          </Space>
+        </div>
+      </Popup>
+    </Card>
   );
 }

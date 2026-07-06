@@ -1,5 +1,4 @@
-import "@mantine/core/styles.css";
-import "@mantine/notifications/styles.css";
+import "antd-mobile/es/global";
 import "./styles/base.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";

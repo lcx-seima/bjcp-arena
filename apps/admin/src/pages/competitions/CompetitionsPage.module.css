@@ -32,8 +32,8 @@
 }
 
 .actionsColumn {
-  background: var(--mantine-color-white);
-  box-shadow: -1px 0 0 var(--mantine-color-gray-3);
+  background: #ffffff;
+  box-shadow: -1px 0 0 #e5e7eb;
   position: sticky;
   right: 0;
   text-align: right;
@@ -53,18 +53,18 @@ th.actionsColumn {
 .beerRow {
   display: grid;
   align-items: start;
-  gap: var(--mantine-spacing-sm);
+  gap: 12px;
   grid-template-columns:
     minmax(70px, 0.45fr) minmax(160px, 1fr) minmax(150px, 1fr)
     minmax(170px, 1fr) minmax(120px, 0.7fr) minmax(190px, 1fr);
-  border: 1px solid var(--mantine-color-gray-3);
-  border-radius: var(--mantine-radius-sm);
-  padding: var(--mantine-spacing-sm);
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 12px;
 }
 
 .actions {
   display: grid;
-  gap: var(--mantine-spacing-xs);
+  gap: 8px;
   grid-template-columns: 1fr 1fr;
 }
 
@@ -74,7 +74,7 @@ th.actionsColumn {
 
 .roundLayout {
   display: grid;
-  gap: var(--mantine-spacing-lg);
+  gap: 24px;
   grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
 }
 

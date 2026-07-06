@@ -1,27 +1,36 @@
+.shell {
+  min-height: 100vh;
+}
+
+.sider {
+  background: #ffffff;
+  border-right: 1px solid #e5e7eb;
+}
+
 .navbar {
-  border-right: 1px solid var(--mantine-color-gray-3);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+  padding: 24px 16px;
 }
 
-.navLink {
-  border-radius: var(--mantine-radius-sm);
-  color: var(--mantine-color-gray-7);
-  font-weight: 700;
-  text-decoration: none;
+.brand {
+  padding: 0 8px 24px;
 }
 
-.navLink[data-active="true"],
-.navLink:hover {
-  background: var(--mantine-color-blue-0);
-  color: var(--mantine-color-blue-7);
+.account {
+  display: grid;
+  gap: 8px;
+  padding: 24px 8px 0;
 }
 
 .page {
   min-width: 0;
+  padding: 24px;
 }
 
-@media (max-width: 48em) {
-  .navbar {
-    border-bottom: 1px solid var(--mantine-color-gray-3);
-    border-right: 0;
+@media (max-width: 768px) {
+  .page {
+    padding: 16px;
   }
 }

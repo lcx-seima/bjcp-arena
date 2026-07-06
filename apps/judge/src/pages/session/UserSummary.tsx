@@ -1,4 +1,3 @@
-import { Stack, Table } from "@mantine/core";
 import { type UserPublic } from "@bjcp-arena/contracts";
 import { describeRoles } from "../../utils/roles.js";
 
@@ -11,17 +10,15 @@ export function UserSummary({ user, apiBaseUrl }: { user: UserPublic; apiBaseUrl
   ];
 
   return (
-    <Stack gap="xs">
-      <Table withColumnBorders withTableBorder>
-        <Table.Tbody>
-          {rows.map(([label, value]) => (
-            <Table.Tr key={label}>
-              <Table.Th w={96}>{label}</Table.Th>
-              <Table.Td style={{ overflowWrap: "anywhere" }}>{value}</Table.Td>
-            </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
-    </Stack>
+    <table className="info-table">
+      <tbody>
+        {rows.map(([label, value]) => (
+          <tr key={label}>
+            <th>{label}</th>
+            <td style={{ overflowWrap: "anywhere" }}>{value}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

@@ -1,6 +1,5 @@
-import { Button, PasswordInput, Stack, TextInput } from "@mantine/core";
-import { useForm } from "@mantine/form";
-import { LogIn } from "lucide-react";
+import { LoginOutlined } from "@ant-design/icons";
+import { Button, Form, Input } from "antd";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { type UserPublic } from "@bjcp-arena/contracts";
@@ -14,14 +13,8 @@ export function LoginPage({ onSession }: { onSession: (token: string, user: User
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const form = useForm({
-    initialValues: {
-      username: "",
-      password: "",
-    },
-  });
 
-  async function handleSubmit(values: typeof form.values) {
+  async function handleSubmit(values: { password: string; username: string }) {
     setError(null);
     setIsSubmitting(true);
 
@@ -37,31 +30,31 @@ export function LoginPage({ onSession }: { onSession: (token: string, user: User
   }
 
   return (
-    <form onSubmit={form.onSubmit(handleSubmit)}>
-      <Stack gap="md">
+    <Form layout="vertical" onFinish={handleSubmit}>
+      <div className="stack-md">
         <PageHeader eyebrow="Admin Console" title="后台登录" description={`API：${apiBaseUrl}`} />
 
-        <TextInput
-          autoComplete="username"
+        <Form.Item
           label="用户名"
-          pattern="[A-Za-z0-9]+"
-          required
-          {...form.getInputProps("username")}
-        />
-        <PasswordInput
-          autoComplete="current-password"
+          name="username"
+          rules={[{ pattern: /^[A-Za-z0-9]+$/, required: true, message: "请填写字母或数字用户名" }]}
+        >
+          <Input autoComplete="username" />
+        </Form.Item>
+        <Form.Item
           label="密码"
-          minLength={6}
-          required
-          {...form.getInputProps("password")}
-        />
+          name="password"
+          rules={[{ min: 6, required: true, message: "请填写至少 6 位密码" }]}
+        >
+          <Input.Password autoComplete="current-password" />
+        </Form.Item>
 
         {error ? <InlineMessage type="error">{error}</InlineMessage> : null}
 
-        <Button leftSection={<LogIn size={16} />} loading={isSubmitting} type="submit">
+        <Button htmlType="submit" icon={<LoginOutlined />} loading={isSubmitting} type="primary">
           登录
         </Button>
-      </Stack>
-    </form>
+      </div>
+    </Form>
   );
 }
