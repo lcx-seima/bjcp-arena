@@ -1,7 +1,7 @@
-import { Button, Dialog, Stepper, Tag, TextArea, Toast } from "antd-mobile";
+import { Button, Dialog, Slider, Tag, TextArea, Toast } from "antd-mobile";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { JudgeBeerResult, JudgeType, MyScoreResult, UserPublic } from "@bjcp-arena/contracts";
-import { professionalScoreGrade } from "@bjcp-arena/contracts";
+import { judgeTypeLabels, professionalScoreGrade } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
 import { InlineError } from "../../components/ui/InlineError.js";
 import { MobileShell } from "../../components/ui/MobileShell.js";
@@ -10,6 +10,7 @@ import classes from "./ScorePage.module.css";
 
 type JudgeBeer = JudgeBeerResult["beer"];
 type MyScore = NonNullable<MyScoreResult["score"]>;
+type ScoreSliderValue = number | [number, number];
 
 interface ProfessionalValues {
   aroma: number;
@@ -53,13 +54,12 @@ const defaultAmateur: AmateurValues = {
   comment: "",
 };
 
-function toNumber(value: number | null) {
-  return Number(value ?? 0);
+function toSingleScore(value: ScoreSliderValue) {
+  return typeof value === "number" ? value : value[1];
 }
 
 function judgeTypeFormLabel(judgeType: JudgeType | null) {
-  if (judgeType === "professional") return "专业裁判表单";
-  if (judgeType === "public") return "爱好者裁判表单";
+  if (judgeType) return `${judgeTypeLabels[judgeType]}表单`;
   return "未设置裁判类型";
 }
 
@@ -401,14 +401,19 @@ function ScoreDimension({
     <div className="score-dimension">
       <div className="score-dimension__header">
         <strong>{label}</strong>
-        <Stepper
-          disabled={disabled}
-          max={max}
-          min={0}
-          value={score}
-          onChange={(value) => onScore(toNumber(value))}
-        />
+        <span className="score-dimension__value">
+          {score}/{max}
+        </span>
       </div>
+      <Slider
+        disabled={disabled}
+        max={max}
+        min={0}
+        popover
+        step={1}
+        value={score}
+        onChange={(value) => onScore(toSingleScore(value))}
+      />
       <TextArea
         autoSize={{ minRows: 3 }}
         disabled={disabled}
@@ -433,7 +438,7 @@ function AmateurForm({
 }) {
   return (
     <div className="stack-md">
-      <div className="section-label">爱好者评分 {total}/20</div>
+      <div className="section-label">消费者评分 {total}/20</div>
       <div className={classes.metricGrid!}>
         <AmateurMetric
           disabled={disabled}
@@ -486,13 +491,18 @@ function AmateurMetric({
 }) {
   return (
     <div className="metric-control">
-      <strong>{label} 1-5</strong>
-      <Stepper
+      <div className="metric-control__header">
+        <strong>{label}</strong>
+        <span className="score-dimension__value">{value}/5</span>
+      </div>
+      <Slider
         disabled={disabled}
         max={5}
         min={1}
+        popover
+        step={1}
         value={value}
-        onChange={(next) => onChange(toNumber(next))}
+        onChange={(next) => onChange(toSingleScore(next))}
       />
     </div>
   );

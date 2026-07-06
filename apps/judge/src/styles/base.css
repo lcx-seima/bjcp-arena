@@ -299,6 +299,47 @@ textarea {
   gap: 8px;
 }
 
+.competition-card-list {
+  display: grid;
+  gap: 12px;
+}
+
+.competition-card {
+  align-items: center;
+  background: var(--bjcp-paper);
+  border: 1px solid var(--bjcp-border);
+  border-radius: 8px;
+  box-shadow: var(--bjcp-shadow);
+  color: var(--bjcp-ink);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 92px;
+  padding: 14px;
+  text-align: left;
+  width: 100%;
+}
+
+.competition-card__main {
+  align-items: flex-start;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.competition-card__name {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.competition-card__arrow {
+  color: var(--bjcp-copper-primary);
+  font-size: 28px;
+  line-height: 1;
+}
+
 .muted-text {
   color: var(--bjcp-slate);
 }
@@ -328,6 +369,12 @@ textarea {
   justify-content: space-between;
 }
 
+.score-dimension__value {
+  color: var(--bjcp-copper-primary);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .metric-control {
   background: var(--bjcp-paper);
   border: 1px solid var(--bjcp-border);
@@ -335,6 +382,13 @@ textarea {
   display: grid;
   gap: 8px;
   padding: 12px;
+}
+
+.metric-control__header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
 }
 
 .brand-mark {
@@ -404,4 +458,11 @@ textarea {
   font-size: 13px;
   line-height: 1.35;
   overflow-wrap: anywhere;
+}
+
+.brand-mark__account {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }

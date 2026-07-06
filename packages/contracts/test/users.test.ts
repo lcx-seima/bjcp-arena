@@ -4,6 +4,7 @@ import {
   createUserInputSchema,
   judgeTypeProfessional,
   judgeTypePublic,
+  judgeTypeLabels,
   judgeTypeSchema,
   judgeRole,
   resetUserPasswordInputSchema,
@@ -27,6 +28,10 @@ describe("users contract", () => {
   it("defines judge type constants", () => {
     expect(judgeTypeProfessional).toBe("professional");
     expect(judgeTypePublic).toBe("public");
+    expect(judgeTypeLabels).toEqual({
+      professional: "专业裁判",
+      public: "消费者裁判",
+    });
     expect(judgeTypeSchema.parse("professional")).toBe("professional");
     expect(judgeTypeSchema.parse("public")).toBe("public");
     expect(() => judgeTypeSchema.parse("guest")).toThrow();

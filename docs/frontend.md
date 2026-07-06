@@ -104,6 +104,15 @@ pages/users/UsersPage.module.css
 - 页面负责组装布局、调用模块 hook、处理页面状态。
 - 页面不承载大量表单行、表格行或字段组件；文件明显膨胀时拆到 `modules/*` 或 `components/*`。
 
+## 文案约定
+
+裁判类型的内部契约仍使用 `professional` 和 `public`。面向用户展示时统一使用：
+
+- `professional`：专业裁判
+- `public`：消费者裁判
+
+前端展示裁判类型时优先复用 `packages/contracts` 导出的共享标签，不在 admin 或 judge 内重复维护另一套文案。
+
 ## modules 约束
 
 - `modules/*` 放业务 UI 单元。

@@ -6,7 +6,6 @@ import { clearToken, readToken, saveToken } from "./session.js";
 import { LoginPage } from "../pages/login/LoginPage.js";
 import { RestoreErrorPage } from "../pages/session/RestoreErrorPage.js";
 import { RoleDeniedPage } from "../pages/session/RoleDeniedPage.js";
-import { UserInfoPage } from "../pages/session/UserInfoPage.js";
 import { ScorePage } from "../pages/score/ScorePage.js";
 import { JudgeCompetitionsPage } from "../pages/competitions/JudgeCompetitionsPage.js";
 import { JudgeRoundsPage } from "../pages/competitions/JudgeRoundsPage.js";
@@ -20,6 +19,10 @@ interface AppState {
 }
 
 function readJudgeRoute(pathname: string) {
+  if (pathname === "/" || pathname === "") {
+    return { type: "competitions" as const };
+  }
+
   const score = pathname.match(/^\/competitions\/(\d+)\/rounds\/(\d+)\/beers\/(\d+)\/?$/);
   if (score) {
     return {
@@ -44,12 +47,13 @@ function readJudgeRoute(pathname: string) {
       competitionId: Number(competition[1]),
     };
   }
-  return { type: "competitions" as const };
+  return { type: "invalid" as const };
 }
 
 export function App() {
   const [state, setState] = useState<AppState>({ error: null, status: "loading", user: null });
-  const judgeRoute = readJudgeRoute(window.location.pathname);
+  const pathname = window.location.pathname;
+  const judgeRoute = readJudgeRoute(pathname);
 
   const endSession = useCallback(() => {
     clearToken();
@@ -84,6 +88,12 @@ export function App() {
   useEffect(() => {
     void restoreSession();
   }, [restoreSession]);
+
+  useEffect(() => {
+    if (judgeRoute.type === "invalid") {
+      window.location.replace("/");
+    }
+  }, [judgeRoute.type]);
 
   const handleLogin = useCallback((token: string, user: UserPublic) => {
     saveToken(token);
@@ -131,10 +141,12 @@ export function App() {
         />
       ) : judgeRoute.type === "competition" ? (
         <JudgeRoundsPage competitionId={judgeRoute.competitionId} onLogout={handleLogout} />
-      ) : window.location.pathname === "/" ? (
+      ) : judgeRoute.type === "competitions" ? (
         <JudgeCompetitionsPage user={state.user} onLogout={handleLogout} />
       ) : (
-        <UserInfoPage user={state.user} />
+        <div className="mobile-loading-shell">
+          <DotLoading color="primary" />
+        </div>
       )}
     </main>
   );

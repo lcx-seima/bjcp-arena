@@ -2,6 +2,7 @@ import { List, Tag } from "antd-mobile";
 import { useEffect, useState } from "react";
 import type { JudgeRoundListResult } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
+import { EmptyState } from "../../components/ui/EmptyState.js";
 import { InlineError } from "../../components/ui/InlineError.js";
 import { MobileShell } from "../../components/ui/MobileShell.js";
 import { isUnauthorized, readError } from "../../utils/errors.js";
@@ -76,7 +77,7 @@ export function JudgeRoundsPage({
             description={`已提交 ${round.submittedBeerCount} 款`}
             extra={
               <Tag color={round.status === "ongoing" ? "primary" : "default"}>
-                {round.status === "ongoing" ? "比赛中" : "结束"}
+                {round.status === "ongoing" ? "本轮次进行中" : "本轮次已结束"}
               </Tag>
             }
             onClick={() => {
@@ -87,6 +88,7 @@ export function JudgeRoundsPage({
           </List.Item>
         ))}
       </List>
+      {rounds.length === 0 && !error ? <EmptyState title="暂无比赛轮次" /> : null}
     </MobileShell>
   );
 }

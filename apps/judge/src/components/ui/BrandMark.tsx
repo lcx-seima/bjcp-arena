@@ -1,10 +1,11 @@
+import { type ReactNode } from "react";
 import { judgeBrand } from "../../app/theme.js";
 
 export function BrandMark({
   subtitle,
   variant = "compact",
 }: {
-  subtitle?: string;
+  subtitle?: ReactNode;
   variant?: "compact" | "hero";
 }) {
   return (

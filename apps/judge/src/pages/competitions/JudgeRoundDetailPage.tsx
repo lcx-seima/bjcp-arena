@@ -2,6 +2,7 @@ import { Button, List, Popup, Space, Tag, Toast } from "antd-mobile";
 import { useEffect, useState } from "react";
 import type { JudgeRoundDetailResult } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
+import { EmptyState } from "../../components/ui/EmptyState.js";
 import { InlineError } from "../../components/ui/InlineError.js";
 import { MobileShell } from "../../components/ui/MobileShell.js";
 import { PageHeader } from "../../components/ui/PageHeader.js";
@@ -83,6 +84,7 @@ export function JudgeRoundDetailPage({
   const activeKeypad = activeEntryCodeIndex < 2 ? letterKeypad : numberKeypad;
   const isEntryCodeReady = entryCodeSlots.every(Boolean);
   const canStart = detail?.round.status === "ongoing";
+  const startButtonText = detail?.round.status === "ended" ? "轮次已结束" : "开始评比";
 
   return (
     <>
@@ -102,7 +104,7 @@ export function JudgeRoundDetailPage({
               setSheetOpened(true);
             }}
           >
-            开始评比
+            {startButtonText}
           </Button>
         }
         title={detail?.round.name ?? "轮次"}
@@ -124,6 +126,9 @@ export function JudgeRoundDetailPage({
             </List.Item>
           ))}
         </List>
+        {detail && detail.beers.length === 0 && !error ? (
+          <EmptyState title="暂无已提交酒款评价" />
+        ) : null}
       </MobileShell>
 
       <Popup

@@ -1,8 +1,13 @@
-import { Button, List, Tag } from "antd-mobile";
+import { Button, Tag } from "antd-mobile";
 import { useEffect, useState } from "react";
-import type { JudgeCompetitionListResult, UserPublic } from "@bjcp-arena/contracts";
+import {
+  judgeTypeLabels,
+  type JudgeCompetitionListResult,
+  type UserPublic,
+} from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
 import { BrandMark } from "../../components/ui/BrandMark.js";
+import { EmptyState } from "../../components/ui/EmptyState.js";
 import { InlineError } from "../../components/ui/InlineError.js";
 import { MobileShell } from "../../components/ui/MobileShell.js";
 import { isUnauthorized, readError } from "../../utils/errors.js";
@@ -34,7 +39,6 @@ export function JudgeCompetitionsPage({
 
   return (
     <MobileShell
-      description={`当前账号：${user.nickname}`}
       rightAction={
         <Button color="danger" fill="outline" size="small" onClick={onLogout}>
           退出
@@ -42,26 +46,38 @@ export function JudgeCompetitionsPage({
       }
       title="比赛列表"
     >
-      <BrandMark subtitle={`当前账号：${user.nickname}`} />
+      <BrandMark
+        subtitle={
+          <div className="brand-mark__account">
+            <span>当前账号：{user.nickname}</span>
+            {user.judgeType ? <Tag color="primary">{judgeTypeLabels[user.judgeType]}</Tag> : null}
+          </div>
+        }
+      />
       {error ? <InlineError>{error}</InlineError> : null}
-      <List mode="card">
+      <div className="competition-card-list">
         {competitions.map((competition) => (
-          <List.Item
-            arrow
+          <button
+            className="competition-card"
             key={competition.id}
-            extra={
-              <Tag color={competition.status === "ongoing" ? "primary" : "default"}>
-                {competition.status === "ongoing" ? "比赛中" : "结束"}
-              </Tag>
-            }
+            type="button"
             onClick={() => {
               window.location.href = `/competitions/${competition.id}`;
             }}
           >
-            {competition.name}
-          </List.Item>
+            <span className="competition-card__main">
+              <span className="competition-card__name">{competition.name}</span>
+              <Tag color={competition.status === "ongoing" ? "primary" : "default"}>
+                {competition.status === "ongoing" ? "比赛中" : "结束"}
+              </Tag>
+            </span>
+            <span className="competition-card__arrow" aria-hidden="true">
+              ›
+            </span>
+          </button>
         ))}
-      </List>
+      </div>
+      {competitions.length === 0 && !error ? <EmptyState title="暂无比赛" /> : null}
     </MobileShell>
   );
 }

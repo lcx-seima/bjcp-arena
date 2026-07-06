@@ -4,6 +4,7 @@ import { useEffect, useMemo } from "react";
 import {
   adminRole,
   hasRole,
+  judgeTypeLabels,
   judgeRole,
   judgeTypeProfessional,
   judgeTypePublic,
@@ -25,8 +26,8 @@ export interface UserInfoFormValues {
 }
 
 const judgeTypeOptions = [
-  { label: "专业裁判", value: judgeTypeProfessional },
-  { label: "大众评委", value: judgeTypePublic },
+  { label: judgeTypeLabels[judgeTypeProfessional], value: judgeTypeProfessional },
+  { label: judgeTypeLabels[judgeTypePublic], value: judgeTypePublic },
 ];
 
 const resetFieldNames: Array<keyof UserInfoFormValues> = [
@@ -183,8 +184,8 @@ export function UserInfoModal({
             <Input
               suffix={
                 <Button
-                aria-label="随机密码"
-                icon={<ThunderboltOutlined />}
+                  aria-label="随机密码"
+                  icon={<ThunderboltOutlined />}
                   size="small"
                   type="text"
                   onClick={() => form.setFieldValue("password", randomNumericPassword())}
