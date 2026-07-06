@@ -97,14 +97,14 @@ export function App() {
 
   if (state.status === "loading") {
     return (
-      <main className="judge-center-shell">
+      <main className="mobile-loading-shell">
         <DotLoading color="primary" />
       </main>
     );
   }
 
   return (
-    <main className="judge-center-shell judge-center-shell--padded">
+    <main className="mobile-app">
       {state.status === "restore-error" ? (
         <RestoreErrorPage
           error={state.error ?? "恢复登录态失败，请稍后重试"}
@@ -134,7 +134,7 @@ export function App() {
       ) : window.location.pathname === "/" ? (
         <JudgeCompetitionsPage user={state.user} onLogout={handleLogout} />
       ) : (
-        <UserInfoPage user={state.user} onLogout={handleLogout} />
+        <UserInfoPage user={state.user} />
       )}
     </main>
   );

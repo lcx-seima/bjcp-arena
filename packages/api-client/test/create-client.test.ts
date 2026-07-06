@@ -259,6 +259,7 @@ describe("createApiClient", () => {
       .mockResolvedValueOnce(jsonResponse({ competitions: [competition] }))
       .mockResolvedValueOnce(
         jsonResponse({
+          competition,
           rounds: [{ ...round, submittedBeerCount: 0 }],
         })
       )

@@ -127,6 +127,7 @@ export const judgeCompetitionListResultSchema = z.object({
 });
 
 export const judgeRoundListResultSchema = z.object({
+  competition: judgeCompetitionSchema,
   rounds: z.array(judgeRoundSchema),
 });
 

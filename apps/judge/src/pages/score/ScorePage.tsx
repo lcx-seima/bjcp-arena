@@ -1,10 +1,10 @@
-import { Button, Card, Dialog, Stepper, Tag, TextArea, Toast } from "antd-mobile";
+import { Button, Dialog, Stepper, Tag, TextArea, Toast } from "antd-mobile";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { JudgeBeerResult, JudgeType, MyScoreResult, UserPublic } from "@bjcp-arena/contracts";
 import { professionalScoreGrade } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
 import { InlineError } from "../../components/ui/InlineError.js";
-import { PageHeader } from "../../components/ui/PageHeader.js";
+import { MobileShell } from "../../components/ui/MobileShell.js";
 import { isUnauthorized, readError } from "../../utils/errors.js";
 import classes from "./ScorePage.module.css";
 
@@ -228,80 +228,14 @@ export function ScorePage({
   }
 
   return (
-    <Card className="mobile-card">
-      <div className="stack-md">
-        <div className="top-row">
-          <PageHeader eyebrow="Score" title={beer ? `评鉴 #${beer.entryNumber}` : "评分"} />
-          <Button color="danger" fill="outline" size="small" onClick={onLogout}>
-            退出
-          </Button>
-        </div>
-        <Button
-          block
-          onClick={() => {
-            window.location.href = `/competitions/${competitionId}/rounds/${roundId}`;
-          }}
-        >
-          返回轮次
-        </Button>
-
-        {beer ? (
-          <div className="stack-xs">
-            <div className="tag-row">
-              <Tag color="primary">{judgeTypeFormLabel(effectiveJudgeType)}</Tag>
-              <Tag color={beer.canScore ? "success" : "default"}>
-                {beer.canScore ? "可评分" : "只读"}
-              </Tag>
-            </div>
-            <table className="info-table">
-              <tbody>
-                <tr>
-                  <th>比赛序号</th>
-                  <td>#{beer.entryNumber}</td>
-                </tr>
-                <tr>
-                  <th>参赛编号</th>
-                  <td>{beer.entryCode}</td>
-                </tr>
-                <tr>
-                  <th>BJCP</th>
-                  <td>
-                    {beer.bjcpSubcategoryCode} {beer.bjcpSubcategoryName}
-                  </td>
-                </tr>
-                <tr>
-                  <th>介绍</th>
-                  <td style={{ whiteSpace: "pre-wrap" }}>{beer.description}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        ) : null}
-
-        {score ? (
-          <div className="muted-text">上次提交：{new Date(score.submittedAt).toLocaleString()}</div>
-        ) : null}
-        {draftNotice ? <div className="warning-text">{draftNotice}</div> : null}
-        {error ? <InlineError>{error}</InlineError> : null}
-
-        {effectiveJudgeType === "professional" ? (
-          <ProfessionalForm
-            disabled={!beer?.canScore || status === "loading"}
-            total={professionalTotal}
-            values={professionalValues}
-            onChange={setProfessionalValues}
-          />
-        ) : effectiveJudgeType === "public" ? (
-          <AmateurForm
-            disabled={!beer?.canScore || status === "loading"}
-            total={amateurTotal}
-            values={amateurValues}
-            onChange={setAmateurValues}
-          />
-        ) : (
-          <InlineError>当前账号没有预设裁判类型，请联系管理员。</InlineError>
-        )}
-
+    <MobileShell
+      back={{
+        label: "返回轮次",
+        onClick: () => {
+          window.location.href = `/competitions/${competitionId}/rounds/${roundId}`;
+        },
+      }}
+      bottomAction={
         <Button
           block
           color="primary"
@@ -311,8 +245,66 @@ export function ScorePage({
         >
           {score ? "更新评分" : "提交评分"}
         </Button>
-      </div>
-    </Card>
+      }
+      title={beer ? `评鉴 #${beer.entryNumber}` : "评分"}
+    >
+      {beer ? (
+        <div className="stack-xs">
+          <div className="tag-row">
+            <Tag color="primary">{judgeTypeFormLabel(effectiveJudgeType)}</Tag>
+            <Tag color={beer.canScore ? "success" : "default"}>
+              {beer.canScore ? "可评分" : "只读"}
+            </Tag>
+          </div>
+          <table className="info-table">
+            <tbody>
+              <tr>
+                <th>比赛序号</th>
+                <td>#{beer.entryNumber}</td>
+              </tr>
+              <tr>
+                <th>参赛编号</th>
+                <td>{beer.entryCode}</td>
+              </tr>
+              <tr>
+                <th>BJCP</th>
+                <td>
+                  {beer.bjcpSubcategoryCode} {beer.bjcpSubcategoryName}
+                </td>
+              </tr>
+              <tr>
+                <th>介绍</th>
+                <td style={{ whiteSpace: "pre-wrap" }}>{beer.description}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {score ? (
+        <div className="muted-text">上次提交：{new Date(score.submittedAt).toLocaleString()}</div>
+      ) : null}
+      {draftNotice ? <div className="warning-text">{draftNotice}</div> : null}
+      {error ? <InlineError>{error}</InlineError> : null}
+
+      {effectiveJudgeType === "professional" ? (
+        <ProfessionalForm
+          disabled={!beer?.canScore || status === "loading"}
+          total={professionalTotal}
+          values={professionalValues}
+          onChange={setProfessionalValues}
+        />
+      ) : effectiveJudgeType === "public" ? (
+        <AmateurForm
+          disabled={!beer?.canScore || status === "loading"}
+          total={amateurTotal}
+          values={amateurValues}
+          onChange={setAmateurValues}
+        />
+      ) : (
+        <InlineError>当前账号没有预设裁判类型，请联系管理员。</InlineError>
+      )}
+    </MobileShell>
   );
 }
 

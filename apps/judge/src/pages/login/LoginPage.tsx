@@ -1,10 +1,10 @@
-import { Button, Card, Form, Input, Toast } from "antd-mobile";
-import { useState } from "react";
+import { Button, Form, Input, Toast } from "antd-mobile";
+import { useRef, useState } from "react";
 import { type UserPublic } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
 import { apiBaseUrl } from "../../app/env.js";
 import { InlineError } from "../../components/ui/InlineError.js";
-import { PageHeader } from "../../components/ui/PageHeader.js";
+import { MobileShell } from "../../components/ui/MobileShell.js";
 import { isUnauthorized, readError } from "../../utils/errors.js";
 
 export function LoginPage({
@@ -16,6 +16,7 @@ export function LoginPage({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitRef = useRef<HTMLButtonElement>(null);
 
   async function handleSubmit(values: { password: string; username: string }) {
     setError(null);
@@ -38,37 +39,41 @@ export function LoginPage({
   }
 
   return (
-    <Card className="mobile-card">
-      <div className="stack-md">
-        <PageHeader eyebrow="Judge H5" title="裁判端登录" description={`API：${apiBaseUrl}`} />
-
-        <Form
-          footer={
-            <Button block color="primary" loading={isSubmitting} type="submit">
-              登录
-            </Button>
-          }
-          layout="vertical"
-          onFinish={handleSubmit}
+    <MobileShell
+      bottomAction={
+        <Button
+          block
+          color="primary"
+          loading={isSubmitting}
+          onClick={() => submitRef.current?.click()}
         >
-          <Form.Item
-            label="用户名"
-            name="username"
-            rules={[{ pattern: /^[A-Za-z0-9]+$/, required: true, message: "请填写用户名" }]}
-          >
-            <Input autoComplete="username" />
-          </Form.Item>
-          <Form.Item
-            label="密码"
-            name="password"
-            rules={[{ min: 6, required: true, message: "请填写密码" }]}
-          >
-            <Input autoComplete="current-password" type="password" />
-          </Form.Item>
-        </Form>
+          登录
+        </Button>
+      }
+      description={`API：${apiBaseUrl}`}
+      title="裁判端登录"
+    >
+      <Form layout="vertical" onFinish={handleSubmit}>
+        <Form.Item
+          label="用户名"
+          name="username"
+          rules={[{ pattern: /^[A-Za-z0-9]+$/, required: true, message: "请填写用户名" }]}
+        >
+          <Input autoComplete="username" />
+        </Form.Item>
+        <Form.Item
+          label="密码"
+          name="password"
+          rules={[{ min: 6, required: true, message: "请填写密码" }]}
+        >
+          <Input autoComplete="current-password" type="password" />
+        </Form.Item>
+        <button ref={submitRef} className="sr-only" type="submit">
+          登录
+        </button>
+      </Form>
 
-        {error ? <InlineError>{error}</InlineError> : null}
-      </div>
-    </Card>
+      {error ? <InlineError>{error}</InlineError> : null}
+    </MobileShell>
   );
 }

@@ -430,7 +430,7 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
     },
 
     async listJudgeRounds(competitionId: number, currentUser: AuthUserSnapshot) {
-      await requireCompetition(competitionId);
+      const competition = await requireCompetition(competitionId);
       const rounds = await Promise.all(
         (await repository.listRounds(competitionId)).map(async (round) => ({
           id: round.id,
@@ -443,7 +443,7 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
           updatedAt: toIso(round.updatedAt),
         }))
       );
-      return { rounds };
+      return { competition: toCompetition(competition), rounds };
     },
 
     async getJudgeRound(competitionId: number, roundId: number, currentUser: AuthUserSnapshot) {
