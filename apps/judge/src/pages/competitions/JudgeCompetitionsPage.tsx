@@ -2,6 +2,7 @@ import { Button, List, Tag } from "antd-mobile";
 import { useEffect, useState } from "react";
 import type { JudgeCompetitionListResult, UserPublic } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
+import { BrandMark } from "../../components/ui/BrandMark.js";
 import { InlineError } from "../../components/ui/InlineError.js";
 import { MobileShell } from "../../components/ui/MobileShell.js";
 import { isUnauthorized, readError } from "../../utils/errors.js";
@@ -41,8 +42,9 @@ export function JudgeCompetitionsPage({
       }
       title="比赛列表"
     >
+      <BrandMark subtitle={`当前账号：${user.nickname}`} />
       {error ? <InlineError>{error}</InlineError> : null}
-      <List>
+      <List mode="card">
         {competitions.map((competition) => (
           <List.Item
             arrow

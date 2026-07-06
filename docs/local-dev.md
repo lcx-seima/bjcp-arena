@@ -44,13 +44,15 @@ JUDGE_APP_BASE_URL=http://localhost:5174
 # apps/admin/.env.example
 DEV_SERVER_HOST=0.0.0.0
 DEV_SERVER_PORT=5173
-VITE_API_BASE_URL=http://localhost:4000
+VITE_API_BASE_URL=4000
 
 # apps/judge/.env.example
 DEV_SERVER_HOST=0.0.0.0
 DEV_SERVER_PORT=5174
-VITE_API_BASE_URL=http://localhost:4000
+VITE_API_BASE_URL=4000
 ```
+
+`VITE_API_BASE_URL` 可以配置完整 URL，也可以只配置 API 端口，例如 `4000` 或 `:4000`。只配置端口时，前端会复用当前页面的协议和 host，仅替换端口；例如从 `http://192.168.1.23:5174` 打开裁判端时，`VITE_API_BASE_URL=4000` 会解析为 `http://192.168.1.23:4000`。
 
 前端 dev server 的 `DEV_SERVER_HOST` 和 `DEV_SERVER_PORT` 由各应用的 `vite.config.ts` 读取。端口被占用时会直接启动失败，不会自动尝试下一个端口。
 
@@ -188,11 +190,13 @@ pnpm dev:judge
 
 ```text
 API 电脑局域网 IP: 192.168.1.23
-VITE_API_BASE_URL=http://192.168.1.23:4000
+VITE_API_BASE_URL=4000
 JUDGE_APP_BASE_URL=http://192.168.1.23:5174
 ```
 
-当其他设备打开 H5 裁判端时，前端应用的 `VITE_API_BASE_URL` 不要使用 `localhost`。`localhost` 会指向设备自身，应改用 API 电脑的局域网 IP。API 生成裁判端二维码时会使用 `JUDGE_APP_BASE_URL`，现场访问时也应改成裁判端的局域网地址。
+当其他设备打开后台管理端或 H5 裁判端时，前端应用的 `VITE_API_BASE_URL` 不要配置为 `http://localhost:4000`。`localhost` 会指向设备自身。若前端页面本身已经通过 API 电脑的局域网 IP 访问，可以只配置 `4000` 或 `:4000`，前端会复用当前页面的 `192.168.1.23`。如果 API 和前端不在同一台主机或需要使用不同域名，则继续配置完整 URL，例如 `http://192.168.1.23:4000`。
+
+API 生成裁判端二维码时会使用 `JUDGE_APP_BASE_URL`，现场访问时也应改成裁判端的局域网地址。
 
 需要时，将局域网 origin 添加到 API CORS：
 

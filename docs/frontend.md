@@ -124,6 +124,8 @@ pages/users/UsersPage.module.css
 
 admin 优先使用 antd theme、组件 props 和少量 CSS Modules；judge 优先使用 antd-mobile 组件 props 和移动端页面级 CSS。
 
+系统色板与主题使用规则见 `docs/theme.md`。当前先在 judge 端落地 Traditional Brewing Challenge 主题；admin 后续需要统一时再按同一色板映射到 antd theme。
+
 优先级：
 
 1. `ConfigProvider` theme 或 antd-mobile 全局变量。

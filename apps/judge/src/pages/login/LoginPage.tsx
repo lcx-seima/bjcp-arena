@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { type UserPublic } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
 import { apiBaseUrl } from "../../app/env.js";
+import { BrandMark } from "../../components/ui/BrandMark.js";
 import { InlineError } from "../../components/ui/InlineError.js";
 import { MobileShell } from "../../components/ui/MobileShell.js";
 import { isUnauthorized, readError } from "../../utils/errors.js";
@@ -53,6 +54,8 @@ export function LoginPage({
       description={`API：${apiBaseUrl}`}
       title="裁判端登录"
     >
+      <BrandMark variant="hero" subtitle="裁判端" />
+
       <Form layout="vertical" onFinish={handleSubmit}>
         <Form.Item
           label="用户名"

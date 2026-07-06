@@ -109,7 +109,7 @@ export function JudgeRoundDetailPage({
       >
         {error ? <InlineError>{error}</InlineError> : null}
         <div className="section-label">已提交酒款</div>
-        <List>
+        <List mode="card">
           {detail?.beers.map((beer) => (
             <List.Item
               arrow

@@ -68,7 +68,7 @@ export function JudgeRoundsPage({
           </table>
         </div>
       ) : null}
-      <List>
+      <List mode="card">
         {rounds.map((round) => (
           <List.Item
             arrow

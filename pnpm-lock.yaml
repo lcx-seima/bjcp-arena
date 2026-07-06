@@ -55,6 +55,9 @@ importers:
       "@bjcp-arena/contracts":
         specifier: workspace:*
         version: link:../../packages/contracts
+      "@bjcp-arena/utils":
+        specifier: workspace:*
+        version: link:../../packages/utils
       antd:
         specifier: ^6.0.0
         version: 6.5.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -123,6 +126,9 @@ importers:
       "@bjcp-arena/contracts":
         specifier: workspace:*
         version: link:../../packages/contracts
+      "@bjcp-arena/utils":
+        specifier: workspace:*
+        version: link:../../packages/utils
       antd-mobile:
         specifier: ^5.0.0
         version: 5.42.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
