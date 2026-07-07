@@ -200,6 +200,47 @@ textarea {
   gap: 16px;
 }
 
+.empty-placeholder {
+  align-items: center;
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  min-width: 0;
+  padding: 36px 16px;
+  text-align: center;
+}
+
+.empty-placeholder__logo {
+  display: block;
+  height: auto;
+  max-width: 38vw;
+  width: 96px;
+}
+
+.empty-placeholder__copy {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  min-width: 0;
+}
+
+.empty-placeholder__title {
+  color: var(--adm-color-text);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.empty-placeholder__subtitle {
+  color: var(--adm-color-text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .page-header {
   display: grid;
   gap: 6px;
