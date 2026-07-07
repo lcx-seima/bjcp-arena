@@ -38,6 +38,7 @@ const beer = {
   bjcpCategoryName: "IPA",
   bjcpSubcategoryCode: "21A",
   bjcpSubcategoryName: "American IPA",
+  categoryRemark: "美式 IPA 备注",
   description: "酒款介绍",
   name: "真实酒名",
   brewery: "真实酒厂",
@@ -188,6 +189,7 @@ describe("createApiClient", () => {
       .mockResolvedValueOnce(jsonResponse({ competition }))
       .mockResolvedValueOnce(jsonResponse({ competition: { ...competition, status: "ended" } }))
       .mockResolvedValueOnce(jsonResponse({ beer }))
+      .mockResolvedValueOnce(jsonResponse({ beer: { ...beer, categoryRemark: "更新备注" } }))
       .mockResolvedValueOnce(jsonResponse({ created: 1, updated: 0, beers: [beer] }))
       .mockResolvedValueOnce(jsonResponse({ round }))
       .mockResolvedValueOnce(jsonResponse({ beer: roundBeer }))
@@ -204,9 +206,13 @@ describe("createApiClient", () => {
     await client.createBeer(1, {
       entryCode: "sa1234",
       bjcpSubcategoryCode: "21A",
+      categoryRemark: "  美式 IPA 备注  ",
       description: "酒款介绍",
       name: "真实酒名",
       brewery: "真实酒厂",
+    });
+    await client.updateBeer(1, 2, {
+      categoryRemark: "更新备注",
     });
     await client.importBeers(1, {
       beers: [
@@ -214,6 +220,7 @@ describe("createApiClient", () => {
           rowNumber: 2,
           entryCode: "SA1234",
           bjcpSubcategoryCode: "21A",
+          categoryRemark: "导入备注",
           description: "酒款介绍",
           name: "真实酒名",
           brewery: "真实酒厂",
@@ -237,7 +244,42 @@ describe("createApiClient", () => {
     );
 
     expect(fetcher).toHaveBeenNthCalledWith(
-      8,
+      4,
+      "http://localhost:4000/api/competitions/1/beers",
+      {
+        body: JSON.stringify({
+          entryCode: "SA1234",
+          bjcpSubcategoryCode: "21A",
+          categoryRemark: "美式 IPA 备注",
+          description: "酒款介绍",
+          name: "真实酒名",
+          brewery: "真实酒厂",
+        }),
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: "Bearer jwt-token",
+        },
+        method: "POST",
+      }
+    );
+
+    expect(fetcher).toHaveBeenNthCalledWith(
+      5,
+      "http://localhost:4000/api/competitions/1/beers/2",
+      {
+        body: JSON.stringify({ categoryRemark: "更新备注" }),
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: "Bearer jwt-token",
+        },
+        method: "PATCH",
+      }
+    );
+
+    expect(fetcher).toHaveBeenNthCalledWith(
+      9,
       "http://localhost:4000/api/competitions/1/rounds/3/beers/2",
       {
         body: JSON.stringify({ confirm: true }),
@@ -262,6 +304,8 @@ describe("createApiClient", () => {
       bjcpCategoryName: "IPA",
       bjcpSubcategoryCode: "21A",
       bjcpSubcategoryName: "American IPA",
+      bjcpSubcategoryDoc: "https://www.bjcp.org/style/2021/21/21A/american-ipa/",
+      categoryRemark: "",
       description: "酒款介绍",
       roundStatus: "ongoing",
       competitionStatus: "ongoing",

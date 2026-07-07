@@ -27,6 +27,7 @@ export function judgeRoundBeerScorePath(competitionId: number, roundId: number, 
 
 const requiredCommentSchema = z.string().trim().min(1).max(2000);
 const nullableScoreCommentSchema = z.string().max(2000).nullable();
+const categoryRemarkResultSchema = z.string().default("");
 
 export const professionalScoreInputSchema = z.object({
   professionalAromaScore: z.number().int().min(0).max(12),
@@ -164,9 +165,11 @@ export const judgeBeerSchema = z.object({
   bjcpCategoryName: z.string(),
   bjcpSubcategoryCode: z.string(),
   bjcpSubcategoryName: z.string(),
+  categoryRemark: categoryRemarkResultSchema,
   description: z.string(),
   roundStatus: entityStatusSchema,
   competitionStatus: entityStatusSchema,
+  bjcpSubcategoryDoc: z.string().url().optional(),
   canScore: z.boolean(),
 });
 

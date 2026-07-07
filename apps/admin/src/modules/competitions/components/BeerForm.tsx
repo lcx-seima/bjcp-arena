@@ -30,6 +30,7 @@ export function BeerForm({
       name: beer?.name ?? "",
       brewery: beer?.brewery ?? "",
       bjcpSubcategoryCode: readSubcategoryCode(beer),
+      categoryRemark: beer?.categoryRemark ?? "",
       description: beer?.description ?? "",
     });
   }, [beer, form]);
@@ -39,7 +40,11 @@ export function BeerForm({
       form={form}
       layout="vertical"
       onFinish={(values) =>
-        onSubmit({ ...values, entryCode: values.entryCode.trim().toUpperCase() })
+        onSubmit({
+          ...values,
+          categoryRemark: values.categoryRemark?.trim() ?? "",
+          entryCode: values.entryCode.trim().toUpperCase(),
+        })
       }
     >
       <div className="form-grid-3">
@@ -77,6 +82,9 @@ export function BeerForm({
         rules={[{ required: true, message: "请选择 BJCP 类型" }]}
       >
         <Select options={bjcpStyleOptions} showSearch />
+      </Form.Item>
+      <Form.Item label="分类备注" name="categoryRemark" rules={[{ max: 500 }]}>
+        <Input.TextArea autoSize={{ minRows: 2 }} placeholder="可选" />
       </Form.Item>
       <Form.Item
         label="裁判可见介绍"

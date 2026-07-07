@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   addRoundBeerInputSchema,
   amateurScoreInputSchema,
+  beerByIdPath,
   beerImportPath,
   beerListPath,
   beerResultSchema,
@@ -18,6 +19,7 @@ import {
   judgeBeerResultSchema,
   judgeCompetitionListPath,
   judgeRole,
+  judgeRoundBeerDetailPath,
   judgeRoundBeerLookupPath,
   judgeRoundBeerScorePath,
   judgeRoundDetailPath,
@@ -69,6 +71,7 @@ async function createBeer(app: TestApp, token: string, competitionId: number, en
     payload: createBeerInputSchema.parse({
       entryCode,
       bjcpSubcategoryCode: "21A",
+      categoryRemark: "",
       description: `介绍 ${entryCode}`,
       name: `真实酒名 ${entryCode}`,
       brewery: `酒厂 ${entryCode}`,
@@ -201,6 +204,7 @@ describe("competition loop routes", () => {
       payload: createBeerInputSchema.parse({
         entryCode: "SA1234",
         bjcpSubcategoryCode: "21B",
+        categoryRemark: "  特殊 IPA：黑 IPA  ",
         description: "更新介绍",
         name: "更新酒名",
         brewery: "更新酒厂",
@@ -214,9 +218,34 @@ describe("competition loop routes", () => {
       entryCode: "SA1234",
       entryNumber: 1,
       bjcpSubcategoryCode: "21B",
+      categoryRemark: "特殊 IPA：黑 IPA",
       description: "更新介绍",
       name: "更新酒名",
       brewery: "更新酒厂",
+    });
+    await app.close();
+  });
+
+  it("updates beer category remarks independently", async () => {
+    const { app } = createTestApp();
+    const token = await bootstrapToken(app);
+    const competition = await createCompetition(app, token);
+    const beer = await createBeer(app, token, competition.id, "SA1235");
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: beerByIdPath(competition.id, beer.id),
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        categoryRemark: "  可按 American IPA 评审，另加干投备注  ",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(beerResultSchema.parse(response.json()).beer).toMatchObject({
+      id: beer.id,
+      categoryRemark: "可按 American IPA 评审，另加干投备注",
+      description: "介绍 SA1235",
     });
     await app.close();
   });
@@ -236,6 +265,7 @@ describe("competition loop routes", () => {
             rowNumber: 2,
             entryCode: "SA1001",
             bjcpSubcategoryCode: "21A",
+            categoryRemark: "不应写入",
             description: "有效",
             name: "有效酒",
             brewery: "有效酒厂",
@@ -267,6 +297,7 @@ describe("competition loop routes", () => {
             rowNumber: 2,
             entryCode: "SA1001",
             bjcpSubcategoryCode: "21A",
+            categoryRemark: "导入备注",
             description: "有效",
             name: "有效酒",
             brewery: "有效酒厂",
@@ -279,7 +310,7 @@ describe("competition loop routes", () => {
     expect(importBeersResultSchema.parse(valid.json())).toMatchObject({
       created: 1,
       updated: 0,
-      beers: [{ entryCode: "SA1001", entryNumber: 1 }],
+      beers: [{ entryCode: "SA1001", entryNumber: 1, categoryRemark: "导入备注" }],
     });
     await app.close();
   });
@@ -415,6 +446,8 @@ describe("competition loop routes", () => {
     expect(judgeBeer).toMatchObject({
       id: beer.id,
       entryCode: "SA3001",
+      categoryRemark: "",
+      bjcpSubcategoryDoc: "https://www.bjcp.org/style/2021/21/21A/american-ipa/",
       canScore: true,
     });
     expect("name" in judgeBeer).toBe(false);
@@ -433,6 +466,46 @@ describe("competition loop routes", () => {
       judgeTypeSnapshot: "public",
       amateurTotalScore: 18,
     });
+    await app.close();
+  });
+
+  it("returns judge beer category remarks without a BJCP document link for unclassified beers", async () => {
+    const { app } = createTestApp();
+    const adminToken = await bootstrapToken(app);
+    const competition = await createCompetition(app, adminToken);
+    const createUnclassified = await app.inject({
+      method: "POST",
+      url: beerListPath(competition.id),
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: createBeerInputSchema.parse({
+        entryCode: "SA3999",
+        bjcpSubcategoryCode: "999",
+        categoryRemark: "临时未分类",
+        description: "待确认分类",
+        name: "未分类酒",
+        brewery: "未分类酒厂",
+      }),
+    });
+    expect(createUnclassified.statusCode).toBe(200);
+    const beer = beerResultSchema.parse(createUnclassified.json()).beer;
+    const round = await createRound(app, adminToken, competition.id);
+    await addRoundBeer(app, adminToken, competition.id, round.id, beer.id);
+    await createJudge(app, adminToken, "unclassifiedjudge", "public");
+    const judgeToken = await login(app, "unclassifiedjudge");
+
+    const detail = await app.inject({
+      method: "GET",
+      url: judgeRoundBeerDetailPath(competition.id, round.id, beer.id),
+      headers: { authorization: `Bearer ${judgeToken}` },
+    });
+
+    expect(detail.statusCode).toBe(200);
+    const judgeBeer = judgeBeerResultSchema.parse(detail.json()).beer;
+    expect(judgeBeer).toMatchObject({
+      bjcpSubcategoryCode: "999",
+      categoryRemark: "临时未分类",
+    });
+    expect(judgeBeer).not.toHaveProperty("bjcpSubcategoryDoc");
     await app.close();
   });
 

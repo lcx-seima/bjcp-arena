@@ -33,17 +33,26 @@ export function beerImportPath(competitionId: number) {
   return `/api/competitions/${competitionId}/beers/import` as const;
 }
 
+const categoryRemarkSchema = z.string().trim().max(500);
+const categoryRemarkResultSchema = z.string().default("");
+
 export const createBeerInputSchema = z.object({
   entryCode: entryCodeSchema,
   bjcpSubcategoryCode: bjcpSubcategoryCodeSchema,
+  categoryRemark: categoryRemarkSchema.default(""),
   description: z.string().trim().min(1).max(5000),
   name: z.string().trim().min(1).max(160),
   brewery: z.string().trim().min(1).max(160),
 });
 
-export const updateBeerInputSchema = createBeerInputSchema
-  .omit({ entryCode: true })
-  .partial()
+export const updateBeerInputSchema = z
+  .object({
+    bjcpSubcategoryCode: bjcpSubcategoryCodeSchema.optional(),
+    categoryRemark: categoryRemarkSchema.optional(),
+    description: z.string().trim().min(1).max(5000).optional(),
+    name: z.string().trim().min(1).max(160).optional(),
+    brewery: z.string().trim().min(1).max(160).optional(),
+  })
   .refine((value) => Object.keys(value).length > 0, "At least one field is required");
 
 export const importBeerRowSchema = createBeerInputSchema.omit({ entryCode: true }).extend({
@@ -60,6 +69,7 @@ export const beerSchema = bjcpStyleSnapshotSchema.extend({
   competitionId: z.number().int().positive(),
   entryCode: entryCodeSchema,
   entryNumber: z.number().int().positive(),
+  categoryRemark: categoryRemarkResultSchema,
   description: z.string(),
   name: z.string(),
   brewery: z.string(),

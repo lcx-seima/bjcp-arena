@@ -51,6 +51,7 @@ model BeerEntry {
   bjcpCategoryName    String   @map("bjcp_category_name")
   bjcpSubcategoryCode String   @map("bjcp_subcategory_code")
   bjcpSubcategoryName String   @map("bjcp_subcategory_name")
+  categoryRemark      String   @default("") @map("category_remark")
   description         String
   name                String
   brewery             String

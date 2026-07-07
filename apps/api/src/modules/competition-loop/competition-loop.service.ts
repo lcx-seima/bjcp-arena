@@ -59,6 +59,7 @@ function toBeer(beer: StoredBeer) {
     bjcpCategoryName: beer.bjcpCategoryName,
     bjcpSubcategoryCode: beer.bjcpSubcategoryCode,
     bjcpSubcategoryName: beer.bjcpSubcategoryName,
+    categoryRemark: beer.categoryRemark ?? "",
     description: beer.description,
     name: beer.name,
     brewery: beer.brewery,
@@ -118,6 +119,7 @@ function toJudgeBeer(
   beer: StoredBeer,
   canScore: boolean
 ) {
+  const style = findBjcpSubcategory(beer.bjcpSubcategoryCode);
   return {
     id: beer.id,
     competitionId: competition.id,
@@ -128,9 +130,11 @@ function toJudgeBeer(
     bjcpCategoryName: beer.bjcpCategoryName,
     bjcpSubcategoryCode: beer.bjcpSubcategoryCode,
     bjcpSubcategoryName: beer.bjcpSubcategoryName,
+    categoryRemark: beer.categoryRemark ?? "",
     description: beer.description,
     roundStatus: round.status,
     competitionStatus: competition.status,
+    ...(style && "doc" in style && style.doc ? { bjcpSubcategoryDoc: style.doc } : {}),
     canScore,
   };
 }
@@ -290,6 +294,7 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
           | "10A"
           | "21A"
           | "21B",
+        categoryRemark: input.categoryRemark ?? existing.categoryRemark,
         description: input.description ?? existing.description,
         name: input.name ?? existing.name,
         brewery: input.brewery ?? existing.brewery,

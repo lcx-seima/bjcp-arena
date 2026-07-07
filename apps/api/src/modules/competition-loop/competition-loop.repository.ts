@@ -25,6 +25,7 @@ export interface StoredBeer {
   bjcpCategoryName: string;
   bjcpSubcategoryCode: string;
   bjcpSubcategoryName: string;
+  categoryRemark: string;
   description: string;
   name: string;
   brewery: string;
@@ -229,6 +230,7 @@ function beerSnapshot(
     bjcpCategoryName: style.categoryName,
     bjcpSubcategoryCode: style.subcategoryCode,
     bjcpSubcategoryName: style.subcategoryName,
+    categoryRemark: input.categoryRemark,
     description: input.description,
     name: input.name,
     brewery: input.brewery,
@@ -583,6 +585,7 @@ export function createPrismaCompetitionLoopRepository(
       bjcpCategoryName: value.bjcpCategoryName,
       bjcpSubcategoryCode: value.bjcpSubcategoryCode,
       bjcpSubcategoryName: value.bjcpSubcategoryName,
+      categoryRemark: value.categoryRemark ?? "",
       description: value.description,
       name: value.name,
       brewery: value.brewery,

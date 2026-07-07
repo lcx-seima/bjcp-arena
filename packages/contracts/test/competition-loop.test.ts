@@ -9,7 +9,10 @@ import {
   competitionListQuerySchema,
   competitionListResultSchema,
   competitionStatusPath,
+  createBeerInputSchema,
   entityStatusSchema,
+  importBeersInputSchema,
+  judgeBeerResultSchema,
   judgeCompetitionListPath,
   judgeRoundBeerLookupPath,
   judgeRoundBeerDetailPath,
@@ -24,6 +27,7 @@ import {
   roundListPath,
   roundStatusPath,
   scoreInputSchema,
+  updateBeerInputSchema,
 } from "../src/index.js";
 
 describe("competition loop contracts", () => {
@@ -77,6 +81,49 @@ describe("competition loop contracts", () => {
     );
   });
 
+  it("defaults optional beer category remarks to an empty string", () => {
+    expect(
+      createBeerInputSchema.parse({
+        entryCode: " sa1234 ",
+        bjcpSubcategoryCode: "21A",
+        description: "参赛介绍",
+        name: "参赛酒名",
+        brewery: "参赛酒厂",
+      })
+    ).toMatchObject({ categoryRemark: "" });
+
+    expect(
+      createBeerInputSchema.parse({
+        entryCode: "sa1234",
+        bjcpSubcategoryCode: "21A",
+        categoryRemark: "  美式 IPA 特殊组  ",
+        description: "参赛介绍",
+        name: "参赛酒名",
+        brewery: "参赛酒厂",
+      })
+    ).toMatchObject({ categoryRemark: "美式 IPA 特殊组" });
+
+    expect(
+      importBeersInputSchema.parse({
+        beers: [
+          {
+            rowNumber: 2,
+            entryCode: "SA1234",
+            bjcpSubcategoryCode: "21A",
+            description: "参赛介绍",
+            name: "参赛酒名",
+            brewery: "参赛酒厂",
+          },
+        ],
+      }).beers[0]
+    ).toMatchObject({ categoryRemark: "" });
+
+    expect(updateBeerInputSchema.parse({ name: "只改酒名" })).toEqual({ name: "只改酒名" });
+    expect(updateBeerInputSchema.parse({ categoryRemark: "  清空前后空格  " })).toEqual({
+      categoryRemark: "清空前后空格",
+    });
+  });
+
   it("parses beer result without status and with immutable identifiers", () => {
     const parsed = beerResultSchema.parse({
       beer: {
@@ -88,6 +135,7 @@ describe("competition loop contracts", () => {
         bjcpCategoryName: "IPA",
         bjcpSubcategoryCode: "21B",
         bjcpSubcategoryName: "Specialty IPA",
+        categoryRemark: "特殊 IPA：冷萃咖啡",
         description: "参赛介绍",
         name: "参赛酒名",
         brewery: "参赛酒厂",
@@ -101,7 +149,69 @@ describe("competition loop contracts", () => {
       entryNumber: 1,
       name: "参赛酒名",
       brewery: "参赛酒厂",
+      categoryRemark: "特殊 IPA：冷萃咖啡",
     });
+  });
+
+  it("defaults missing beer category remarks in response schemas", () => {
+    expect(
+      beerResultSchema.parse({
+        beer: {
+          id: 1,
+          competitionId: 2,
+          entryCode: "SA1234",
+          entryNumber: 1,
+          bjcpCategoryCode: "21",
+          bjcpCategoryName: "IPA",
+          bjcpSubcategoryCode: "21A",
+          bjcpSubcategoryName: "American IPA",
+          description: "参赛介绍",
+          name: "参赛酒名",
+          brewery: "参赛酒厂",
+          createdAt: "2026-07-05T00:00:00.000Z",
+          updatedAt: "2026-07-05T00:00:00.000Z",
+        },
+      }).beer.categoryRemark
+    ).toBe("");
+  });
+
+  it("parses judge beer result with category remarks and optional BJCP document links", () => {
+    const baseBeer = {
+      id: 1,
+      competitionId: 2,
+      roundId: 3,
+      entryCode: "SA1234",
+      entryNumber: 1,
+      bjcpCategoryCode: "21",
+      bjcpCategoryName: "IPA",
+      bjcpSubcategoryCode: "21A",
+      bjcpSubcategoryName: "American IPA",
+      categoryRemark: "",
+      description: "参赛介绍",
+      roundStatus: "ongoing",
+      competitionStatus: "ongoing",
+      canScore: true,
+    };
+
+    expect(
+      judgeBeerResultSchema.parse({
+        beer: {
+          ...baseBeer,
+          bjcpSubcategoryDoc: "https://www.bjcp.org/style/2021/21/21A/american-ipa/",
+        },
+      }).beer
+    ).toMatchObject({
+      categoryRemark: "",
+      bjcpSubcategoryDoc: "https://www.bjcp.org/style/2021/21/21A/american-ipa/",
+    });
+
+    expect(judgeBeerResultSchema.parse({ beer: baseBeer }).beer).not.toHaveProperty(
+      "bjcpSubcategoryDoc"
+    );
+
+    const legacyBeer: Partial<typeof baseBeer> = { ...baseBeer };
+    delete legacyBeer.categoryRemark;
+    expect(judgeBeerResultSchema.parse({ beer: legacyBeer }).beer.categoryRemark).toBe("");
   });
 
   it("validates professional scores, computes grades and requires dimension feedback", () => {

@@ -61,6 +61,7 @@ function parseExcelRows(file: File): Promise<ImportBeerRow[]> {
       description: String(row[2] ?? "").trim(),
       name: String(row[3] ?? "").trim(),
       brewery: String(row[4] ?? "").trim(),
+      categoryRemark: String(row[5] ?? "").trim(),
     }));
   });
 }
@@ -165,6 +166,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
         name: values.name,
         brewery: values.brewery,
         bjcpSubcategoryCode: values.bjcpSubcategoryCode,
+        categoryRemark: values.categoryRemark,
         description: values.description,
       });
       setBeerDrawer(null);

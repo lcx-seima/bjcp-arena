@@ -368,8 +368,20 @@ export function ScorePage({
                 <tr>
                   <th>BJCP分类</th>
                   <td>
-                    {beer.bjcpSubcategoryCode} {beer.bjcpSubcategoryName}
+                    {beer.bjcpSubcategoryDoc ? (
+                      <a href={beer.bjcpSubcategoryDoc} rel="noreferrer" target="_blank">
+                        {beer.bjcpSubcategoryCode} {beer.bjcpSubcategoryName}
+                      </a>
+                    ) : (
+                      <>
+                        {beer.bjcpSubcategoryCode} {beer.bjcpSubcategoryName}
+                      </>
+                    )}
                   </td>
+                </tr>
+                <tr>
+                  <th>分类备注</th>
+                  <td>{beer.categoryRemark || "无"}</td>
                 </tr>
                 <tr>
                   <th>介绍</th>
