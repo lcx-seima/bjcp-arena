@@ -4,9 +4,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { type UserPublic } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
+import { useRequestFeedback } from "../../app/feedback.js";
 import { PageHeader } from "../../components/ui/PageHeader.js";
-import { InlineMessage } from "../../components/ui/InlineMessage.js";
-import { readError } from "../../utils/errors.js";
 
 export function BootstrapPage({
   onSession,
@@ -14,19 +13,19 @@ export function BootstrapPage({
   onSession: (token: string, user: UserPublic) => void;
 }) {
   const navigate = useNavigate();
-  const [error, setError] = useState<string | null>(null);
+  const { showRequestError, showSuccess } = useRequestFeedback();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(values: { password: string }) {
-    setError(null);
     setIsSubmitting(true);
 
     try {
       const session = await client.bootstrapSuperAdmin(values);
+      showSuccess("初始化完成，已登录");
       onSession(session.token, session.user);
       navigate("/", { replace: true });
     } catch (unknownError) {
-      setError(readError(unknownError));
+      showRequestError(unknownError);
     } finally {
       setIsSubmitting(false);
     }
@@ -57,8 +56,6 @@ export function BootstrapPage({
         >
           <Input.Password autoComplete="new-password" />
         </Form.Item>
-
-        {error ? <InlineMessage type="error">{error}</InlineMessage> : null}
 
         <Button htmlType="submit" icon={<KeyOutlined />} loading={isSubmitting} type="primary">
           创建并登录

@@ -3,7 +3,7 @@ import { Button, Card, Flex, Pagination, Space, Table, Tag, Tooltip, Typography 
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { client } from "../../app/api.js";
-import { InlineMessage } from "../../components/ui/InlineMessage.js";
+import { useRequestFeedback } from "../../app/feedback.js";
 import { PageHeader } from "../../components/ui/PageHeader.js";
 import {
   entityStatusLabels,
@@ -11,7 +11,6 @@ import {
 } from "../../modules/competitions/competitions-api.js";
 import { type CompetitionFormValues } from "../../modules/competitions/components/CompetitionForm.js";
 import { CompetitionInfoModal } from "../../modules/competitions/components/CompetitionInfoModal.js";
-import { handleRequestError } from "../../utils/errors.js";
 
 const competitionPageLimit = 50;
 
@@ -34,15 +33,12 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState<"loading" | "ready">("loading");
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [competitionModal, setCompetitionModal] = useState<CompetitionModalState | null>(null);
-  const [modalError, setModalError] = useState<string | null>(null);
   const [isSubmittingCompetition, setIsSubmittingCompetition] = useState(false);
+  const { showRequestError, showSuccess } = useRequestFeedback(onLogout);
 
   const refreshCompetitions = useCallback(
     async (nextPage = page) => {
-      setError(null);
       const result = await client.listCompetitions({
         page: nextPage,
         limit: competitionPageLimit,
@@ -59,15 +55,15 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
     setStatus("loading");
     void refreshCompetitions(page).catch((unknownError) => {
       setStatus("ready");
-      setError(handleRequestError(unknownError, onLogout));
+      showRequestError(unknownError);
     });
-  }, [onLogout, page, refreshCompetitions]);
+  }, [page, refreshCompetitions, showRequestError]);
 
   function handleRefresh() {
     setStatus("loading");
     void refreshCompetitions(page).catch((unknownError) => {
       setStatus("ready");
-      setError(handleRequestError(unknownError, onLogout));
+      showRequestError(unknownError);
     });
   }
 
@@ -76,7 +72,6 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
       return;
     }
 
-    setModalError(null);
     setIsSubmittingCompetition(true);
 
     try {
@@ -84,7 +79,7 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
         const result = await client.createCompetition({
           name: values.name.trim(),
         });
-        setNotice(`已创建比赛 ${result.competition.name}`);
+        showSuccess(`已创建比赛 ${result.competition.name}`);
         setCompetitionModal(null);
         await refreshCompetitions(1);
         return;
@@ -93,11 +88,11 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
       const result = await client.updateCompetition(competitionModal.competition.id, {
         name: values.name.trim(),
       });
-      setNotice(`已更新比赛 ${result.competition.name}`);
+      showSuccess(`已更新比赛 ${result.competition.name}`);
       setCompetitionModal(null);
       await refreshCompetitions(page);
     } catch (unknownError) {
-      setModalError(handleRequestError(unknownError, onLogout));
+      showRequestError(unknownError);
     } finally {
       setIsSubmittingCompetition(false);
     }
@@ -111,9 +106,6 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
           刷新
         </Button>
       </Flex>
-
-      {notice ? <InlineMessage type="success">{notice}</InlineMessage> : null}
-      {error ? <InlineMessage type="error">{error}</InlineMessage> : null}
 
       <Card>
         <div className="stack-md">
@@ -131,7 +123,6 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
               icon={<PlusOutlined />}
               type="primary"
               onClick={() => {
-                setModalError(null);
                 setCompetitionModal({ mode: "create", competition: null });
               }}
             >
@@ -194,7 +185,6 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
                     <Button
                       icon={<EditOutlined />}
                       onClick={() => {
-                        setModalError(null);
                         setCompetitionModal({ mode: "edit", competition });
                       }}
                     >
@@ -228,12 +218,10 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
 
       <CompetitionInfoModal
         competition={competitionModal?.competition ?? null}
-        error={modalError}
         isSubmitting={isSubmittingCompetition}
         mode={competitionModal?.mode ?? "create"}
         opened={competitionModal !== null}
         onClose={() => {
-          setModalError(null);
           setCompetitionModal(null);
         }}
         onSubmit={handleCompetitionSubmit}

@@ -12,7 +12,6 @@ import {
   type JudgeType,
   type UserPublic,
 } from "@bjcp-arena/contracts";
-import { InlineMessage } from "../../../components/ui/InlineMessage.js";
 import { randomDefaultUsername, randomNumericPassword } from "../../../utils/random.js";
 import { RoleCheckboxGroup } from "./RoleCheckboxGroup.js";
 
@@ -41,7 +40,6 @@ const resetFieldNames: Array<keyof UserInfoFormValues> = [
 export function UserInfoModal({
   activeSuperAdminCount,
   currentUserId,
-  error,
   isSubmitting,
   mode,
   opened,
@@ -51,7 +49,6 @@ export function UserInfoModal({
 }: {
   activeSuperAdminCount: number;
   currentUserId: number;
-  error: string | null;
   isSubmitting: boolean;
   mode: "create" | "edit";
   opened: boolean;
@@ -229,7 +226,6 @@ export function UserInfoModal({
         {protectionError ? (
           <Typography.Text type="warning">{protectionError}</Typography.Text>
         ) : null}
-        {error ? <InlineMessage type="error">{error}</InlineMessage> : null}
         <Form.Item hidden name="disabled">
           <Checkbox />
         </Form.Item>

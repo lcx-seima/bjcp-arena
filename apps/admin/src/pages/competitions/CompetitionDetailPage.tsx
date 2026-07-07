@@ -24,7 +24,7 @@ import { Link, useParams } from "react-router-dom";
 import * as XLSX from "xlsx";
 import type { EntityStatus, ImportBeerRow } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
-import { InlineMessage } from "../../components/ui/InlineMessage.js";
+import { useRequestFeedback } from "../../app/feedback.js";
 import { PageHeader } from "../../components/ui/PageHeader.js";
 import {
   entityStatusLabels,
@@ -35,7 +35,6 @@ import {
   type RoundBeer,
 } from "../../modules/competitions/competitions-api.js";
 import { BeerForm, type BeerFormValues } from "../../modules/competitions/components/BeerForm.js";
-import { handleRequestError } from "../../utils/errors.js";
 import classes from "./CompetitionsPage.module.css";
 
 function readCompetitionId(value: string | undefined) {
@@ -68,6 +67,7 @@ function parseExcelRows(file: File): Promise<ImportBeerRow[]> {
 
 export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
   const { modal } = AntdApp.useApp();
+  const { showError, showRequestError, showSuccess } = useRequestFeedback(onLogout);
   const { competitionId: competitionIdParam } = useParams();
   const competitionId = readCompetitionId(competitionIdParam);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -77,8 +77,6 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
   const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null);
   const [roundBeers, setRoundBeers] = useState<RoundBeer[]>([]);
   const [status, setStatus] = useState<"loading" | "ready">("loading");
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [beerDrawer, setBeerDrawer] = useState<
     { mode: "create"; beer: null } | { mode: "edit"; beer: Beer } | null
   >(null);
@@ -90,11 +88,10 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
 
   const refreshDetail = useCallback(async () => {
     if (!competitionId) {
-      setError("比赛 ID 无效");
+      showError("比赛 ID 无效");
       setStatus("ready");
       return;
     }
-    setError(null);
     const [competitionResult, beerResult, roundResult] = await Promise.all([
       client.getCompetition(competitionId),
       client.listBeers(competitionId),
@@ -111,23 +108,21 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
       setRoundBeers([]);
     }
     setStatus("ready");
-  }, [competitionId, selectedRoundId]);
+  }, [competitionId, selectedRoundId, showError]);
 
   useEffect(() => {
     void refreshDetail().catch((unknownError) => {
       setStatus("ready");
-      setError(handleRequestError(unknownError, onLogout));
+      showRequestError(unknownError);
     });
-  }, [onLogout, refreshDetail]);
+  }, [refreshDetail, showRequestError]);
 
   async function runAction(action: () => Promise<void>) {
-    setError(null);
-    setNotice(null);
     setIsBusy(true);
     try {
       await action();
     } catch (unknownError) {
-      setError(handleRequestError(unknownError, onLogout));
+      showRequestError(unknownError);
     } finally {
       setIsBusy(false);
     }
@@ -149,7 +144,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
         ...(confirm ? { confirm: true } : {}),
       });
       setCompetition(result.competition);
-      setNotice(`比赛状态已更新为 ${entityStatusLabels[result.competition.status]}`);
+      showSuccess(`比赛状态已更新为 ${entityStatusLabels[result.competition.status]}`);
     });
   }
 
@@ -159,7 +154,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
       const result = await client.createBeer(competitionId, values);
       setBeerDrawer(null);
       await refreshDetail();
-      setNotice(`已保存 #${result.beer.entryNumber} ${result.beer.entryCode}`);
+      showSuccess(`已保存 #${result.beer.entryNumber} ${result.beer.entryCode}`);
     });
   }
 
@@ -174,7 +169,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
       });
       setBeerDrawer(null);
       await refreshDetail();
-      setNotice("酒款已保存");
+      showSuccess("酒款已保存");
     });
   }
 
@@ -184,7 +179,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
       const rows = await parseExcelRows(file);
       const result = await client.importBeers(competitionId, { beers: rows });
       await refreshDetail();
-      setNotice(`导入完成：新增 ${result.created}，更新 ${result.updated}`);
+      showSuccess(`导入完成：新增 ${result.created}，更新 ${result.updated}`);
     });
   }
 
@@ -195,7 +190,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
       setNewRoundName("");
       await refreshDetail();
       setSelectedRoundId(result.round.id);
-      setNotice("轮次已创建");
+      showSuccess("轮次已创建");
     });
   }
 
@@ -215,7 +210,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
         ...(confirm ? { confirm: true } : {}),
       });
       await refreshDetail();
-      setNotice("轮次状态已更新");
+      showSuccess("轮次状态已更新");
     });
   }
 
@@ -227,7 +222,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
       });
       setRoundBeerToAdd(null);
       setRoundBeers((await client.listRoundBeers(competitionId, selectedRound.id)).beers);
-      setNotice("酒款已加入轮次");
+      showSuccess("酒款已加入轮次");
     });
   }
 
@@ -245,7 +240,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
         confirm: beer.scoreCount > 0,
       });
       setRoundBeers((await client.listRoundBeers(competitionId, selectedRound.id)).beers);
-      setNotice("已从轮次移除酒款");
+      showSuccess("已从轮次移除酒款");
     });
   }
 
@@ -274,7 +269,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
               setStatus("loading");
               void refreshDetail().catch((unknownError) => {
                 setStatus("ready");
-                setError(handleRequestError(unknownError, onLogout));
+                showRequestError(unknownError);
               });
             }}
           >
@@ -282,9 +277,6 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
           </Button>
         </Space>
       </Flex>
-
-      {notice ? <InlineMessage type="success">{notice}</InlineMessage> : null}
-      {error ? <InlineMessage type="error">{error}</InlineMessage> : null}
 
       <Tabs
         defaultActiveKey="rounds"
@@ -319,9 +311,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                               void client
                                 .listRoundBeers(competitionId, round.id)
                                 .then((result) => setRoundBeers(result.beers))
-                                .catch((unknownError) =>
-                                  setError(handleRequestError(unknownError, onLogout))
-                                );
+                                .catch(showRequestError);
                             }
                           }}
                         >

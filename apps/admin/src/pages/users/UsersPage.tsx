@@ -3,15 +3,14 @@ import { Button, Card, Flex, Pagination, Space, Table, Tag, Tooltip, Typography 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { hasRole, superAdminRole, type UserPublic } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
+import { useRequestFeedback } from "../../app/feedback.js";
 import { PageHeader } from "../../components/ui/PageHeader.js";
-import { InlineMessage } from "../../components/ui/InlineMessage.js";
 import {
   UserInfoModal,
   type UserInfoFormValues,
 } from "../../modules/users/components/UserInfoModal.js";
 import { ResetPasswordModal } from "../../modules/users/components/ResetPasswordModal.js";
 import { describeRoles } from "../../utils/roles.js";
-import { handleRequestError } from "../../utils/errors.js";
 
 const userPageLimit = 50;
 
@@ -38,14 +37,11 @@ export function UsersPage({
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState<"loading" | "ready">("loading");
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [userModal, setUserModal] = useState<UserModalState | null>(null);
   const [resetPasswordUser, setResetPasswordUser] = useState<UserPublic | null>(null);
-  const [modalError, setModalError] = useState<string | null>(null);
-  const [resetError, setResetError] = useState<string | null>(null);
   const [isSubmittingUser, setIsSubmittingUser] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const { showRequestError, showSuccess } = useRequestFeedback(onLogout);
 
   const activeSuperAdminCount = useMemo(
     () => users.filter((user) => !user.disabled && hasRole(user.roles, superAdminRole)).length,
@@ -56,7 +52,6 @@ export function UsersPage({
 
   const refreshUsers = useCallback(
     async (nextPage = page) => {
-      setError(null);
       const result = await client.listUsers({ page: nextPage, limit: userPageLimit });
       setUsers(result.users);
       setTotal(result.total);
@@ -70,15 +65,15 @@ export function UsersPage({
     setStatus("loading");
     void refreshUsers(page).catch((unknownError) => {
       setStatus("ready");
-      setError(handleRequestError(unknownError, onLogout));
+      showRequestError(unknownError);
     });
-  }, [onLogout, page, refreshUsers]);
+  }, [page, refreshUsers, showRequestError]);
 
   function handleRefresh() {
     setStatus("loading");
     void refreshUsers(page).catch((unknownError) => {
       setStatus("ready");
-      setError(handleRequestError(unknownError, onLogout));
+      showRequestError(unknownError);
     });
   }
 
@@ -87,7 +82,6 @@ export function UsersPage({
       return;
     }
 
-    setModalError(null);
     setIsSubmittingUser(true);
 
     try {
@@ -99,7 +93,7 @@ export function UsersPage({
           roles: values.roles,
           judgeType: values.judgeType,
         });
-        setNotice(`已创建用户 ${result.user.username}`);
+        showSuccess(`已创建用户 ${result.user.username}`);
         setUserModal(null);
         await refreshUsers(1);
         return;
@@ -112,11 +106,11 @@ export function UsersPage({
         judgeType: values.judgeType,
         disabled: values.disabled,
       });
-      setNotice(`已更新用户 ${result.user.username}`);
+      showSuccess(`已更新用户 ${result.user.username}`);
       setUserModal(null);
       await refreshUsers(page);
     } catch (unknownError) {
-      setModalError(handleRequestError(unknownError, onLogout));
+      showRequestError(unknownError);
     } finally {
       setIsSubmittingUser(false);
     }
@@ -127,16 +121,15 @@ export function UsersPage({
       return;
     }
 
-    setResetError(null);
     setIsResettingPassword(true);
 
     try {
       const result = await client.resetUserPassword(resetPasswordUser.id, { password });
-      setNotice(`已重置用户 ${result.user.username} 的密码`);
+      showSuccess(`已重置用户 ${result.user.username} 的密码`);
       setResetPasswordUser(null);
       await refreshUsers(page);
     } catch (unknownError) {
-      setResetError(handleRequestError(unknownError, onLogout));
+      showRequestError(unknownError);
     } finally {
       setIsResettingPassword(false);
     }
@@ -150,9 +143,6 @@ export function UsersPage({
           刷新
         </Button>
       </Flex>
-
-      {notice ? <InlineMessage type="success">{notice}</InlineMessage> : null}
-      {error ? <InlineMessage type="error">{error}</InlineMessage> : null}
 
       <Card>
         <div className="stack-md">
@@ -170,7 +160,6 @@ export function UsersPage({
               icon={<PlusOutlined />}
               type="primary"
               onClick={() => {
-                setModalError(null);
                 setUserModal({ mode: "create", user: null });
               }}
             >
@@ -242,7 +231,6 @@ export function UsersPage({
                     <Button
                       icon={<EditOutlined />}
                       onClick={() => {
-                        setModalError(null);
                         setUserModal({ mode: "edit", user });
                       }}
                     >
@@ -251,7 +239,6 @@ export function UsersPage({
                     <Button
                       icon={<KeyOutlined />}
                       onClick={() => {
-                        setResetError(null);
                         setResetPasswordUser(user);
                       }}
                     >
@@ -286,24 +273,20 @@ export function UsersPage({
       <UserInfoModal
         activeSuperAdminCount={activeSuperAdminCount}
         currentUserId={currentUser.id}
-        error={modalError}
         isSubmitting={isSubmittingUser}
         mode={userModal?.mode ?? "create"}
         opened={userModal !== null}
         user={userModal?.user ?? null}
         onClose={() => {
-          setModalError(null);
           setUserModal(null);
         }}
         onSubmit={handleUserSubmit}
       />
       <ResetPasswordModal
-        error={resetError}
         isSubmitting={isResettingPassword}
         opened={resetPasswordUser !== null}
         user={resetPasswordUser}
         onClose={() => {
-          setResetError(null);
           setResetPasswordUser(null);
         }}
         onSubmit={handleResetPassword}

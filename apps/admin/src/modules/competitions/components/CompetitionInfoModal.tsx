@@ -1,12 +1,10 @@
 import { SaveOutlined, TrophyOutlined } from "@ant-design/icons";
 import { Modal } from "antd";
-import { InlineMessage } from "../../../components/ui/InlineMessage.js";
 import type { Competition } from "../competitions-api.js";
 import { CompetitionForm, type CompetitionFormValues } from "./CompetitionForm.js";
 
 export function CompetitionInfoModal({
   competition,
-  error,
   isSubmitting,
   mode,
   opened,
@@ -14,7 +12,6 @@ export function CompetitionInfoModal({
   onSubmit,
 }: {
   competition: Competition | null;
-  error: string | null;
   isSubmitting: boolean;
   mode: "create" | "edit";
   opened: boolean;
@@ -38,7 +35,6 @@ export function CompetitionInfoModal({
           submitLeftSection={mode === "create" ? <TrophyOutlined /> : <SaveOutlined />}
           onSubmit={onSubmit}
         />
-        {error ? <InlineMessage type="error">{error}</InlineMessage> : null}
       </div>
     </Modal>
   );

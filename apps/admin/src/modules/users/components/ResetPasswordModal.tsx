@@ -2,18 +2,15 @@ import { KeyOutlined, ThunderboltOutlined } from "@ant-design/icons";
 import { Button, Form, Input, Modal } from "antd";
 import { useEffect } from "react";
 import type { UserPublic } from "@bjcp-arena/contracts";
-import { InlineMessage } from "../../../components/ui/InlineMessage.js";
 import { randomNumericPassword } from "../../../utils/random.js";
 
 export function ResetPasswordModal({
-  error,
   isSubmitting,
   opened,
   user,
   onClose,
   onSubmit,
 }: {
-  error: string | null;
   isSubmitting: boolean;
   opened: boolean;
   user: UserPublic | null;
@@ -56,7 +53,6 @@ export function ResetPasswordModal({
             }
           />
         </Form.Item>
-        {error ? <InlineMessage type="error">{error}</InlineMessage> : null}
         <KeyOutlined style={{ display: "none" }} />
       </Form>
     </Modal>

@@ -1,5 +1,5 @@
 import { LogoutOutlined, ReloadOutlined } from "@ant-design/icons";
-import { Button, Card, Flex, Space, Spin } from "antd";
+import { Button, Card, Flex, Space, Spin, Typography } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { canAccessAdminApp, type UserPublic } from "@bjcp-arena/contracts";
@@ -11,7 +11,6 @@ import { BootstrapPage } from "../pages/bootstrap/BootstrapPage.js";
 import { LoginPage } from "../pages/login/LoginPage.js";
 import { RoleMismatchPage } from "../pages/overview/RoleMismatchPage.js";
 import { PageHeader } from "../components/ui/PageHeader.js";
-import { InlineMessage } from "../components/ui/InlineMessage.js";
 import { isUnauthorized, readError } from "../utils/errors.js";
 
 interface AppState {
@@ -168,7 +167,7 @@ function RestoreErrorPage({
       <Card className="restore-card">
         <Space direction="vertical" size="middle" style={{ width: "100%" }}>
           <PageHeader eyebrow="Admin Console" title="恢复登录态失败" />
-          <InlineMessage type="error">{error}</InlineMessage>
+          <Typography.Text type="danger">{error}</Typography.Text>
           <Flex gap={8}>
             <Button block icon={<ReloadOutlined />} onClick={onRetry}>
               重试
