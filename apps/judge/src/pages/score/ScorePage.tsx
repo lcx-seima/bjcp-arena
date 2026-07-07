@@ -358,10 +358,6 @@ export function ScorePage({
             <table className="info-table">
               <tbody>
                 <tr>
-                  <th>比赛序号</th>
-                  <td>#{beer.entryNumber}</td>
-                </tr>
-                <tr>
                   <th>参赛编号</th>
                   <td>{beer.entryCode}</td>
                 </tr>
