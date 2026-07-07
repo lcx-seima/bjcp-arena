@@ -1,7 +1,13 @@
 import { Button, Dialog, Slider, Tag, TextArea, Toast } from "antd-mobile";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { JudgeBeerResult, JudgeType, MyScoreResult, UserPublic } from "@bjcp-arena/contracts";
-import { judgeTypeLabels, professionalScoreGrade } from "@bjcp-arena/contracts";
+import type {
+  JudgeBeerResult,
+  JudgeType,
+  MyScoreResult,
+  ScoreInput,
+  UserPublic,
+} from "@bjcp-arena/contracts";
+import { judgeTypeLabels, professionalScoreGrade, scoreInputSchema } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
 import { InlineError } from "../../components/ui/InlineError.js";
 import { MobileShell } from "../../components/ui/MobileShell.js";
@@ -54,6 +60,33 @@ const defaultAmateur: AmateurValues = {
   comment: "",
 };
 
+interface ScoreDraft {
+  amateurValues?: AmateurValues;
+  professionalValues?: ProfessionalValues;
+  savedAt?: string;
+}
+
+const scoreFieldLabels = {
+  amateurBalanceScore: "平衡感",
+  amateurComment: "总反馈",
+  amateurDrinkabilityScore: "易饮性",
+  amateurFlavorAcceptanceScore: "风味接受度",
+  amateurRepeatIntentionScore: "复饮意愿",
+  professionalAppearanceComment: "Appearance 外观反馈",
+  professionalAppearanceScore: "Appearance 外观分数",
+  professionalAromaComment: "Aroma 香气反馈",
+  professionalAromaScore: "Aroma 香气分数",
+  professionalFlavorComment: "Flavor 风味反馈",
+  professionalFlavorScore: "Flavor 风味分数",
+  professionalMouthfeelComment: "Mouthfeel 口感反馈",
+  professionalMouthfeelScore: "Mouthfeel 口感分数",
+  professionalOverallComment: "Overall Impression 整体印象反馈",
+  professionalOverallScore: "Overall Impression 整体印象分数",
+} as const;
+
+type ScoreField = keyof typeof scoreFieldLabels;
+type ValidationErrors = Partial<Record<ScoreField, string>>;
+
 function toSingleScore(value: ScoreSliderValue) {
   return typeof value === "number" ? value : value[1];
 }
@@ -61,6 +94,46 @@ function toSingleScore(value: ScoreSliderValue) {
 function judgeTypeFormLabel(judgeType: JudgeType | null) {
   if (judgeType) return `${judgeTypeLabels[judgeType]}表单`;
   return "未设置裁判类型";
+}
+
+function formatLocalDateTime(value: string) {
+  return new Date(value).toLocaleString();
+}
+
+function isScoreField(value: unknown): value is ScoreField {
+  return typeof value === "string" && value in scoreFieldLabels;
+}
+
+function validationMessage(field: ScoreField, issueCode: string) {
+  const label = scoreFieldLabels[field];
+  if (field.endsWith("Comment")) {
+    if (issueCode === "too_big") return `${label}不能超过 2000 字`;
+    return `请填写${label}`;
+  }
+  return `请调整${label}`;
+}
+
+function validateScoreInput(input: ScoreInput) {
+  const result = scoreInputSchema.safeParse(input);
+  if (result.success) return { errors: {}, firstField: null as ScoreField | null };
+
+  const errors: ValidationErrors = {};
+  for (const issue of result.error.issues) {
+    const field = isScoreField(issue.path[0]) ? issue.path[0] : null;
+    if (!field || errors[field]) continue;
+    errors[field] = validationMessage(field, issue.code);
+  }
+
+  const firstField = Object.keys(errors)[0] as ScoreField | undefined;
+  return { errors, firstField: firstField ?? null };
+}
+
+function scrollToScoreField(field: ScoreField) {
+  window.requestAnimationFrame(() => {
+    const fieldElement = document.querySelector<HTMLElement>(`[data-score-field="${field}"]`);
+    fieldElement?.scrollIntoView({ behavior: "smooth", block: "center" });
+    fieldElement?.querySelector<HTMLElement>("textarea, input, button")?.focus();
+  });
 }
 
 export function ScorePage({
@@ -81,8 +154,9 @@ export function ScorePage({
   const [score, setScore] = useState<MyScore | null>(null);
   const [status, setStatus] = useState<"loading" | "ready">("loading");
   const [error, setError] = useState<string | null>(null);
-  const [draftNotice, setDraftNotice] = useState<string | null>(null);
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [professionalValues, setProfessionalValues] =
     useState<ProfessionalValues>(defaultProfessional);
   const [amateurValues, setAmateurValues] = useState<AmateurValues>(defaultAmateur);
@@ -106,6 +180,21 @@ export function ScorePage({
     [amateurValues]
   );
   const effectiveJudgeType = score?.judgeTypeSnapshot ?? user.judgeType;
+  const totalSummary =
+    effectiveJudgeType === "professional"
+      ? `总分 ${professionalTotal}/50 · ${professionalScoreGrade(professionalTotal)}`
+      : effectiveJudgeType === "public"
+        ? `总分 ${amateurTotal}/20`
+        : "总分暂不可用";
+
+  const clearValidationError = useCallback((field: ScoreField) => {
+    setValidationErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }, []);
 
   const refresh = useCallback(async () => {
     const [beerResult, scoreResult] = await Promise.all([
@@ -127,6 +216,7 @@ export function ScorePage({
         mouthfeelComment: scoreResult.score.professionalMouthfeelComment ?? "",
         overallComment: scoreResult.score.professionalOverallComment ?? "",
       });
+      setDraftSavedAt(null);
     } else if (scoreResult.score?.judgeTypeSnapshot === "public") {
       setAmateurValues({
         drinkability: scoreResult.score.amateurDrinkabilityScore ?? 3,
@@ -135,17 +225,20 @@ export function ScorePage({
         repeatIntention: scoreResult.score.amateurRepeatIntentionScore ?? 3,
         comment: scoreResult.score.amateurComment ?? "",
       });
+      setDraftSavedAt(null);
     } else {
       const draft = localStorage.getItem(draftKey);
       if (draft) {
-        const parsed = JSON.parse(draft) as {
-          professionalValues?: ProfessionalValues;
-          amateurValues?: AmateurValues;
-        };
+        const parsed = JSON.parse(draft) as ScoreDraft;
         if (parsed.professionalValues) setProfessionalValues(parsed.professionalValues);
         if (parsed.amateurValues) setAmateurValues(parsed.amateurValues);
-        setDraftNotice("已恢复本地草稿，请记得提交。");
-        Toast.show({ content: "已恢复本地草稿", icon: "success" });
+        setDraftSavedAt(parsed.savedAt ?? null);
+        await Dialog.alert({
+          content: parsed.savedAt
+            ? `已恢复 ${formatLocalDateTime(parsed.savedAt)} 保存的本地草稿。确认后继续编辑。`
+            : "已恢复本地草稿。确认后继续编辑。",
+          title: "已恢复本地草稿",
+        });
       }
     }
     setStatus("ready");
@@ -164,7 +257,12 @@ export function ScorePage({
 
   useEffect(() => {
     if (status !== "ready" || score) return;
-    localStorage.setItem(draftKey, JSON.stringify({ professionalValues, amateurValues }));
+    const savedAt = new Date().toISOString();
+    localStorage.setItem(
+      draftKey,
+      JSON.stringify({ amateurValues, professionalValues, savedAt } satisfies ScoreDraft)
+    );
+    setDraftSavedAt(savedAt);
   }, [amateurValues, draftKey, professionalValues, score, status]);
 
   async function handleSubmit() {
@@ -172,6 +270,37 @@ export function ScorePage({
       const message = "当前账号未预设裁判类型，无法提交评分。";
       setError(message);
       Toast.show({ content: message, icon: "fail" });
+      return;
+    }
+
+    const payload: ScoreInput =
+      effectiveJudgeType === "professional"
+        ? {
+            judgeType: "professional",
+            professionalAromaScore: professionalValues.aroma,
+            professionalAromaComment: professionalValues.aromaComment,
+            professionalAppearanceScore: professionalValues.appearance,
+            professionalAppearanceComment: professionalValues.appearanceComment,
+            professionalFlavorScore: professionalValues.flavor,
+            professionalFlavorComment: professionalValues.flavorComment,
+            professionalMouthfeelScore: professionalValues.mouthfeel,
+            professionalMouthfeelComment: professionalValues.mouthfeelComment,
+            professionalOverallScore: professionalValues.overall,
+            professionalOverallComment: professionalValues.overallComment,
+          }
+        : {
+            judgeType: "public",
+            amateurDrinkabilityScore: amateurValues.drinkability,
+            amateurBalanceScore: amateurValues.balance,
+            amateurFlavorAcceptanceScore: amateurValues.flavorAcceptance,
+            amateurRepeatIntentionScore: amateurValues.repeatIntention,
+            amateurComment: amateurValues.comment,
+          };
+    const validation = validateScoreInput(payload);
+    setValidationErrors(validation.errors);
+    if (validation.firstField) {
+      scrollToScoreField(validation.firstField);
+      Toast.show({ content: validation.errors[validation.firstField], icon: "fail" });
       return;
     }
 
@@ -186,33 +315,10 @@ export function ScorePage({
     setError(null);
     setIsSubmitting(true);
     try {
-      const payload =
-        effectiveJudgeType === "professional"
-          ? {
-              judgeType: "professional" as const,
-              professionalAromaScore: professionalValues.aroma,
-              professionalAromaComment: professionalValues.aromaComment,
-              professionalAppearanceScore: professionalValues.appearance,
-              professionalAppearanceComment: professionalValues.appearanceComment,
-              professionalFlavorScore: professionalValues.flavor,
-              professionalFlavorComment: professionalValues.flavorComment,
-              professionalMouthfeelScore: professionalValues.mouthfeel,
-              professionalMouthfeelComment: professionalValues.mouthfeelComment,
-              professionalOverallScore: professionalValues.overall,
-              professionalOverallComment: professionalValues.overallComment,
-            }
-          : {
-              judgeType: "public" as const,
-              amateurDrinkabilityScore: amateurValues.drinkability,
-              amateurBalanceScore: amateurValues.balance,
-              amateurFlavorAcceptanceScore: amateurValues.flavorAcceptance,
-              amateurRepeatIntentionScore: amateurValues.repeatIntention,
-              amateurComment: amateurValues.comment,
-            };
       const result = await client.submitMyScore(competitionId, roundId, beer.id, payload);
       setScore(result.score);
       localStorage.removeItem(draftKey);
-      setDraftNotice(null);
+      setDraftSavedAt(null);
       Toast.show({ content: "评分已提交", icon: "success" });
     } catch (unknownError) {
       if (isUnauthorized(unknownError)) {
@@ -220,7 +326,6 @@ export function ScorePage({
         return;
       }
       const message = readError(unknownError);
-      setError(message);
       Toast.show({ content: message, icon: "fail" });
     } finally {
       setIsSubmitting(false);
@@ -236,71 +341,91 @@ export function ScorePage({
         },
       }}
       bottomAction={
-        <Button
-          block
-          color="primary"
-          disabled={!beer?.canScore || !effectiveJudgeType}
-          loading={isSubmitting}
-          onClick={handleSubmit}
-        >
-          {score ? "更新评分" : "提交评分"}
-        </Button>
+        <div className={classes.bottomPanel}>
+          <div className={classes.bottomSummary}>
+            <strong>{totalSummary}</strong>
+            {!score && draftSavedAt ? (
+              <span>草稿已保存：{formatLocalDateTime(draftSavedAt)}</span>
+            ) : (
+              <span>{score ? "已提交评分，更新后会覆盖本次记录" : "草稿将在修改后自动保存"}</span>
+            )}
+          </div>
+          <Button
+            block
+            color="primary"
+            disabled={!beer?.canScore || !effectiveJudgeType}
+            loading={isSubmitting}
+            onClick={handleSubmit}
+          >
+            {score ? "更新评分" : "提交评分"}
+          </Button>
+        </div>
       }
       title={beer ? `评鉴 #${beer.entryNumber}` : "评分"}
     >
       {beer ? (
-        <div className="stack-xs">
-          <div className="tag-row">
-            <Tag color="primary">{judgeTypeFormLabel(effectiveJudgeType)}</Tag>
-            <Tag color={beer.canScore ? "success" : "default"}>
-              {beer.canScore ? "可评分" : "只读"}
-            </Tag>
+        <section className={classes.scoreSection}>
+          <div className={classes.sectionTitle}>基础信息</div>
+          <div className="stack-xs">
+            <div className="tag-row">
+              <Tag color="primary">{judgeTypeFormLabel(effectiveJudgeType)}</Tag>
+              <Tag color={beer.canScore ? "success" : "default"}>
+                {beer.canScore ? "可评分" : "只读"}
+              </Tag>
+            </div>
+            <table className="info-table">
+              <tbody>
+                <tr>
+                  <th>比赛序号</th>
+                  <td>#{beer.entryNumber}</td>
+                </tr>
+                <tr>
+                  <th>参赛编号</th>
+                  <td>{beer.entryCode}</td>
+                </tr>
+                <tr>
+                  <th>BJCP</th>
+                  <td>
+                    {beer.bjcpSubcategoryCode} {beer.bjcpSubcategoryName}
+                  </td>
+                </tr>
+                <tr>
+                  <th>介绍</th>
+                  <td style={{ whiteSpace: "pre-wrap" }}>{beer.description}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          <table className="info-table">
-            <tbody>
-              <tr>
-                <th>比赛序号</th>
-                <td>#{beer.entryNumber}</td>
-              </tr>
-              <tr>
-                <th>参赛编号</th>
-                <td>{beer.entryCode}</td>
-              </tr>
-              <tr>
-                <th>BJCP</th>
-                <td>
-                  {beer.bjcpSubcategoryCode} {beer.bjcpSubcategoryName}
-                </td>
-              </tr>
-              <tr>
-                <th>介绍</th>
-                <td style={{ whiteSpace: "pre-wrap" }}>{beer.description}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        </section>
       ) : null}
 
       {score ? (
         <div className="muted-text">上次提交：{new Date(score.submittedAt).toLocaleString()}</div>
       ) : null}
-      {draftNotice ? <div className="warning-text">{draftNotice}</div> : null}
       {error ? <InlineError>{error}</InlineError> : null}
 
       {effectiveJudgeType === "professional" ? (
-        <ProfessionalForm
-          disabled={!beer?.canScore || status === "loading"}
-          total={professionalTotal}
-          values={professionalValues}
-          onChange={setProfessionalValues}
-        />
+        <section className={classes.scoreSection}>
+          <div className={classes.sectionTitle}>评价表单</div>
+          <ProfessionalForm
+            disabled={!beer?.canScore || status === "loading"}
+            errors={validationErrors}
+            values={professionalValues}
+            onChange={setProfessionalValues}
+            onFieldChange={clearValidationError}
+          />
+        </section>
       ) : effectiveJudgeType === "public" ? (
-        <AmateurForm
-          disabled={!beer?.canScore || status === "loading"}
-          total={amateurTotal}
-          values={amateurValues}
-          onChange={setAmateurValues}
-        />
+        <section className={classes.scoreSection}>
+          <div className={classes.sectionTitle}>评价表单</div>
+          <AmateurForm
+            disabled={!beer?.canScore || status === "loading"}
+            errors={validationErrors}
+            values={amateurValues}
+            onChange={setAmateurValues}
+            onFieldChange={clearValidationError}
+          />
+        </section>
       ) : (
         <InlineError>当前账号没有预设裁判类型，请联系管理员。</InlineError>
       )}
@@ -310,69 +435,108 @@ export function ScorePage({
 
 function ProfessionalForm({
   disabled,
+  errors,
   onChange,
-  total,
+  onFieldChange,
   values,
 }: {
   disabled: boolean;
+  errors: ValidationErrors;
   onChange: (values: ProfessionalValues) => void;
-  total: number;
+  onFieldChange: (field: ScoreField) => void;
   values: ProfessionalValues;
 }) {
   return (
     <div className="stack-md">
-      <div className="section-label">
-        专业评分 {total}/50 · {professionalScoreGrade(total)}
-      </div>
       <ScoreDimension
         comment={values.aromaComment}
+        commentField="professionalAromaComment"
         disabled={disabled}
+        error={errors.professionalAromaComment}
         label="Aroma 香气"
         max={12}
         placeholder="请描述麦芽香、酒花香、酯香、酚类、酒精感、氧化味、DMS、双乙酰等香气表现，并说明强弱和是否符合风格。"
         score={values.aroma}
-        onComment={(aromaComment) => onChange({ ...values, aromaComment })}
-        onScore={(aroma) => onChange({ ...values, aroma })}
+        onComment={(aromaComment) => {
+          onFieldChange("professionalAromaComment");
+          onChange({ ...values, aromaComment });
+        }}
+        onScore={(aroma) => {
+          onFieldChange("professionalAromaScore");
+          onChange({ ...values, aroma });
+        }}
       />
       <ScoreDimension
         comment={values.appearanceComment}
+        commentField="professionalAppearanceComment"
         disabled={disabled}
+        error={errors.professionalAppearanceComment}
         label="Appearance 外观"
         max={3}
         placeholder="请描述颜色、清澈度、泡沫颜色、泡沫细腻度、泡持、挂杯等视觉表现。"
         score={values.appearance}
-        onComment={(appearanceComment) => onChange({ ...values, appearanceComment })}
-        onScore={(appearance) => onChange({ ...values, appearance })}
+        onComment={(appearanceComment) => {
+          onFieldChange("professionalAppearanceComment");
+          onChange({ ...values, appearanceComment });
+        }}
+        onScore={(appearance) => {
+          onFieldChange("professionalAppearanceScore");
+          onChange({ ...values, appearance });
+        }}
       />
       <ScoreDimension
         comment={values.flavorComment}
+        commentField="professionalFlavorComment"
         disabled={disabled}
+        error={errors.professionalFlavorComment}
         label="Flavor 风味"
         max={20}
         placeholder="请描述入口、中段、收口、麦芽表现、酒花风味、苦度、甜度、酸度、发酵特征、余味、平衡感和明显缺陷。"
         score={values.flavor}
-        onComment={(flavorComment) => onChange({ ...values, flavorComment })}
-        onScore={(flavor) => onChange({ ...values, flavor })}
+        onComment={(flavorComment) => {
+          onFieldChange("professionalFlavorComment");
+          onChange({ ...values, flavorComment });
+        }}
+        onScore={(flavor) => {
+          onFieldChange("professionalFlavorScore");
+          onChange({ ...values, flavor });
+        }}
       />
       <ScoreDimension
         comment={values.mouthfeelComment}
+        commentField="professionalMouthfeelComment"
         disabled={disabled}
+        error={errors.professionalMouthfeelComment}
         label="Mouthfeel 口感"
         max={5}
         placeholder="请描述酒体、杀口感、顺滑度、酒精温热感、涩感、黏腻感、干爽度等口感表现。"
         score={values.mouthfeel}
-        onComment={(mouthfeelComment) => onChange({ ...values, mouthfeelComment })}
-        onScore={(mouthfeel) => onChange({ ...values, mouthfeel })}
+        onComment={(mouthfeelComment) => {
+          onFieldChange("professionalMouthfeelComment");
+          onChange({ ...values, mouthfeelComment });
+        }}
+        onScore={(mouthfeel) => {
+          onFieldChange("professionalMouthfeelScore");
+          onChange({ ...values, mouthfeel });
+        }}
       />
       <ScoreDimension
         comment={values.overallComment}
+        commentField="professionalOverallComment"
         disabled={disabled}
+        error={errors.professionalOverallComment}
         label="Overall Impression 整体印象"
         max={10}
         placeholder="请总结整体完成度、风格准确度、饮用愉悦度、主要优缺点和改进建议。"
         score={values.overall}
-        onComment={(overallComment) => onChange({ ...values, overallComment })}
-        onScore={(overall) => onChange({ ...values, overall })}
+        onComment={(overallComment) => {
+          onFieldChange("professionalOverallComment");
+          onChange({ ...values, overallComment });
+        }}
+        onScore={(overall) => {
+          onFieldChange("professionalOverallScore");
+          onChange({ ...values, overall });
+        }}
       />
     </div>
   );
@@ -380,7 +544,9 @@ function ProfessionalForm({
 
 function ScoreDimension({
   comment,
+  commentField,
   disabled,
+  error,
   label,
   max,
   onComment,
@@ -389,7 +555,9 @@ function ScoreDimension({
   score,
 }: {
   comment: string;
+  commentField: ScoreField;
   disabled: boolean;
+  error: string | undefined;
   label: string;
   max: number;
   onComment: (value: string) => void;
@@ -398,7 +566,10 @@ function ScoreDimension({
   score: number;
 }) {
   return (
-    <div className="score-dimension">
+    <div
+      className={["score-dimension", error ? classes.invalidField : ""].filter(Boolean).join(" ")}
+      data-score-field={commentField}
+    >
       <div className="score-dimension__header">
         <strong>{label}</strong>
         <span className="score-dimension__value">
@@ -421,58 +592,89 @@ function ScoreDimension({
         value={comment}
         onChange={onComment}
       />
+      {error ? <div className={classes.fieldError}>{error}</div> : null}
     </div>
   );
 }
 
 function AmateurForm({
   disabled,
+  errors,
   onChange,
-  total,
+  onFieldChange,
   values,
 }: {
   disabled: boolean;
+  errors: ValidationErrors;
   onChange: (values: AmateurValues) => void;
-  total: number;
+  onFieldChange: (field: ScoreField) => void;
   values: AmateurValues;
 }) {
   return (
     <div className="stack-md">
-      <div className="section-label">消费者评分 {total}/20</div>
       <div className={classes.metricGrid!}>
         <AmateurMetric
           disabled={disabled}
+          field="amateurDrinkabilityScore"
           label="易饮性"
           value={values.drinkability}
-          onChange={(drinkability) => onChange({ ...values, drinkability })}
+          onChange={(drinkability) => {
+            onFieldChange("amateurDrinkabilityScore");
+            onChange({ ...values, drinkability });
+          }}
         />
         <AmateurMetric
           disabled={disabled}
+          field="amateurBalanceScore"
           label="平衡感"
           value={values.balance}
-          onChange={(balance) => onChange({ ...values, balance })}
+          onChange={(balance) => {
+            onFieldChange("amateurBalanceScore");
+            onChange({ ...values, balance });
+          }}
         />
         <AmateurMetric
           disabled={disabled}
+          field="amateurFlavorAcceptanceScore"
           label="风味接受度"
           value={values.flavorAcceptance}
-          onChange={(flavorAcceptance) => onChange({ ...values, flavorAcceptance })}
+          onChange={(flavorAcceptance) => {
+            onFieldChange("amateurFlavorAcceptanceScore");
+            onChange({ ...values, flavorAcceptance });
+          }}
         />
         <AmateurMetric
           disabled={disabled}
+          field="amateurRepeatIntentionScore"
           label="复饮意愿"
           value={values.repeatIntention}
-          onChange={(repeatIntention) => onChange({ ...values, repeatIntention })}
+          onChange={(repeatIntention) => {
+            onFieldChange("amateurRepeatIntentionScore");
+            onChange({ ...values, repeatIntention });
+          }}
         />
       </div>
-      <div className="score-dimension">
+      <div
+        className={[
+          "score-dimension",
+          errors.amateurComment ? classes.invalidField : "",
+        ].filter(Boolean).join(" ")}
+        data-score-field="amateurComment"
+      >
         <strong>总反馈</strong>
         <TextArea
           autoSize={{ minRows: 4 }}
           disabled={disabled}
+          placeholder="请填写整体饮用感受、喜好原因和改进建议。"
           value={values.comment}
-          onChange={(comment) => onChange({ ...values, comment })}
+          onChange={(comment) => {
+            onFieldChange("amateurComment");
+            onChange({ ...values, comment });
+          }}
         />
+        {errors.amateurComment ? (
+          <div className={classes.fieldError}>{errors.amateurComment}</div>
+        ) : null}
       </div>
     </div>
   );
@@ -480,17 +682,19 @@ function AmateurForm({
 
 function AmateurMetric({
   disabled,
+  field,
   label,
   value,
   onChange,
 }: {
   disabled: boolean;
+  field: ScoreField;
   label: string;
   value: number;
   onChange: (value: number) => void;
 }) {
   return (
-    <div className="metric-control">
+    <div className="metric-control" data-score-field={field}>
       <div className="metric-control__header">
         <strong>{label}</strong>
         <span className="score-dimension__value">{value}/5</span>
