@@ -2,7 +2,6 @@ import { Button, Dialog, Slider, Tag, TextArea, Toast } from "antd-mobile";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   JudgeBeerResult,
-  MyScoreResult,
   ScoreInput,
   UserPublic,
 } from "@bjcp-arena/contracts";
@@ -11,59 +10,23 @@ import { client } from "../../app/api.js";
 import { InlineError } from "../../components/ui/InlineError.js";
 import { MobileShell } from "../../components/ui/MobileShell.js";
 import { isUnauthorized, readError } from "../../utils/errors.js";
+import {
+  defaultAmateurValues,
+  defaultProfessionalValues,
+  resolveInitialScoreFormState,
+  scoreLeaveConfirmContent,
+  scoreSubmitButtonText,
+  shouldDisableScoreSubmit,
+  shouldSaveScoreDraft,
+  type AmateurValues,
+  type MyScore,
+  type ProfessionalValues,
+  type ScoreDraft,
+} from "./score-draft.js";
 import classes from "./ScorePage.module.css";
 
 type JudgeBeer = JudgeBeerResult["beer"];
-type MyScore = NonNullable<MyScoreResult["score"]>;
 type ScoreSliderValue = number | [number, number];
-
-interface ProfessionalValues {
-  aroma: number;
-  appearance: number;
-  flavor: number;
-  mouthfeel: number;
-  overall: number;
-  aromaComment: string;
-  appearanceComment: string;
-  flavorComment: string;
-  mouthfeelComment: string;
-  overallComment: string;
-}
-
-interface AmateurValues {
-  drinkability: number;
-  balance: number;
-  flavorAcceptance: number;
-  repeatIntention: number;
-  comment: string;
-}
-
-const defaultProfessional: ProfessionalValues = {
-  aroma: 6,
-  appearance: 2,
-  flavor: 10,
-  mouthfeel: 3,
-  overall: 5,
-  aromaComment: "",
-  appearanceComment: "",
-  flavorComment: "",
-  mouthfeelComment: "",
-  overallComment: "",
-};
-
-const defaultAmateur: AmateurValues = {
-  drinkability: 3,
-  balance: 3,
-  flavorAcceptance: 3,
-  repeatIntention: 3,
-  comment: "",
-};
-
-interface ScoreDraft {
-  amateurValues?: AmateurValues;
-  professionalValues?: ProfessionalValues;
-  savedAt?: string;
-}
 
 const scoreFieldLabels = {
   amateurBalanceScore: "平衡感",
@@ -155,8 +118,8 @@ export function ScorePage({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [professionalValues, setProfessionalValues] =
-    useState<ProfessionalValues>(defaultProfessional);
-  const [amateurValues, setAmateurValues] = useState<AmateurValues>(defaultAmateur);
+    useState<ProfessionalValues>(defaultProfessionalValues);
+  const [amateurValues, setAmateurValues] = useState<AmateurValues>(defaultAmateurValues);
 
   const professionalTotal = useMemo(
     () =>
@@ -217,43 +180,23 @@ export function ScorePage({
     setBeer(beerResult.beer);
     setScore(scoreResult.score);
     setHasUserEdited(false);
-    if (scoreResult.score?.judgeTypeSnapshot === "professional") {
-      setProfessionalValues({
-        aroma: scoreResult.score.professionalAromaScore ?? 0,
-        appearance: scoreResult.score.professionalAppearanceScore ?? 0,
-        flavor: scoreResult.score.professionalFlavorScore ?? 0,
-        mouthfeel: scoreResult.score.professionalMouthfeelScore ?? 0,
-        overall: scoreResult.score.professionalOverallScore ?? 0,
-        aromaComment: scoreResult.score.professionalAromaComment ?? "",
-        appearanceComment: scoreResult.score.professionalAppearanceComment ?? "",
-        flavorComment: scoreResult.score.professionalFlavorComment ?? "",
-        mouthfeelComment: scoreResult.score.professionalMouthfeelComment ?? "",
-        overallComment: scoreResult.score.professionalOverallComment ?? "",
-      });
-    } else if (scoreResult.score?.judgeTypeSnapshot === "public") {
-      setAmateurValues({
-        drinkability: scoreResult.score.amateurDrinkabilityScore ?? 3,
-        balance: scoreResult.score.amateurBalanceScore ?? 3,
-        flavorAcceptance: scoreResult.score.amateurFlavorAcceptanceScore ?? 3,
-        repeatIntention: scoreResult.score.amateurRepeatIntentionScore ?? 3,
-        comment: scoreResult.score.amateurComment ?? "",
-      });
-    }
 
-    const draft = localStorage.getItem(draftKey);
-    if (draft) {
-      const parsed = JSON.parse(draft) as ScoreDraft;
-      if (parsed.professionalValues) setProfessionalValues(parsed.professionalValues);
-      if (parsed.amateurValues) setAmateurValues(parsed.amateurValues);
-      setDraftSavedAt(parsed.savedAt ?? null);
+    const draftText = localStorage.getItem(draftKey);
+    const draft = draftText ? (JSON.parse(draftText) as ScoreDraft) : null;
+    const initialState = resolveInitialScoreFormState({ draft, score: scoreResult.score });
+    setProfessionalValues(initialState.professionalValues);
+    setAmateurValues(initialState.amateurValues);
+    setDraftSavedAt(initialState.draftSavedAt);
+    if (initialState.shouldClearDraft) {
+      localStorage.removeItem(draftKey);
+    }
+    if (initialState.shouldRestoreDraft) {
       await Dialog.alert({
-        content: parsed.savedAt
-          ? `已恢复 ${formatLocalDateTime(parsed.savedAt)} 保存的本地草稿。确认后继续编辑。`
+        content: initialState.draftSavedAt
+          ? `已恢复 ${formatLocalDateTime(initialState.draftSavedAt)} 保存的本地草稿。确认后继续编辑。`
           : "已恢复本地草稿。确认后继续编辑。",
         title: "已恢复本地草稿",
       });
-    } else {
-      setDraftSavedAt(null);
     }
     setStatus("ready");
   }, [beerId, competitionId, draftKey, roundId]);
@@ -270,14 +213,14 @@ export function ScorePage({
   }, [onLogout, refresh]);
 
   useEffect(() => {
-    if (status !== "ready" || !hasUserEdited) return;
+    if (!shouldSaveScoreDraft({ hasUserEdited, score, status })) return;
     const savedAt = new Date().toISOString();
     localStorage.setItem(
       draftKey,
       JSON.stringify({ amateurValues, professionalValues, savedAt } satisfies ScoreDraft)
     );
     setDraftSavedAt(savedAt);
-  }, [amateurValues, draftKey, hasUserEdited, professionalValues, status]);
+  }, [amateurValues, draftKey, hasUserEdited, professionalValues, score, status]);
 
   useEffect(() => {
     if (!hasUserEdited) return;
@@ -295,7 +238,7 @@ export function ScorePage({
   async function handleLeavePage() {
     if (hasUserEdited) {
       const confirmed = await Dialog.confirm({
-        content: "当前修改已保存为本地草稿，退出后可以再次进入恢复。确认退出？",
+        content: scoreLeaveConfirmContent(score),
         title: "退出评分？",
       });
       if (!confirmed) return;
@@ -392,11 +335,16 @@ export function ScorePage({
           <Button
             block
             color="primary"
-            disabled={!beer?.canScore || !effectiveJudgeType}
+            disabled={shouldDisableScoreSubmit({
+              canScore: beer?.canScore ?? false,
+              hasJudgeType: Boolean(effectiveJudgeType),
+              hasUserEdited,
+              score,
+            })}
             loading={isSubmitting}
             onClick={handleSubmit}
           >
-            {score ? "更新评分" : "提交评分"}
+            {scoreSubmitButtonText({ canScore: beer?.canScore ?? false, score })}
           </Button>
         </div>
       }

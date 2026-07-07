@@ -113,6 +113,10 @@ pages/users/UsersPage.module.css
 
 前端展示裁判类型时优先复用 `packages/contracts` 导出的共享标签，不在 admin 或 judge 内重复维护另一套文案。
 
+## 日期时间表达
+
+前端展示完整日期时间时统一使用 `YYYY-MM-DD HH:mm:ss`，例如 `2026-07-07 23:30:00`。只展示日期、只展示时间或相对时间的场景，应确认确有信息密度或空间限制后再使用。
+
 ## modules 约束
 
 - `modules/*` 放业务 UI 单元。

@@ -5,6 +5,7 @@ import { client } from "../../app/api.js";
 import { EmptyState } from "../../components/ui/EmptyState.js";
 import { InlineError } from "../../components/ui/InlineError.js";
 import { MobileShell } from "../../components/ui/MobileShell.js";
+import { formatFullDateTime } from "../../utils/datetime.js";
 import { isUnauthorized, readError } from "../../utils/errors.js";
 
 type JudgeRound = JudgeRoundListResult["rounds"][number];
@@ -63,7 +64,7 @@ export function JudgeRoundsPage({
               </tr>
               <tr>
                 <th>创建时间</th>
-                <td>{new Date(competition.createdAt).toLocaleString()}</td>
+                <td>{formatFullDateTime(competition.createdAt)}</td>
               </tr>
             </tbody>
           </table>

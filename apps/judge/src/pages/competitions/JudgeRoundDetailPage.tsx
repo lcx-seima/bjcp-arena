@@ -5,6 +5,7 @@ import { client } from "../../app/api.js";
 import { EmptyState } from "../../components/ui/EmptyState.js";
 import { InlineError } from "../../components/ui/InlineError.js";
 import { MobileShell } from "../../components/ui/MobileShell.js";
+import { formatFullDateTime } from "../../utils/datetime.js";
 import { PageHeader } from "../../components/ui/PageHeader.js";
 import { isUnauthorized, readError } from "../../utils/errors.js";
 
@@ -117,12 +118,12 @@ export function JudgeRoundDetailPage({
               arrow
               key={beer.id}
               description={`${beer.bjcpSubcategoryCode} ${beer.bjcpSubcategoryName}`}
-              extra={<Tag>{new Date(beer.submittedAt).toLocaleTimeString()}</Tag>}
+              extra={<Tag>{formatFullDateTime(beer.submittedAt)}</Tag>}
               onClick={() => {
                 window.location.href = `/competitions/${competitionId}/rounds/${roundId}/beers/${beer.id}`;
               }}
             >
-              #{beer.entryNumber} {beer.entryCode}
+              <Tag>#{beer.entryNumber}</Tag> {beer.entryCode}
             </List.Item>
           ))}
         </List>
