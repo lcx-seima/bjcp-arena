@@ -162,8 +162,25 @@ describe("user management routes", () => {
 
     const body = userResultSchema.parse(response.json());
     expect(response.statusCode).toBe(200);
-    expect(body.user.username).toMatch(/^[A-Za-z0-9]{6}$/);
-    expect(body.user.nickname).toMatch(/^bjcp_[A-Za-z0-9]{6}$/);
+    expect(body.user.username).toMatch(/^tbc\d{4}$/);
+    expect(body.user.nickname).toBe(body.user.username);
+    await app.close();
+  });
+
+  it("defaults omitted nickname to the final username", async () => {
+    const { app } = createTestApp();
+    const token = await bootstrapToken(app);
+
+    const response = await createUser(app, token, {
+      username: "judge01",
+      password: "secret123",
+      roles: judgeRole,
+    });
+
+    const body = userResultSchema.parse(response.json());
+    expect(response.statusCode).toBe(200);
+    expect(body.user.username).toBe("judge01");
+    expect(body.user.nickname).toBe("judge01");
     await app.close();
   });
 

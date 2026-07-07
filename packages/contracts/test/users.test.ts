@@ -127,6 +127,8 @@ describe("users contract", () => {
 
     expect(() => updateUserInputSchema.parse({})).toThrow();
     expect(() => updateUserInputSchema.parse({ username: "bad-name" })).toThrow();
+    expect(() => updateUserInputSchema.parse({ nickname: "" })).toThrow();
+    expect(() => updateUserInputSchema.parse({ nickname: "x".repeat(65) })).toThrow();
   });
 
   it("parses judge type on user create and update input", () => {

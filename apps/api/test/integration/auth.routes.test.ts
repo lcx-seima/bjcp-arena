@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { superAdminRole } from "@bjcp-arena/contracts";
+import {
+  authMePath,
+  superAdminRole,
+  updateCurrentUserInputSchema,
+  userResultSchema,
+} from "@bjcp-arena/contracts";
 import {
   createMemoryAuthUserSnapshotStore,
   type AuthUserSnapshotStore,
@@ -216,6 +221,77 @@ describe("auth routes", () => {
         username: "superadmin",
       },
     });
+    await app.close();
+  });
+
+  it("updates current user nickname without invalidating the current token", async () => {
+    const { app } = createTestApp();
+    const bootstrap = await app.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap-super-admin",
+      payload: { password: "secret123" },
+    });
+    const token = bootstrap.json().token as string;
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: authMePath,
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+      payload: updateCurrentUserInputSchema.parse({ nickname: "主理人" }),
+    });
+    const me = await app.inject({
+      method: "GET",
+      url: authMePath,
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(userResultSchema.parse(response.json()).user).toMatchObject({
+      username: "superadmin",
+      nickname: "主理人",
+      authVersion: 0,
+    });
+    expect(me.statusCode).toBe(200);
+    expect(userResultSchema.parse(me.json()).user.nickname).toBe("主理人");
+    await app.close();
+  });
+
+  it("rejects invalid current user nickname update input", async () => {
+    const { app } = createTestApp();
+    const bootstrap = await app.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap-super-admin",
+      payload: { password: "secret123" },
+    });
+    const token = bootstrap.json().token as string;
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: authMePath,
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+      payload: { nickname: "" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("requires login for current user nickname update", async () => {
+    const { app } = createTestApp();
+
+    const response = await app.inject({
+      method: "PATCH",
+      url: authMePath,
+      payload: { nickname: "主理人" },
+    });
+
+    expect(response.statusCode).toBe(401);
     await app.close();
   });
 

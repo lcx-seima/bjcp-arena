@@ -109,7 +109,8 @@ describe("createApiClient", () => {
       .mockResolvedValueOnce(jsonResponse({ message: "pong", service: "bjcp-arena-api" }))
       .mockResolvedValueOnce(jsonResponse({ hasUsers: false }))
       .mockResolvedValueOnce(jsonResponse({ token: "jwt-token", user: publicUser }))
-      .mockResolvedValueOnce(jsonResponse({ user: publicUser }));
+      .mockResolvedValueOnce(jsonResponse({ user: publicUser }))
+      .mockResolvedValueOnce(jsonResponse({ user: { ...publicUser, nickname: "裁判 01" } }));
     const client = createApiClient({
       baseUrl: "http://localhost:4000/",
       fetch: fetcher,
@@ -126,10 +127,22 @@ describe("createApiClient", () => {
       user: publicUser,
     });
     await expect(client.me()).resolves.toEqual({ user: publicUser });
+    await expect(client.updateCurrentUser({ nickname: "裁判 01" })).resolves.toMatchObject({
+      user: { nickname: "裁判 01" },
+    });
 
     expect(fetcher).toHaveBeenNthCalledWith(4, "http://localhost:4000/api/auth/me", {
       headers: { Accept: "application/json", Authorization: "Bearer jwt-token" },
       method: "GET",
+    });
+    expect(fetcher).toHaveBeenNthCalledWith(5, "http://localhost:4000/api/auth/me", {
+      body: JSON.stringify({ nickname: "裁判 01" }),
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: "Bearer jwt-token",
+      },
+      method: "PATCH",
     });
   });
 

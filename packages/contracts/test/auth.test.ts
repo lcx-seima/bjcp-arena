@@ -6,6 +6,7 @@ import {
   authLogoutPath,
   authMePath,
   authSessionSchema,
+  updateCurrentUserInputSchema,
   bootstrapStatusResultSchema,
   bootstrapSuperAdminInputSchema,
   loginInputSchema,
@@ -23,6 +24,14 @@ describe("auth contract", () => {
     expect(authLoginPath).toBe("/api/auth/login");
     expect(authMePath).toBe("/api/auth/me");
     expect(authLogoutPath).toBe("/api/auth/logout");
+  });
+
+  it("parses current user update input", () => {
+    expect(updateCurrentUserInputSchema.parse({ nickname: "裁判 01" })).toEqual({
+      nickname: "裁判 01",
+    });
+    expect(() => updateCurrentUserInputSchema.parse({ nickname: "" })).toThrow();
+    expect(() => updateCurrentUserInputSchema.parse({ nickname: "x".repeat(65) })).toThrow();
   });
 
   it("validates password length", () => {

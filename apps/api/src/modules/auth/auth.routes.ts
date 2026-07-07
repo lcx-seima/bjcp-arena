@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
+import { ZodError } from "zod";
 import {
   authBootstrapStatusPath,
   authBootstrapSuperAdminPath,
@@ -10,6 +11,7 @@ import {
   bootstrapSuperAdminInputSchema,
   loginInputSchema,
   logoutResultSchema,
+  updateCurrentUserInputSchema,
   userResultSchema,
 } from "@bjcp-arena/contracts";
 import { AuthError, type createAuthService } from "./auth.service.js";
@@ -20,6 +22,11 @@ function sendAuthError(reply: FastifyReply, error: unknown) {
   if (error instanceof AuthError) {
     return reply.status(error.statusCode).send({
       message: error.message,
+    });
+  }
+  if (error instanceof ZodError) {
+    return reply.status(400).send({
+      message: "Invalid request",
     });
   }
   throw error;
@@ -36,6 +43,26 @@ export function registerAuthRoutes(app: FastifyInstance, auth: AuthService) {
       },
     },
     async () => auth.bootstrapStatus()
+  );
+
+  app.patch(
+    authMePath,
+    {
+      schema: {
+        body: updateCurrentUserInputSchema,
+        response: { 200: userResultSchema },
+        summary: "Update current user",
+        tags: ["auth"],
+      },
+    },
+    async (request, reply) => {
+      return auth
+        .updateCurrentUser(
+          request.headers.authorization,
+          updateCurrentUserInputSchema.parse(request.body)
+        )
+        .catch((error: unknown) => sendAuthError(reply, error));
+    }
   );
 
   app.post(

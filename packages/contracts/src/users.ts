@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { passwordSchema, userPublicSchema, usernameSchema } from "./auth.js";
+import { nicknameSchema, passwordSchema, userPublicSchema, usernameSchema } from "./auth.js";
 import { userRolesSchema } from "./roles.js";
 import { nullableJudgeTypeSchema } from "./judge-types.js";
 
@@ -15,7 +15,7 @@ export function userResetPasswordPath(id: number) {
 
 export const createUserInputSchema = z.object({
   username: usernameSchema.optional(),
-  nickname: z.string().min(1).max(64).optional(),
+  nickname: nicknameSchema.optional(),
   password: passwordSchema,
   roles: userRolesSchema,
   judgeType: nullableJudgeTypeSchema.optional(),
@@ -24,7 +24,7 @@ export const createUserInputSchema = z.object({
 export const updateUserInputSchema = z
   .object({
     username: usernameSchema.optional(),
-    nickname: z.string().min(1).max(64).optional(),
+    nickname: nicknameSchema.optional(),
     roles: userRolesSchema.optional(),
     judgeType: nullableJudgeTypeSchema.optional(),
     disabled: z.boolean().optional(),

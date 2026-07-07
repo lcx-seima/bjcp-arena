@@ -8,6 +8,7 @@ import { hashPassword, verifyPassword } from "./password.js";
 import type { AuthTokenPayload, createTokenService } from "./token.js";
 import { DuplicateUsernameError } from "../users/users.errors.js";
 import type { CreateStoredUserInput, StoredUser } from "../users/users.types.js";
+import type { UpdateStoredUserInput } from "../users/users.repository.js";
 
 export class AuthError extends Error {
   constructor(
@@ -29,6 +30,7 @@ export interface AuthUsersPort {
   findById(id: number): Promise<StoredUser | null>;
   findByUsername(username: string): Promise<StoredUser | null>;
   createUser(input: CreateStoredUserInput): Promise<StoredUser>;
+  updateUser(id: number, input: UpdateStoredUserInput): Promise<StoredUser | null>;
 }
 
 function readBearerToken(authorization: string | undefined) {
@@ -74,6 +76,25 @@ export function createAuthService({ users, authUserSnapshots, tokens }: AuthServ
     };
   }
 
+  async function authenticate(authorization: string | undefined) {
+    const token = readBearerToken(authorization);
+    if (!token) {
+      throw new AuthError("Unauthorized", 401);
+    }
+
+    let payload: AuthTokenPayload;
+    try {
+      payload = await tokens.verify(token);
+    } catch (error) {
+      if (error instanceof AuthError) {
+        throw error;
+      }
+      throw new AuthError("Unauthorized", 401);
+    }
+
+    return authenticatePayload(payload);
+  }
+
   return {
     async bootstrapStatus() {
       return {
@@ -114,23 +135,21 @@ export function createAuthService({ users, authUserSnapshots, tokens }: AuthServ
       return createSession(user);
     },
 
-    async authenticate(authorization: string | undefined) {
-      const token = readBearerToken(authorization);
-      if (!token) {
+    authenticate,
+
+    async updateCurrentUser(authorization: string | undefined, input: { nickname: string }) {
+      const currentUser = await authenticate(authorization);
+      const user = await users.updateUser(currentUser.id, { nickname: input.nickname });
+
+      if (!user) {
         throw new AuthError("Unauthorized", 401);
       }
 
-      let payload: AuthTokenPayload;
-      try {
-        payload = await tokens.verify(token);
-      } catch (error) {
-        if (error instanceof AuthError) {
-          throw error;
-        }
-        throw new AuthError("Unauthorized", 401);
-      }
-
-      return authenticatePayload(payload);
+      const snapshot = toAuthUserSnapshot(user);
+      await authUserSnapshots.set(snapshot);
+      return {
+        user: snapshot,
+      };
     },
   };
 }

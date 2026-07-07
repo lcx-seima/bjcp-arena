@@ -21,7 +21,7 @@ import {
   type AuthUserSnapshotStore,
 } from "../auth/auth-user-snapshot-store.js";
 import { hashPassword } from "../auth/password.js";
-import { createRandomNickname, createRandomUsername } from "./random-user.js";
+import { createUniqueDefaultUsername } from "./random-user.js";
 import { toPublicUser } from "./user-mapper.js";
 import { DuplicateUsernameError } from "./users.errors.js";
 import { type UpdateStoredUserInput, type UserRepository } from "./users.repository.js";
@@ -116,6 +116,51 @@ function sendNotFound(reply: FastifyReply) {
   });
 }
 
+async function createUserWithDefaults(
+  users: UserRepository,
+  input: ReturnType<typeof createUserInputSchema.parse>
+) {
+  const passwordHash = await hashPassword(input.password);
+
+  if (input.username) {
+    return users.createUser({
+      username: input.username,
+      nickname: input.nickname ?? input.username,
+      passwordHash,
+      roles: input.roles,
+      judgeType: normalizeJudgeType(input.roles, input.judgeType),
+    });
+  }
+
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    let username: string;
+    try {
+      username = await createUniqueDefaultUsername({
+        exists: async (candidate) => (await users.findByUsername(candidate)) !== null,
+      });
+    } catch {
+      throw new AuthError("Unable to generate unique username", 409);
+    }
+
+    try {
+      return await users.createUser({
+        username,
+        nickname: input.nickname ?? username,
+        passwordHash,
+        roles: input.roles,
+        judgeType: normalizeJudgeType(input.roles, input.judgeType),
+      });
+    } catch (error) {
+      if (error instanceof DuplicateUsernameError) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw new AuthError("Unable to generate unique username", 409);
+}
+
 async function assertKeepsActiveSuperAdmin(
   users: UserRepository,
   existingUser: NonNullable<Awaited<ReturnType<UserRepository["findById"]>>>,
@@ -196,13 +241,7 @@ export function registerUserRoutes(
       return requireSuperAdmin(auth, request)
         .then(async () => {
           const input = createUserInputSchema.parse(request.body);
-          const user = await users.createUser({
-            username: input.username ?? createRandomUsername(),
-            nickname: input.nickname ?? createRandomNickname(),
-            passwordHash: await hashPassword(input.password),
-            roles: input.roles,
-            judgeType: normalizeJudgeType(input.roles, input.judgeType),
-          });
+          const user = await createUserWithDefaults(users, input);
 
           await authUserSnapshots.set(toAuthUserSnapshot(user));
 

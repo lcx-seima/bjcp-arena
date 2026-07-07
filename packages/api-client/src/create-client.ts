@@ -53,6 +53,7 @@ import {
   roundStatusPath,
   scoreInputSchema,
   submitMyScoreResultSchema,
+  updateCurrentUserInputSchema,
   updateBeerInputSchema,
   updateCompetitionInputSchema,
   updateCompetitionStatusInputSchema,
@@ -97,6 +98,7 @@ import {
   type RoundResult,
   type ScoreInput,
   type SubmitMyScoreResult,
+  type UpdateCurrentUserInput,
   type UpdateBeerInput,
   type UpdateCompetitionInput,
   type UpdateCompetitionStatusInput,
@@ -267,6 +269,17 @@ export function createApiClient(options: CreateApiClientOptions) {
         authLogoutPath,
         (data) => logoutResultSchema.parse(data),
         { token: getToken() }
+      );
+    },
+
+    updateCurrentUser(input: UpdateCurrentUserInput): Promise<UserResult> {
+      return requestJson(
+        fetcher,
+        options.baseUrl,
+        "PATCH",
+        authMePath,
+        (data) => userResultSchema.parse(data),
+        { body: updateCurrentUserInputSchema.parse(input), token: getToken() }
       );
     },
 

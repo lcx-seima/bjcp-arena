@@ -12,3 +12,10 @@ export function randomNumericPassword() {
 
   return Array.from(values, (value) => String(value % 10)).join("");
 }
+
+export function randomDefaultUsername() {
+  const values = new Uint32Array(1);
+  crypto.getRandomValues(values);
+
+  return `tbc${String(values[0]! % 10_000).padStart(4, "0")}`;
+}

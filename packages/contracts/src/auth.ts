@@ -18,11 +18,12 @@ export const usernameSchema = z
   .min(1)
   .max(32)
   .regex(/^[A-Za-z0-9]+$/);
+export const nicknameSchema = z.string().trim().min(1).max(64);
 
 export const userPublicSchema = z.object({
   id: z.number().int().positive(),
   username: usernameSchema,
-  nickname: z.string().min(1).max(64),
+  nickname: nicknameSchema,
   roles: userRolesSchema,
   judgeType: nullableJudgeTypeSchema,
   disabled: z.boolean(),
@@ -44,6 +45,10 @@ export const loginInputSchema = z.object({
   password: passwordSchema,
 });
 
+export const updateCurrentUserInputSchema = z.object({
+  nickname: nicknameSchema,
+});
+
 export const authSessionSchema = z.object({
   token: z.string().min(1),
   user: userPublicSchema,
@@ -57,5 +62,6 @@ export type UserPublic = z.infer<typeof userPublicSchema>;
 export type BootstrapStatusResult = z.infer<typeof bootstrapStatusResultSchema>;
 export type BootstrapSuperAdminInput = z.infer<typeof bootstrapSuperAdminInputSchema>;
 export type LoginInput = z.infer<typeof loginInputSchema>;
+export type UpdateCurrentUserInput = z.infer<typeof updateCurrentUserInputSchema>;
 export type AuthSession = z.infer<typeof authSessionSchema>;
 export type LogoutResult = z.infer<typeof logoutResultSchema>;

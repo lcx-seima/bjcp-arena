@@ -131,6 +131,23 @@ textarea {
   margin-top: -2px;
 }
 
+.mobile-shell__icon-button {
+  align-items: center;
+  background: rgba(255, 248, 232, 0.12);
+  border: 1px solid rgba(232, 185, 77, 0.46);
+  border-radius: 999px;
+  color: var(--bjcp-cream);
+  display: inline-flex;
+  height: 36px;
+  justify-content: center;
+  padding: 0;
+  width: 36px;
+}
+
+.mobile-shell__icon-button:active {
+  background: rgba(255, 248, 232, 0.2);
+}
+
 .mobile-shell__title {
   display: grid;
   gap: 2px;

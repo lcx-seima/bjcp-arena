@@ -13,7 +13,7 @@ import {
   type UserPublic,
 } from "@bjcp-arena/contracts";
 import { InlineMessage } from "../../../components/ui/InlineMessage.js";
-import { randomAlphaNumeric, randomNumericPassword } from "../../../utils/random.js";
+import { randomDefaultUsername, randomNumericPassword } from "../../../utils/random.js";
 import { RoleCheckboxGroup } from "./RoleCheckboxGroup.js";
 
 export interface UserInfoFormValues {
@@ -139,7 +139,7 @@ export function UserInfoModal({
           ]}
         >
           <Input
-            placeholder={mode === "create" ? "留空由后端生成" : undefined}
+            placeholder={mode === "create" ? "留空由后端生成 tbc + 4 位数字" : undefined}
             suffix={
               mode === "create" ? (
                 <Button
@@ -147,7 +147,7 @@ export function UserInfoModal({
                   icon={<ThunderboltOutlined />}
                   size="small"
                   type="text"
-                  onClick={() => form.setFieldValue("username", randomAlphaNumeric(6))}
+                  onClick={() => form.setFieldValue("username", randomDefaultUsername())}
                 />
               ) : null
             }
@@ -157,21 +157,13 @@ export function UserInfoModal({
         <Form.Item
           label="昵称"
           name="nickname"
-          rules={mode === "edit" ? [{ required: true, message: "请填写昵称" }] : []}
+          rules={[
+            ...(mode === "edit" ? [{ required: true, message: "请填写昵称" }] : []),
+            { max: 64, message: "昵称最多 64 个字符" },
+          ]}
         >
           <Input
-            placeholder={mode === "create" ? "留空由后端生成" : undefined}
-            suffix={
-              mode === "create" ? (
-                <Button
-                  aria-label="随机昵称"
-                  icon={<ThunderboltOutlined />}
-                  size="small"
-                  type="text"
-                  onClick={() => form.setFieldValue("nickname", `bjcp_${randomAlphaNumeric(6)}`)}
-                />
-              ) : null
-            }
+            placeholder={mode === "create" ? "留空默认与用户名一致" : undefined}
           />
         </Form.Item>
 
