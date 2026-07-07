@@ -110,7 +110,7 @@ export function JudgeRoundDetailPage({
         title={detail?.round.name ?? "轮次"}
       >
         {error ? <InlineError>{error}</InlineError> : null}
-        <div className="section-label">已提交酒款</div>
+        <div className="section-label">本轮已提交的酒款评价</div>
         <List mode="card">
           {detail?.beers.map((beer) => (
             <List.Item
@@ -127,16 +127,22 @@ export function JudgeRoundDetailPage({
           ))}
         </List>
         {detail && detail.beers.length === 0 && !error ? (
-          <EmptyState title="暂无已提交酒款评价" />
+          <EmptyState title="暂无已提交酒款评价" subTitle="点击下方按钮开始评比" />
         ) : null}
       </MobileShell>
 
       <Popup
-        bodyStyle={{ borderRadius: "8px 8px 0 0", padding: 16 }}
+        bodyStyle={{
+          borderRadius: "8px 8px 0 0",
+          boxSizing: "border-box",
+          height: "min(560px, calc(100vh - 96px))",
+          overflowY: "auto",
+          padding: 16,
+        }}
         visible={sheetOpened}
         onMaskClick={() => setSheetOpened(false)}
       >
-        <div className="stack-md">
+        <div className="entry-code-sheet">
           <PageHeader eyebrow="Entry Code" title="输入参赛编号" />
           <div className="entry-code-boxes">
             {entryCodeSlots.map((slot, index) => (

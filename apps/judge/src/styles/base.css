@@ -314,6 +314,12 @@ textarea {
   font-weight: 700;
 }
 
+.entry-code-sheet {
+  display: grid;
+  gap: 16px;
+  height: 100%;
+}
+
 .entry-code-boxes {
   display: grid;
   gap: 6px;
@@ -346,9 +352,18 @@ textarea {
 }
 
 .keypad-grid {
+  align-content: start;
   display: grid;
   gap: 6px;
+  grid-auto-rows: 36px;
   grid-template-columns: repeat(6, minmax(0, 1fr));
+  height: 204px;
+}
+
+.keypad-grid .adm-button {
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
 }
 
 .tag-row {
