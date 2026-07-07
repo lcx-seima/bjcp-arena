@@ -366,7 +366,7 @@ export function ScorePage({
                   <td>{beer.entryCode}</td>
                 </tr>
                 <tr>
-                  <th>BJCP</th>
+                  <th>BJCP分类</th>
                   <td>
                     {beer.bjcpSubcategoryCode} {beer.bjcpSubcategoryName}
                   </td>
@@ -566,8 +566,10 @@ function ScoreDimension({
         value={score}
         onChange={(value) => onScore(toSingleScore(value))}
       />
+      <div className={classes.commentFieldTitle}>评语</div>
       <TextArea
         autoSize={{ minRows: 3 }}
+        className={classes.commentTextArea}
         disabled={disabled}
         placeholder={placeholder}
         value={comment}
