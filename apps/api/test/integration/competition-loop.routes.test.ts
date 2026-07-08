@@ -24,6 +24,7 @@ import {
   judgeRoundBeerScorePath,
   judgeRoundDetailPath,
   judgeRoundListPath,
+  myScoreResultSchema,
   professionalScoreInputSchema,
   removeRoundBeerInputSchema,
   roundBeerPath,
@@ -466,6 +467,174 @@ describe("competition loop routes", () => {
       judgeTypeSnapshot: "public",
       amateurTotalScore: 18,
     });
+    await app.close();
+  });
+
+  it("lets judges soft-delete only their own active score", async () => {
+    const { app } = createTestApp();
+    const adminToken = await bootstrapToken(app);
+    const competition = await createCompetition(app, adminToken);
+    const beer = await createBeer(app, adminToken, competition.id, "SA3051");
+    const round = await createRound(app, adminToken, competition.id);
+    await addRoundBeer(app, adminToken, competition.id, round.id, beer.id);
+    await createJudge(app, adminToken, "deletejudgea", "public");
+    await createJudge(app, adminToken, "deletejudgeb", "public");
+    const judgeAToken = await login(app, "deletejudgea");
+    const judgeBToken = await login(app, "deletejudgeb");
+
+    const submitA = await app.inject({
+      method: "PUT",
+      url: judgeRoundBeerScorePath(competition.id, round.id, beer.id),
+      headers: { authorization: `Bearer ${judgeAToken}` },
+      payload: { judgeType: "public", ...amateurScore },
+    });
+    expect(submitA.statusCode).toBe(200);
+
+    const submitB = await app.inject({
+      method: "PUT",
+      url: judgeRoundBeerScorePath(competition.id, round.id, beer.id),
+      headers: { authorization: `Bearer ${judgeBToken}` },
+      payload: {
+        judgeType: "public",
+        ...amateurScore,
+        amateurDrinkabilityScore: 5,
+        amateurComment: "另一个裁判的评分",
+      },
+    });
+    expect(submitB.statusCode).toBe(200);
+
+    const deleted = await app.inject({
+      method: "DELETE",
+      url: judgeRoundBeerScorePath(competition.id, round.id, beer.id),
+      headers: { authorization: `Bearer ${judgeAToken}` },
+    });
+    expect(deleted.statusCode).toBe(200);
+    expect(deleted.json()).toEqual({ ok: true });
+
+    const scoreA = await app.inject({
+      method: "GET",
+      url: judgeRoundBeerScorePath(competition.id, round.id, beer.id),
+      headers: { authorization: `Bearer ${judgeAToken}` },
+    });
+    expect(scoreA.statusCode).toBe(200);
+    expect(myScoreResultSchema.parse(scoreA.json()).score).toBeNull();
+
+    const roundA = await app.inject({
+      method: "GET",
+      url: judgeRoundDetailPath(competition.id, round.id),
+      headers: { authorization: `Bearer ${judgeAToken}` },
+    });
+    expect(roundA.statusCode).toBe(200);
+    expect(roundA.json().beers).toEqual([]);
+
+    const scoreB = await app.inject({
+      method: "GET",
+      url: judgeRoundBeerScorePath(competition.id, round.id, beer.id),
+      headers: { authorization: `Bearer ${judgeBToken}` },
+    });
+    expect(scoreB.statusCode).toBe(200);
+    expect(myScoreResultSchema.parse(scoreB.json()).score).toMatchObject({
+      amateurDrinkabilityScore: 5,
+      amateurComment: "另一个裁判的评分",
+    });
+    await app.close();
+  });
+
+  it("rejects deleting a missing judge score", async () => {
+    const { app } = createTestApp();
+    const adminToken = await bootstrapToken(app);
+    const competition = await createCompetition(app, adminToken);
+    const beer = await createBeer(app, adminToken, competition.id, "SA3052");
+    const round = await createRound(app, adminToken, competition.id);
+    await addRoundBeer(app, adminToken, competition.id, round.id, beer.id);
+    await createJudge(app, adminToken, "missingdeletejudge", "public");
+    const judgeToken = await login(app, "missingdeletejudge");
+
+    const deleted = await app.inject({
+      method: "DELETE",
+      url: judgeRoundBeerScorePath(competition.id, round.id, beer.id),
+      headers: { authorization: `Bearer ${judgeToken}` },
+    });
+
+    expect(deleted.statusCode).toBe(404);
+    await app.close();
+  });
+
+  it("rejects judge score deletion after the round has ended", async () => {
+    const { app } = createTestApp();
+    const adminToken = await bootstrapToken(app);
+    const competition = await createCompetition(app, adminToken);
+    const beer = await createBeer(app, adminToken, competition.id, "SA3053");
+    const round = await createRound(app, adminToken, competition.id);
+    await addRoundBeer(app, adminToken, competition.id, round.id, beer.id);
+    await createJudge(app, adminToken, "roundendeddeletejudge", "public");
+    const judgeToken = await login(app, "roundendeddeletejudge");
+
+    const submit = await app.inject({
+      method: "PUT",
+      url: judgeRoundBeerScorePath(competition.id, round.id, beer.id),
+      headers: { authorization: `Bearer ${judgeToken}` },
+      payload: { judgeType: "public", ...amateurScore },
+    });
+    expect(submit.statusCode).toBe(200);
+
+    const ended = await app.inject({
+      method: "PATCH",
+      url: roundStatusPath(competition.id, round.id),
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { status: "ended" },
+    });
+    expect(ended.statusCode).toBe(200);
+
+    const deleted = await app.inject({
+      method: "DELETE",
+      url: judgeRoundBeerScorePath(competition.id, round.id, beer.id),
+      headers: { authorization: `Bearer ${judgeToken}` },
+    });
+    expect(deleted.statusCode).toBe(409);
+    await app.close();
+  });
+
+  it("rejects judge score deletion after the competition has ended", async () => {
+    const { app } = createTestApp();
+    const adminToken = await bootstrapToken(app);
+    const competition = await createCompetition(app, adminToken);
+    const beer = await createBeer(app, adminToken, competition.id, "SA3054");
+    const round = await createRound(app, adminToken, competition.id);
+    await addRoundBeer(app, adminToken, competition.id, round.id, beer.id);
+    await createJudge(app, adminToken, "competitionendeddeletejudge", "public");
+    const judgeToken = await login(app, "competitionendeddeletejudge");
+
+    const submit = await app.inject({
+      method: "PUT",
+      url: judgeRoundBeerScorePath(competition.id, round.id, beer.id),
+      headers: { authorization: `Bearer ${judgeToken}` },
+      payload: { judgeType: "public", ...amateurScore },
+    });
+    expect(submit.statusCode).toBe(200);
+
+    const endedRound = await app.inject({
+      method: "PATCH",
+      url: roundStatusPath(competition.id, round.id),
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { status: "ended" },
+    });
+    expect(endedRound.statusCode).toBe(200);
+
+    const endedCompetition = await app.inject({
+      method: "PATCH",
+      url: competitionStatusPath(competition.id),
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { status: "ended" },
+    });
+    expect(endedCompetition.statusCode).toBe(200);
+
+    const deleted = await app.inject({
+      method: "DELETE",
+      url: judgeRoundBeerScorePath(competition.id, round.id, beer.id),
+      headers: { authorization: `Bearer ${judgeToken}` },
+    });
+    expect(deleted.statusCode).toBe(409);
     await app.close();
   });
 

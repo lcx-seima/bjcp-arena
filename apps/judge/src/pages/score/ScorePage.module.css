@@ -55,6 +55,22 @@
   gap: 10px;
 }
 
+.bottomActions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.deleteButton {
+  flex: 0 0 86px;
+}
+
+.submitButton {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .bottomSummary {
   align-items: center;
   color: var(--bjcp-slate);
@@ -100,5 +116,13 @@
 
   .bottomSummary span {
     text-align: left;
+  }
+
+  .bottomActions {
+    gap: 8px;
+  }
+
+  .deleteButton {
+    flex-basis: 76px;
   }
 }

@@ -14,6 +14,7 @@ import {
   createBeerInputSchema,
   createCompetitionInputSchema,
   createRoundInputSchema,
+  deleteMyScoreResultSchema,
   importBeersInputSchema,
   importBeersResultSchema,
   judgeBeerLookupInputSchema,
@@ -535,6 +536,33 @@ export function registerCompetitionLoopRoutes(
               readPositiveId(request, "beerId"),
               currentUser,
               scoreInputSchema.parse(request.body)
+            )
+          )
+        )
+        .catch((error: unknown) => sendRouteError(reply, error))
+  );
+
+  app.delete(
+    judgeRoundBeerScorePath(
+      ":competitionId" as unknown as number,
+      ":roundId" as unknown as number,
+      ":beerId" as unknown as number
+    ),
+    {
+      schema: {
+        response: { 200: deleteMyScoreResultSchema },
+        tags: ["judge"],
+      },
+    },
+    async (request, reply) =>
+      requireJudge(auth, request)
+        .then(async (currentUser) =>
+          deleteMyScoreResultSchema.parse(
+            await competitionLoop.deleteMyScore(
+              readPositiveId(request, "competitionId"),
+              readPositiveId(request, "roundId"),
+              readPositiveId(request, "beerId"),
+              currentUser
             )
           )
         )

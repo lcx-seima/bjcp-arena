@@ -14,9 +14,11 @@ import {
   defaultAmateurValues,
   defaultProfessionalValues,
   resolveInitialScoreFormState,
+  scoreDraftFromCurrentValues,
   scoreLeaveConfirmContent,
   scoreSubmitButtonText,
   shouldDisableScoreSubmit,
+  shouldDisableScoreDelete,
   shouldSaveScoreDraft,
   type AmateurValues,
   type MyScore,
@@ -115,6 +117,7 @@ export function ScorePage({
   const [error, setError] = useState<string | null>(null);
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
   const [hasUserEdited, setHasUserEdited] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [professionalValues, setProfessionalValues] =
@@ -318,6 +321,50 @@ export function ScorePage({
     }
   }
 
+  async function handleDeleteScore() {
+    if (!beer || !score) return;
+
+    const confirmed = await Dialog.confirm({
+      content: "删除后当前提交的评分会被撤回。确认删除？",
+      title: "删除评分",
+    });
+    if (!confirmed) return;
+
+    const savedAt = new Date().toISOString();
+    try {
+      localStorage.setItem(
+        draftKey,
+        JSON.stringify(
+          scoreDraftFromCurrentValues({ amateurValues, professionalValues, savedAt })
+        )
+      );
+    } catch {
+      Toast.show({ content: "本地草稿保存失败，已取消删除", icon: "fail" });
+      return;
+    }
+
+    setError(null);
+    setIsDeleting(true);
+    try {
+      await client.deleteMyScore(competitionId, roundId, beer.id);
+      setScore(null);
+      setDraftSavedAt(savedAt);
+      setHasUserEdited(false);
+      Toast.show({ content: "评分已删除，已保存本地草稿", icon: "success" });
+      shouldSkipLeaveWarningRef.current = true;
+      window.location.href = roundHref;
+    } catch (unknownError) {
+      if (isUnauthorized(unknownError)) {
+        onLogout();
+        return;
+      }
+      const message = readError(unknownError);
+      Toast.show({ content: message, icon: "fail" });
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   return (
     <MobileShell
       back={{
@@ -332,20 +379,41 @@ export function ScorePage({
             <strong>{totalSummary}</strong>
             <span>{actionTimeText}</span>
           </div>
-          <Button
-            block
-            color="primary"
-            disabled={shouldDisableScoreSubmit({
-              canScore: beer?.canScore ?? false,
-              hasJudgeType: Boolean(effectiveJudgeType),
-              hasUserEdited,
-              score,
-            })}
-            loading={isSubmitting}
-            onClick={handleSubmit}
-          >
-            {scoreSubmitButtonText({ canScore: beer?.canScore ?? false, score })}
-          </Button>
+          <div className={classes.bottomActions}>
+            {score ? (
+              <Button
+                className={classes.deleteButton}
+                color="danger"
+                disabled={shouldDisableScoreDelete({
+                  canScore: beer?.canScore ?? false,
+                  isDeleting,
+                  isSubmitting,
+                  score,
+                  status,
+                })}
+                fill="outline"
+                loading={isDeleting}
+                onClick={handleDeleteScore}
+              >
+                删除
+              </Button>
+            ) : null}
+            <Button
+              block
+              className={classes.submitButton}
+              color="primary"
+              disabled={shouldDisableScoreSubmit({
+                canScore: beer?.canScore ?? false,
+                hasJudgeType: Boolean(effectiveJudgeType),
+                hasUserEdited,
+                score,
+              })}
+              loading={isSubmitting}
+              onClick={handleSubmit}
+            >
+              {scoreSubmitButtonText({ canScore: beer?.canScore ?? false, score })}
+            </Button>
+          </div>
         </div>
       }
       rightAction={beer ? <Tag color="primary">#{beer.entryNumber}</Tag> : null}

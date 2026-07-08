@@ -578,5 +578,28 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
       });
       return { score: toScore(saved) };
     },
+
+    async deleteMyScore(
+      competitionId: number,
+      roundId: number,
+      beerId: number,
+      currentUser: AuthUserSnapshot
+    ) {
+      const competition = await requireCompetition(competitionId);
+      const round = await requireRound(competitionId, roundId);
+      assertOngoing(competition.status, "比赛已结束，不能删除评分");
+      assertOngoing(round.status, "轮次已结束，不能删除评分");
+      const binding = await repository.findRoundBeer(competitionId, roundId, beerId);
+      if (!binding) throw new CompetitionLoopError("本轮次未找到该酒款", 404);
+      const existingScore = await repository.findActiveScore(roundId, beerId, currentUser.id);
+      if (!existingScore) {
+        throw new CompetitionLoopError("当前评分不存在", 404);
+      }
+      const deletedCount = await repository.softDeleteActiveScore(roundId, beerId, currentUser.id);
+      if (deletedCount === 0) {
+        throw new CompetitionLoopError("当前评分不存在", 404);
+      }
+      return { ok: true };
+    },
   };
 }

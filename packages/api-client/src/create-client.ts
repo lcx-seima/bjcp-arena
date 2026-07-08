@@ -23,6 +23,7 @@ import {
   createCompetitionInputSchema,
   createRoundInputSchema,
   createUserInputSchema,
+  deleteMyScoreResultSchema,
   importBeersInputSchema,
   importBeersResultSchema,
   judgeBeerLookupInputSchema,
@@ -79,6 +80,7 @@ import {
   type CreateCompetitionInput,
   type CreateRoundInput,
   type CreateUserInput,
+  type DeleteMyScoreResult,
   type ImportBeersInput,
   type ImportBeersResult,
   type JudgeBeerLookupInput,
@@ -610,6 +612,21 @@ export function createApiClient(options: CreateApiClientOptions) {
         judgeRoundBeerScorePath(competitionId, roundId, beerId),
         (data) => submitMyScoreResultSchema.parse(data),
         { body: scoreInputSchema.parse(input), token: getToken() }
+      );
+    },
+
+    deleteMyScore(
+      competitionId: number,
+      roundId: number,
+      beerId: number
+    ): Promise<DeleteMyScoreResult> {
+      return requestJson(
+        fetcher,
+        options.baseUrl,
+        "DELETE",
+        judgeRoundBeerScorePath(competitionId, roundId, beerId),
+        (data) => deleteMyScoreResultSchema.parse(data),
+        { token: getToken() }
       );
     },
   };

@@ -131,6 +131,34 @@ export function shouldDisableScoreSubmit({
   return !canScore || !hasJudgeType || (score !== null && !hasUserEdited);
 }
 
+export function shouldDisableScoreDelete({
+  canScore,
+  isDeleting,
+  isSubmitting,
+  score,
+  status,
+}: {
+  canScore: boolean;
+  isDeleting: boolean;
+  isSubmitting: boolean;
+  score: MyScore | null;
+  status: "loading" | "ready";
+}) {
+  return status !== "ready" || !canScore || score === null || isSubmitting || isDeleting;
+}
+
+export function scoreDraftFromCurrentValues({
+  amateurValues,
+  professionalValues,
+  savedAt,
+}: {
+  amateurValues: AmateurValues;
+  professionalValues: ProfessionalValues;
+  savedAt: string;
+}): ScoreDraft {
+  return { amateurValues, professionalValues, savedAt };
+}
+
 export function scoreSubmitButtonText({
   canScore,
   score,

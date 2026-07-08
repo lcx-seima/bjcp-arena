@@ -161,6 +161,7 @@ export interface CompetitionLoopRepository {
   removeRoundBeer(competitionId: number, roundId: number, beerId: number): Promise<boolean>;
   countActiveScores(roundId: number, beerId?: number): Promise<number>;
   softDeleteScores(roundId: number, beerId: number): Promise<number>;
+  softDeleteActiveScore(roundId: number, beerId: number, judgeUserId: number): Promise<number>;
   findActiveScore(
     roundId: number,
     beerId: number,
@@ -501,6 +502,21 @@ export function createMemoryCompetitionLoopRepository(): CompetitionLoopReposito
       }
       return count;
     },
+    async softDeleteActiveScore(roundId, beerId, judgeUserId) {
+      const time = now();
+      for (const [id, score] of scores) {
+        if (
+          score.roundId === roundId &&
+          score.beerId === beerId &&
+          score.judgeUserId === judgeUserId &&
+          score.deletedAt === null
+        ) {
+          scores.set(id, { ...score, deletedAt: time, updatedAt: time });
+          return 1;
+        }
+      }
+      return 0;
+    },
     async findActiveScore(roundId, beerId, judgeUserId) {
       const score = [...scores.values()].find(
         (candidate) =>
@@ -767,6 +783,13 @@ export function createPrismaCompetitionLoopRepository(
     async softDeleteScores(roundId, beerId) {
       const result = await db.score.updateMany({
         where: { roundId, beerId, deletedAt: null },
+        data: { deletedAt: new Date() },
+      });
+      return result.count;
+    },
+    async softDeleteActiveScore(roundId, beerId, judgeUserId) {
+      const result = await db.score.updateMany({
+        where: { roundId, beerId, judgeUserId, deletedAt: null },
         data: { deletedAt: new Date() },
       });
       return result.count;

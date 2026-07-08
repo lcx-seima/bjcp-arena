@@ -176,12 +176,14 @@ export const judgeBeerSchema = z.object({
 export const judgeBeerResultSchema = z.object({ beer: judgeBeerSchema });
 export const myScoreResultSchema = z.object({ score: myScoreSchema.nullable() });
 export const submitMyScoreResultSchema = z.object({ score: myScoreSchema });
+export const deleteMyScoreResultSchema = z.object({ ok: z.literal(true) });
 
 export type ProfessionalScoreInput = z.infer<typeof professionalScoreInputSchema>;
 export type AmateurScoreInput = z.infer<typeof amateurScoreInputSchema>;
 export type ScoreInput = z.infer<typeof scoreInputSchema>;
 export type MyScoreResult = z.infer<typeof myScoreResultSchema>;
 export type SubmitMyScoreResult = z.infer<typeof submitMyScoreResultSchema>;
+export type DeleteMyScoreResult = z.infer<typeof deleteMyScoreResultSchema>;
 export type JudgeCompetitionListResult = z.infer<typeof judgeCompetitionListResultSchema>;
 export type JudgeRoundListResult = z.infer<typeof judgeRoundListResultSchema>;
 export type JudgeRoundDetailResult = z.infer<typeof judgeRoundDetailResultSchema>;

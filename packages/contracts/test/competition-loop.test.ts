@@ -10,6 +10,7 @@ import {
   competitionListResultSchema,
   competitionStatusPath,
   createBeerInputSchema,
+  deleteMyScoreResultSchema,
   entityStatusSchema,
   importBeersInputSchema,
   judgeBeerResultSchema,
@@ -79,6 +80,11 @@ describe("competition loop contracts", () => {
     expect(judgeRoundBeerScorePath(2, 5, 8)).toBe(
       "/api/judge/competitions/2/rounds/5/beers/8/my-score"
     );
+  });
+
+  it("validates judge score deletion result", () => {
+    expect(deleteMyScoreResultSchema.parse({ ok: true })).toEqual({ ok: true });
+    expect(() => deleteMyScoreResultSchema.parse({ ok: false })).toThrow();
   });
 
   it("defaults optional beer category remarks to an empty string", () => {

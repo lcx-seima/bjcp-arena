@@ -328,7 +328,8 @@ describe("createApiClient", () => {
       )
       .mockResolvedValueOnce(jsonResponse({ beer: judgeBeer }))
       .mockResolvedValueOnce(jsonResponse({ score: myScore }))
-      .mockResolvedValueOnce(jsonResponse({ score: myScore }));
+      .mockResolvedValueOnce(jsonResponse({ score: myScore }))
+      .mockResolvedValueOnce(jsonResponse({ ok: true }));
     const client = createApiClient({
       baseUrl: "http://localhost:4000",
       fetch: fetcher,
@@ -348,6 +349,7 @@ describe("createApiClient", () => {
       amateurRepeatIntentionScore: 5,
       amateurComment: "愿意复饮",
     });
+    await client.deleteMyScore(1, 3, 2);
 
     expect(fetcher).toHaveBeenNthCalledWith(
       4,
@@ -360,6 +362,17 @@ describe("createApiClient", () => {
           Authorization: "Bearer jwt-token",
         },
         method: "POST",
+      }
+    );
+    expect(fetcher).toHaveBeenNthCalledWith(
+      7,
+      "http://localhost:4000/api/judge/competitions/1/rounds/3/beers/2/my-score",
+      {
+        headers: {
+          Accept: "application/json",
+          Authorization: "Bearer jwt-token",
+        },
+        method: "DELETE",
       }
     );
   });

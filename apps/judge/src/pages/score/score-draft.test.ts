@@ -4,8 +4,10 @@ import {
   defaultAmateurValues,
   defaultProfessionalValues,
   resolveInitialScoreFormState,
+  scoreDraftFromCurrentValues,
   scoreLeaveConfirmContent,
   scoreSubmitButtonText,
+  shouldDisableScoreDelete,
   shouldSaveScoreDraft,
   shouldDisableScoreSubmit,
 } from "./score-draft.js";
@@ -163,5 +165,93 @@ describe("score draft policy", () => {
     expect(scoreSubmitButtonText({ canScore: true, score: submittedProfessionalScore })).toBe(
       "更新评分"
     );
+  });
+
+  it("删除评分前把当前表单内容保存为草稿", () => {
+    const savedAt = "2026-07-07T11:00:00.000Z";
+    const draft = scoreDraftFromCurrentValues({
+      amateurValues: {
+        drinkability: 5,
+        balance: 4,
+        flavorAcceptance: 3,
+        repeatIntention: 2,
+        comment: "删除前当前大众表单",
+      },
+      professionalValues: {
+        aroma: 8,
+        appearance: 2,
+        flavor: 15,
+        mouthfeel: 4,
+        overall: 7,
+        aromaComment: "删除前香气",
+        appearanceComment: "删除前外观",
+        flavorComment: "删除前风味",
+        mouthfeelComment: "删除前口感",
+        overallComment: "删除前整体",
+      },
+      savedAt,
+    });
+
+    expect(draft).toEqual({
+      amateurValues: {
+        drinkability: 5,
+        balance: 4,
+        flavorAcceptance: 3,
+        repeatIntention: 2,
+        comment: "删除前当前大众表单",
+      },
+      professionalValues: {
+        aroma: 8,
+        appearance: 2,
+        flavor: 15,
+        mouthfeel: 4,
+        overall: 7,
+        aromaComment: "删除前香气",
+        appearanceComment: "删除前外观",
+        flavorComment: "删除前风味",
+        mouthfeelComment: "删除前口感",
+        overallComment: "删除前整体",
+      },
+      savedAt,
+    });
+  });
+
+  it("仅已有评分且页面可评分时允许删除", () => {
+    expect(
+      shouldDisableScoreDelete({
+        canScore: true,
+        isDeleting: false,
+        isSubmitting: false,
+        score: submittedProfessionalScore,
+        status: "ready",
+      })
+    ).toBe(false);
+    expect(
+      shouldDisableScoreDelete({
+        canScore: true,
+        isDeleting: false,
+        isSubmitting: false,
+        score: null,
+        status: "ready",
+      })
+    ).toBe(true);
+    expect(
+      shouldDisableScoreDelete({
+        canScore: false,
+        isDeleting: false,
+        isSubmitting: false,
+        score: submittedProfessionalScore,
+        status: "ready",
+      })
+    ).toBe(true);
+    expect(
+      shouldDisableScoreDelete({
+        canScore: true,
+        isDeleting: true,
+        isSubmitting: false,
+        score: submittedProfessionalScore,
+        status: "ready",
+      })
+    ).toBe(true);
   });
 });
