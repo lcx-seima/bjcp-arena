@@ -1,5 +1,8 @@
 import {
+  CheckOutlined,
+  CloseOutlined,
   DeleteOutlined,
+  EditOutlined,
   FileExcelOutlined,
   PlusOutlined,
   ReloadOutlined,
@@ -9,9 +12,12 @@ import {
   Button,
   Card,
   Drawer,
+  Empty,
   Flex,
   Input,
-  Select,
+  Modal,
+  Popconfirm,
+  Segmented,
   Space,
   Table,
   Tabs,
@@ -27,18 +33,22 @@ import { useRequestFeedback } from "../../app/feedback.js";
 import { PageHeader } from "../../components/ui/PageHeader.js";
 import {
   entityStatusLabels,
-  entityStatusOptions,
   type Beer,
   type Competition,
   type CompetitionRound,
   type RoundBeer,
 } from "../../modules/competitions/competitions-api.js";
+import { AddRoundBeersDrawer } from "../../modules/competitions/components/AddRoundBeersDrawer.js";
 import { BeerForm, type BeerFormValues } from "../../modules/competitions/components/BeerForm.js";
 import classes from "./CompetitionsPage.module.css";
 
 function readCompetitionId(value: string | undefined) {
   const id = Number(value);
   return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+function entityStatusTagColor(status: EntityStatus) {
+  return status === "ongoing" ? "green" : "red";
 }
 
 function parseExcelRows(file: File): Promise<ImportBeerRow[]> {
@@ -71,6 +81,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
   const { competitionId: competitionIdParam } = useParams();
   const competitionId = readCompetitionId(competitionIdParam);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const selectedRoundIdRef = useRef<number | null>(null);
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [beers, setBeers] = useState<Beer[]>([]);
   const [rounds, setRounds] = useState<CompetitionRound[]>([]);
@@ -80,11 +91,17 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
   const [beerDrawer, setBeerDrawer] = useState<
     { mode: "create"; beer: null } | { mode: "edit"; beer: Beer } | null
   >(null);
+  const [isAddRoundBeersDrawerOpen, setIsAddRoundBeersDrawerOpen] = useState(false);
+  const [isCreateRoundModalOpen, setIsCreateRoundModalOpen] = useState(false);
+  const [editingRoundId, setEditingRoundId] = useState<number | null>(null);
   const [newRoundName, setNewRoundName] = useState("");
-  const [roundBeerToAdd, setRoundBeerToAdd] = useState<string | null>(null);
+  const [roundNameDraft, setRoundNameDraft] = useState("");
   const [isBusy, setIsBusy] = useState(false);
 
   const selectedRound = rounds.find((round) => round.id === selectedRoundId) ?? null;
+  const canChangeRoundStatus = competition?.status === "ongoing";
+  const isSelectedRoundWritable =
+    canChangeRoundStatus && selectedRound?.status === "ongoing";
 
   const refreshDetail = useCallback(async () => {
     if (!competitionId) {
@@ -100,7 +117,11 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
     setCompetition(competitionResult.competition);
     setBeers(beerResult.beers);
     setRounds(roundResult.rounds);
-    const nextRoundId = selectedRoundId ?? roundResult.rounds[0]?.id ?? null;
+    const currentSelectedRoundId = selectedRoundIdRef.current;
+    const nextRoundId = roundResult.rounds.some((round) => round.id === currentSelectedRoundId)
+      ? currentSelectedRoundId
+      : (roundResult.rounds[0]?.id ?? null);
+    selectedRoundIdRef.current = nextRoundId;
     setSelectedRoundId(nextRoundId);
     if (nextRoundId) {
       setRoundBeers((await client.listRoundBeers(competitionId, nextRoundId)).beers);
@@ -108,7 +129,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
       setRoundBeers([]);
     }
     setStatus("ready");
-  }, [competitionId, selectedRoundId, showError]);
+  }, [competitionId, showError]);
 
   useEffect(() => {
     void refreshDetail().catch((unknownError) => {
@@ -128,20 +149,39 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
     }
   }
 
-  async function handleCompetitionStatus(nextStatus: string) {
-    if (!competitionId || !competition) return;
-    const confirm = competition.status === "ended" && nextStatus === "ongoing";
-    if (confirm) {
-      const confirmed = await modal.confirm({
-        content: "裁判将可以继续修改允许状态下的评分。",
-        title: "确认重新打开比赛？",
-      });
-      if (!confirmed) return;
+  async function refreshRoundContext(roundId: number) {
+    if (!competitionId) return;
+    const [roundResult, roundBeerResult] = await Promise.all([
+      client.listRounds(competitionId),
+      client.listRoundBeers(competitionId, roundId),
+    ]);
+    setRounds(roundResult.rounds);
+    setRoundBeers(roundBeerResult.beers);
+  }
+
+  function handleRoundSelect(value: string | number) {
+    const roundId = Number(value);
+    if (!Number.isInteger(roundId) || roundId === selectedRoundId) {
+      return;
     }
+    selectedRoundIdRef.current = roundId;
+    setSelectedRoundId(roundId);
+    setEditingRoundId(null);
+    setRoundNameDraft("");
+    if (competitionId) {
+      void client
+        .listRoundBeers(competitionId, roundId)
+        .then((result) => setRoundBeers(result.beers))
+        .catch(showRequestError);
+    }
+  }
+
+  async function handleCompetitionStatus(nextStatus: EntityStatus) {
+    if (!competitionId || !competition) return;
     await runAction(async () => {
       const result = await client.updateCompetitionStatus(competitionId, {
-        status: nextStatus as EntityStatus,
-        ...(confirm ? { confirm: true } : {}),
+        status: nextStatus,
+        ...(nextStatus === "ongoing" ? { confirm: true } : {}),
       });
       setCompetition(result.competition);
       showSuccess(`比赛状态已更新为 ${entityStatusLabels[result.competition.status]}`);
@@ -189,41 +229,73 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
     await runAction(async () => {
       const result = await client.createRound(competitionId, { name: newRoundName.trim() });
       setNewRoundName("");
-      await refreshDetail();
+      setIsCreateRoundModalOpen(false);
+      setRounds((current) => [...current, result.round]);
+      selectedRoundIdRef.current = result.round.id;
       setSelectedRoundId(result.round.id);
+      setRoundBeers([]);
       showSuccess("轮次已创建");
     });
   }
 
-  async function handleRoundStatus(nextStatus: string) {
+  function handleCloseCreateRoundModal() {
+    setIsCreateRoundModalOpen(false);
+    setNewRoundName("");
+  }
+
+  function handleEditRoundName() {
+    if (!selectedRound) return;
+    setEditingRoundId(selectedRound.id);
+    setRoundNameDraft(selectedRound.name);
+  }
+
+  function handleCancelRoundNameEdit() {
+    setEditingRoundId(null);
+    setRoundNameDraft("");
+  }
+
+  async function handleSaveRoundName() {
     if (!competitionId || !selectedRound) return;
-    const confirm = selectedRound.status === "ended" && nextStatus === "ongoing";
-    if (confirm) {
-      const confirmed = await modal.confirm({
-        content: "裁判将可以继续修改本轮评分。",
-        title: "确认重新打开轮次？",
-      });
-      if (!confirmed) return;
+    const nextName = roundNameDraft.trim();
+    if (!nextName || nextName === selectedRound.name) {
+      handleCancelRoundNameEdit();
+      return;
     }
+
     await runAction(async () => {
-      await client.updateRoundStatus(competitionId, selectedRound.id, {
-        status: nextStatus as EntityStatus,
-        ...(confirm ? { confirm: true } : {}),
+      const result = await client.updateRound(competitionId, selectedRound.id, { name: nextName });
+      setRounds((current) =>
+        current.map((round) => (round.id === result.round.id ? result.round : round))
+      );
+      handleCancelRoundNameEdit();
+      showSuccess("轮次名称已更新");
+    });
+  }
+
+  async function handleRoundStatus(nextStatus: EntityStatus) {
+    if (!competitionId || !selectedRound) return;
+    await runAction(async () => {
+      const result = await client.updateRoundStatus(competitionId, selectedRound.id, {
+        status: nextStatus,
+        ...(nextStatus === "ongoing" ? { confirm: true } : {}),
       });
-      await refreshDetail();
+      setRounds((current) =>
+        current.map((round) => (round.id === result.round.id ? result.round : round))
+      );
+      handleCancelRoundNameEdit();
       showSuccess("轮次状态已更新");
     });
   }
 
-  async function handleAddRoundBeer() {
-    if (!competitionId || !selectedRound || !roundBeerToAdd) return;
+  async function handleAddRoundBeers(beerIds: number[]) {
+    if (!competitionId || !selectedRound || beerIds.length === 0) return;
     await runAction(async () => {
-      await client.addRoundBeer(competitionId, selectedRound.id, {
-        beerId: Number(roundBeerToAdd),
-      });
-      setRoundBeerToAdd(null);
-      setRoundBeers((await client.listRoundBeers(competitionId, selectedRound.id)).beers);
-      showSuccess("酒款已加入轮次");
+      for (const beerId of beerIds) {
+        await client.addRoundBeer(competitionId, selectedRound.id, { beerId });
+      }
+      setIsAddRoundBeersDrawerOpen(false);
+      await refreshRoundContext(selectedRound.id);
+      showSuccess(`已添加 ${beerIds.length} 款酒到轮次`);
     });
   }
 
@@ -240,7 +312,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
       await client.removeRoundBeer(competitionId, selectedRound.id, beer.beerId, {
         confirm: beer.scoreCount > 0,
       });
-      setRoundBeers((await client.listRoundBeers(competitionId, selectedRound.id)).beers);
+      await refreshRoundContext(selectedRound.id);
       showSuccess("已从轮次移除酒款");
     });
   }
@@ -248,15 +320,37 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
   return (
     <div className="stack-lg">
       <Flex align="center" gap={16} justify="space-between" wrap>
-        <PageHeader eyebrow="Competition" title={competition?.name ?? "比赛详情"} />
+        <PageHeader
+          title={competition?.name ?? "比赛详情"}
+          titleExtra={
+            competition ? (
+              <Tag color={entityStatusTagColor(competition.status)}>
+                {entityStatusLabels[competition.status]}
+              </Tag>
+            ) : undefined
+          }
+        />
         <Space wrap>
           {competition ? (
-            <Select
-              options={entityStatusOptions}
-              style={{ width: 140 }}
-              value={competition.status}
-              onChange={handleCompetitionStatus}
-            />
+            <Popconfirm
+              cancelText="取消"
+              description={
+                competition.status === "ongoing"
+                  ? "结束后将不能继续修改比赛、轮次和酒款配置。"
+                  : "重新打开后管理员和裁判可继续修改允许状态下的数据。"
+              }
+              okText="确认"
+              title={competition.status === "ongoing" ? "确认结束比赛？" : "确认重新打开比赛？"}
+              onConfirm={() =>
+                void handleCompetitionStatus(
+                  competition.status === "ongoing" ? "ended" : "ongoing"
+                )
+              }
+            >
+              <Button danger={competition.status === "ongoing"} loading={isBusy}>
+                {competition.status === "ongoing" ? "结束比赛" : "重新打开比赛"}
+              </Button>
+            </Popconfirm>
           ) : null}
           <Button
             icon={<ReloadOutlined />}
@@ -281,74 +375,116 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
             key: "rounds",
             label: "轮次",
             children: (
-              <div className={classes.roundLayout!}>
+              <div className={classes.roundSection!}>
                 <Card>
-                  <div className="stack-md">
-                    <Typography.Text strong>轮次</Typography.Text>
-                    <Space.Compact style={{ width: "100%" }}>
-                      <Input
-                        placeholder="轮次名"
-                        value={newRoundName}
-                        onChange={(event) => setNewRoundName(event.currentTarget.value)}
-                      />
-                      <Button icon={<PlusOutlined />} type="primary" onClick={handleCreateRound}>
-                        新增
-                      </Button>
-                    </Space.Compact>
-                    <div className="stack-xs">
-                      {rounds.map((round) => (
-                        <Button
-                          block
-                          key={round.id}
-                          type={round.id === selectedRoundId ? "primary" : "default"}
-                          onClick={() => {
-                            setSelectedRoundId(round.id);
-                            if (competitionId) {
-                              void client
-                                .listRoundBeers(competitionId, round.id)
-                                .then((result) => setRoundBeers(result.beers))
-                                .catch(showRequestError);
-                            }
-                          }}
-                        >
-                          {round.name}
-                        </Button>
-                      ))}
+                  <div className={classes.roundToolbar!}>
+                    <div className={classes.roundSwitcher!}>
+                      {rounds.length > 0 && selectedRoundId !== null ? (
+                        <Segmented
+                          options={rounds.map((round) => ({
+                            label: `${round.name} · ${round.beerCount} 款`,
+                            value: round.id,
+                          }))}
+                          value={selectedRoundId}
+                          onChange={handleRoundSelect}
+                        />
+                      ) : (
+                        <Typography.Text type="secondary">暂无轮次</Typography.Text>
+                      )}
                     </div>
+                    <Button
+                      className={classes.roundCreate!}
+                      icon={<PlusOutlined />}
+                      loading={isBusy}
+                      type="primary"
+                      onClick={() => setIsCreateRoundModalOpen(true)}
+                    >
+                      新增轮次
+                    </Button>
                   </div>
                 </Card>
 
-                <Card>
-                  {selectedRound ? (
+                {selectedRound ? (
+                  <Card>
                     <div className="stack-md">
-                      <Flex align="center" gap={16} justify="space-between" wrap>
-                        <Space>
-                          <Typography.Text strong>{selectedRound.name}</Typography.Text>
-                          <Tag>{entityStatusLabels[selectedRound.status]}</Tag>
+                      <div className={classes.roundPanelHeader!}>
+                        <div className={classes.roundTitleGroup!}>
+                          {editingRoundId === selectedRound.id ? (
+                            <Space.Compact className={classes.roundNameEditor!}>
+                              <Input
+                                value={roundNameDraft}
+                                onChange={(event) => setRoundNameDraft(event.currentTarget.value)}
+                                onPressEnter={() => void handleSaveRoundName()}
+                              />
+                              <Button
+                                icon={<CheckOutlined />}
+                                loading={isBusy}
+                                type="primary"
+                                onClick={() => void handleSaveRoundName()}
+                              />
+                              <Button
+                                disabled={isBusy}
+                                icon={<CloseOutlined />}
+                                onClick={handleCancelRoundNameEdit}
+                              />
+                            </Space.Compact>
+                          ) : (
+                            <Space size="small" wrap>
+                              <Typography.Text strong>{selectedRound.name}</Typography.Text>
+                              <Tag>{entityStatusLabels[selectedRound.status]}</Tag>
+                              <Typography.Text type="secondary">
+                                {selectedRound.beerCount} 款酒 · {selectedRound.scoreCount} 条评价
+                              </Typography.Text>
+                            </Space>
+                          )}
+                        </div>
+
+                        <Space className={classes.roundActions!} wrap>
+                          <Button
+                            disabled={!isSelectedRoundWritable || editingRoundId !== null}
+                            icon={<EditOutlined />}
+                            onClick={handleEditRoundName}
+                          >
+                            修改名称
+                          </Button>
+                          <Popconfirm
+                            cancelText="取消"
+                            description={
+                              selectedRound.status === "ongoing"
+                                ? "结束后将不能继续修改本轮酒款。"
+                                : "重新打开后裁判将可以继续修改本轮评分。"
+                            }
+                            okText="确认"
+                            title={
+                              selectedRound.status === "ongoing"
+                                ? "确认结束轮次？"
+                                : "确认重新打开轮次？"
+                            }
+                            onConfirm={() =>
+                              void handleRoundStatus(
+                                selectedRound.status === "ongoing" ? "ended" : "ongoing"
+                              )
+                            }
+                          >
+                            <Button
+                              danger={selectedRound.status === "ongoing"}
+                              disabled={!canChangeRoundStatus}
+                              loading={isBusy}
+                            >
+                              {selectedRound.status === "ongoing" ? "结束轮次" : "重新打开轮次"}
+                            </Button>
+                          </Popconfirm>
+                          <Button
+                            disabled={!isSelectedRoundWritable}
+                            icon={<PlusOutlined />}
+                            type="primary"
+                            onClick={() => setIsAddRoundBeersDrawerOpen(true)}
+                          >
+                            添加酒款
+                          </Button>
                         </Space>
-                        <Select
-                          options={entityStatusOptions}
-                          style={{ width: 140 }}
-                          value={selectedRound.status}
-                          onChange={handleRoundStatus}
-                        />
-                      </Flex>
-                      <Space.Compact block>
-                        <Select
-                          options={beers.map((beer) => ({
-                            label: `#${beer.entryNumber} ${beer.entryCode} ${beer.bjcpSubcategoryCode}`,
-                            value: String(beer.id),
-                          }))}
-                          placeholder="选择酒款"
-                          showSearch
-                          style={{ minWidth: 280, width: "100%" }}
-                          value={roundBeerToAdd}
-                          onChange={setRoundBeerToAdd}
-                        />
-                        <Button type="primary" onClick={handleAddRoundBeer}>
-                          添加到轮次
-                        </Button>
-                      </Space.Compact>
+                      </div>
+
                       <Table<RoundBeer>
                         columns={[
                           {
@@ -365,6 +501,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                             render: (_, beer) => (
                               <Button
                                 danger
+                                disabled={!isSelectedRoundWritable}
                                 icon={<DeleteOutlined />}
                                 size="small"
                                 onClick={() => void handleRemoveRoundBeer(beer)}
@@ -377,15 +514,47 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                           },
                         ]}
                         dataSource={roundBeers}
+                        loading={status === "loading"}
                         pagination={false}
                         rowKey="beerId"
                         scroll={{ x: 580 }}
                       />
                     </div>
-                  ) : (
-                    <Typography.Text type="secondary">暂无轮次。</Typography.Text>
-                  )}
-                </Card>
+                  </Card>
+                ) : (
+                  <Card>
+                    <Empty
+                      description="暂无轮次，请先在上方创建轮次。"
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    />
+                  </Card>
+                )}
+                <AddRoundBeersDrawer
+                  beers={beers}
+                  isSubmitting={isBusy}
+                  opened={isAddRoundBeersDrawerOpen}
+                  roundBeers={roundBeers}
+                  roundName={selectedRound?.name ?? "当前轮次"}
+                  onClose={() => setIsAddRoundBeersDrawerOpen(false)}
+                  onSubmit={handleAddRoundBeers}
+                />
+                <Modal
+                  destroyOnHidden
+                  okButtonProps={{ disabled: !newRoundName.trim(), loading: isBusy }}
+                  okText="创建"
+                  open={isCreateRoundModalOpen}
+                  title="新增轮次"
+                  onCancel={handleCloseCreateRoundModal}
+                  onOk={() => void handleCreateRound()}
+                >
+                  <Input
+                    autoFocus
+                    placeholder="轮次名"
+                    value={newRoundName}
+                    onChange={(event) => setNewRoundName(event.currentTarget.value)}
+                    onPressEnter={() => void handleCreateRound()}
+                  />
+                </Modal>
               </div>
             ),
           },

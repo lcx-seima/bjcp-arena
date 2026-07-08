@@ -72,10 +72,50 @@ th.actionsColumn {
   grid-column: 1 / -1;
 }
 
-.roundLayout {
+.roundSection {
   display: grid;
-  gap: 24px;
-  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.roundToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.roundSwitcher {
+  flex: 1 1 360px;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.roundCreate {
+  flex: 0 0 auto;
+}
+
+.roundPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.roundTitleGroup {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.roundNameEditor {
+  width: min(100%, 420px);
+}
+
+.roundActions {
+  flex: 0 0 auto;
 }
 
 @media (max-width: 74em) {
@@ -86,8 +126,21 @@ th.actionsColumn {
 
 @media (max-width: 48em) {
   .beerRow,
-  .actions,
-  .roundLayout {
+  .actions {
     grid-template-columns: 1fr;
+  }
+
+  .roundToolbar,
+  .roundPanelHeader {
+    align-items: stretch;
+  }
+
+  .roundSwitcher,
+  .roundCreate,
+  .roundTitleGroup,
+  .roundActions,
+  .roundNameEditor {
+    flex: 1 1 100%;
+    width: 100%;
   }
 }

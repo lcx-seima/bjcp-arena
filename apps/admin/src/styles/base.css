@@ -40,6 +40,7 @@ body {
 .page-header {
   display: grid;
   gap: 6px;
+  justify-items: start;
 }
 
 .page-header__eyebrow {
@@ -47,6 +48,21 @@ body {
   font-weight: 800;
   letter-spacing: 0;
   text-transform: uppercase;
+}
+
+.page-header__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+.page-header__title-extra {
+  display: inline-flex;
+  align-items: center;
+  font-size: 14px;
+  line-height: 1;
 }
 
 .stack-md {
