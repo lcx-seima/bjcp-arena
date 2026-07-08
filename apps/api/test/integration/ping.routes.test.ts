@@ -73,6 +73,26 @@ describe("GET /api/ping", () => {
     await app.close();
   });
 
+  it("allows DELETE requests in CORS preflight responses", async () => {
+    const app = createApp({
+      allowedOrigins: ["http://localhost:5173"],
+    });
+
+    const response = await app.inject({
+      method: "OPTIONS",
+      url: "/api/competitions/1/rounds/2/beers/3",
+      headers: {
+        origin: "http://localhost:5173",
+        "access-control-request-method": "DELETE",
+      },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(response.headers["access-control-allow-origin"]).toBe("http://localhost:5173");
+    expect(response.headers["access-control-allow-methods"]).toContain("DELETE");
+    await app.close();
+  });
+
   it("does not allow origins outside the configured list", async () => {
     const app = createApp({
       allowedOrigins: ["http://localhost:5173"],

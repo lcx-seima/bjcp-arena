@@ -301,13 +301,17 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
 
   async function handleRemoveRoundBeer(beer: RoundBeer) {
     if (!competitionId || !selectedRound) return;
-    if (beer.scoreCount > 0) {
-      const confirmed = await modal.confirm({
-        content: `该酒款已有 ${beer.scoreCount} 条评价，确认移除并软删除这些评价？`,
-        title: "确认移除酒款？",
-      });
-      if (!confirmed) return;
-    }
+    const confirmed = await modal.confirm({
+      content:
+        beer.scoreCount > 0
+          ? `该酒款已有 ${beer.scoreCount} 条评价，移除后将软删除这些评价。`
+          : "该操作只会将酒款从当前轮次移除，不会删除酒款本身。",
+      okButtonProps: { danger: true },
+      okText: "确认移除",
+      title: "确认从轮次移除酒款？",
+    });
+    if (!confirmed) return;
+
     await runAction(async () => {
       await client.removeRoundBeer(competitionId, selectedRound.id, beer.beerId, {
         confirm: beer.scoreCount > 0,

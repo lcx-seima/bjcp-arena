@@ -75,7 +75,7 @@ export function createApp(options: CreateAppOptions = {}) {
   app.setSerializerCompiler(serializerCompiler);
 
   app.register(cors, {
-    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "OPTIONS"],
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     origin: corsOrigin,
   });
 
