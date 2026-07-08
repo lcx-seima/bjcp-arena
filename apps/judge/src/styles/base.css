@@ -314,6 +314,41 @@ textarea {
   font-weight: 700;
 }
 
+.submitted-beer-item {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.submitted-beer-item__headline {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.submitted-beer-item__code {
+  color: var(--bjcp-ink);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.submitted-beer-item__style {
+  color: var(--adm-color-weak);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.submitted-beer-item__time {
+  color: var(--bjcp-slate);
+  font-size: 13px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .entry-code-sheet {
   display: grid;
   gap: 16px;

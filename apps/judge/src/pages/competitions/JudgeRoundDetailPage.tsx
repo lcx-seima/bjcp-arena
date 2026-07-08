@@ -1,13 +1,13 @@
-import { Button, List, Popup, Space, Tag, Toast } from "antd-mobile";
+import { Button, List, Popup, Space, Toast } from "antd-mobile";
 import { useEffect, useState } from "react";
 import type { JudgeRoundDetailResult } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
 import { EmptyState } from "../../components/ui/EmptyState.js";
 import { InlineError } from "../../components/ui/InlineError.js";
 import { MobileShell } from "../../components/ui/MobileShell.js";
-import { formatFullDateTime } from "../../utils/datetime.js";
 import { PageHeader } from "../../components/ui/PageHeader.js";
 import { isUnauthorized, readError } from "../../utils/errors.js";
+import { formatJudgeSubmittedBeerListItem } from "./judge-submitted-beer-list.js";
 
 type JudgeRoundDetail = JudgeRoundDetailResult;
 
@@ -113,19 +113,29 @@ export function JudgeRoundDetailPage({
         {error ? <InlineError>{error}</InlineError> : null}
         <div className="section-label">本轮已提交的酒款评价</div>
         <List mode="card">
-          {detail?.beers.map((beer) => (
-            <List.Item
-              arrow
-              key={beer.id}
-              description={`${beer.bjcpSubcategoryCode} ${beer.bjcpSubcategoryName}`}
-              extra={<Tag>{formatFullDateTime(beer.submittedAt)}</Tag>}
-              onClick={() => {
-                window.location.href = `/competitions/${competitionId}/rounds/${roundId}/beers/${beer.id}`;
-              }}
-            >
-              <Tag>#{beer.entryNumber}</Tag> {beer.entryCode}
-            </List.Item>
-          ))}
+          {detail?.beers.map((beer) => {
+            const listItem = formatJudgeSubmittedBeerListItem(beer);
+
+            return (
+              <List.Item
+                arrow
+                key={beer.id}
+                onClick={() => {
+                  window.location.href = `/competitions/${competitionId}/rounds/${roundId}/beers/${beer.id}`;
+                }}
+              >
+                <div className="submitted-beer-item">
+                  <div className="submitted-beer-item__headline">
+                    <span className="submitted-beer-item__code">{listItem.entryCode}</span>
+                    <span className="submitted-beer-item__style">
+                      {listItem.bjcpSubcategoryLabel}
+                    </span>
+                  </div>
+                  <div className="submitted-beer-item__time">{listItem.submittedAtLabel}</div>
+                </div>
+              </List.Item>
+            );
+          })}
         </List>
         {detail && detail.beers.length === 0 && !error ? (
           <EmptyState title="暂无已提交酒款评价" subTitle="点击下方按钮开始评比" />
