@@ -1,5 +1,4 @@
 import {
-  ArrowLeftOutlined,
   DeleteOutlined,
   FileExcelOutlined,
   PlusOutlined,
@@ -20,7 +19,7 @@ import {
   Typography,
 } from "antd";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import * as XLSX from "xlsx";
 import type { EntityStatus, ImportBeerRow } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
@@ -249,12 +248,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
   return (
     <div className="stack-lg">
       <Flex align="center" gap={16} justify="space-between" wrap>
-        <Space>
-          <Button icon={<ArrowLeftOutlined />}>
-            <Link to="/competitions">返回</Link>
-          </Button>
-          <PageHeader eyebrow="Competition" title={competition?.name ?? "比赛详情"} />
-        </Space>
+        <PageHeader eyebrow="Competition" title={competition?.name ?? "比赛详情"} />
         <Space wrap>
           {competition ? (
             <Select
@@ -361,11 +355,13 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                             dataIndex: "entryNumber",
                             render: (value: number) => `#${value}`,
                             title: "序号",
+                            width: 90,
                           },
-                          { dataIndex: "entryCode", title: "参赛编号" },
-                          { dataIndex: "bjcpSubcategoryCode", title: "BJCP" },
-                          { dataIndex: "scoreCount", title: "评价数" },
+                          { dataIndex: "entryCode", title: "参赛编号", width: 140 },
+                          { dataIndex: "bjcpSubcategoryCode", title: "BJCP", width: 120 },
+                          { dataIndex: "scoreCount", title: "评价数", width: 110 },
                           {
+                            fixed: "right",
                             render: (_, beer) => (
                               <Button
                                 danger
@@ -383,6 +379,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                         dataSource={roundBeers}
                         pagination={false}
                         rowKey="beerId"
+                        scroll={{ x: 580 }}
                       />
                     </div>
                   ) : (

@@ -1,6 +1,7 @@
 import { DashboardOutlined, LogoutOutlined, TeamOutlined, TrophyOutlined } from "@ant-design/icons";
-import { Button, Layout, Menu, Space, Typography } from "antd";
-import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { Breadcrumb, Button, Layout, Menu, Typography } from "antd";
+import { useMemo } from "react";
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { canManageUsers, type UserPublic } from "@bjcp-arena/contracts";
 import { describeRoles } from "../utils/roles.js";
 import { ForbiddenPage } from "../pages/overview/ForbiddenPage.js";
@@ -18,6 +19,24 @@ export function AdminLayout({ user, onLogout }: { user: UserPublic; onLogout: ()
     : location.pathname.startsWith("/users")
       ? "/users"
       : "/";
+  const breadcrumbItems = useMemo(() => {
+    if (location.pathname.startsWith("/competitions/")) {
+      return [
+        { title: <Link to="/competitions">比赛管理</Link> },
+        { title: "比赛详情" },
+      ];
+    }
+
+    if (location.pathname.startsWith("/competitions")) {
+      return [{ title: "比赛管理" }];
+    }
+
+    if (location.pathname.startsWith("/users")) {
+      return [{ title: "账号管理" }];
+    }
+
+    return [{ title: "概览" }];
+  }, [location.pathname]);
 
   const items = [
     {
@@ -43,55 +62,65 @@ export function AdminLayout({ user, onLogout }: { user: UserPublic; onLogout: ()
 
   return (
     <Layout className={classes.shell!}>
-      <Layout.Sider breakpoint="lg" className={classes.sider!} collapsedWidth={0} width={252}>
-        <div className={classes.navbar!}>
-          <Space className={classes.brand!} direction="vertical" size={2}>
-            <Typography.Text strong>BJCP Arena</Typography.Text>
-            <Typography.Text type="secondary">后台管理</Typography.Text>
-          </Space>
+      <nav className={classes.nav!}>
+        <div className={classes.brand!}>
+          <Typography.Text className={classes.brandName!} strong>
+            BJCP Arena
+          </Typography.Text>
+        </div>
 
-          <Menu
-            items={items}
-            mode="inline"
-            selectedKeys={[selectedKey]}
-            onClick={({ key }) => navigate(key)}
-          />
+        <Menu
+          className={classes.menu!}
+          items={items}
+          mode="horizontal"
+          selectedKeys={[selectedKey]}
+          onClick={({ key }) => navigate(key)}
+        />
 
-          <div className={classes.account!}>
-            <Typography.Text strong style={{ overflowWrap: "anywhere" }}>
+        <div className={classes.account!}>
+          <div className={classes.accountText!}>
+            <Typography.Text className={classes.accountName!} strong>
               {user.nickname}
             </Typography.Text>
-            <Typography.Text style={{ overflowWrap: "anywhere" }} type="secondary">
+            <Typography.Text className={classes.accountRoles!} type="secondary">
               {describeRoles(user.roles)}
             </Typography.Text>
-            <Button block icon={<LogoutOutlined />} onClick={onLogout}>
-              退出登录
-            </Button>
           </div>
+          <Button
+            aria-label="退出登录"
+            icon={<LogoutOutlined />}
+            size="small"
+            onClick={onLogout}
+          />
         </div>
-      </Layout.Sider>
+      </nav>
 
-      <Layout.Content className={classes.page!}>
-        <Routes>
-          <Route index element={<OverviewPage user={user} />} />
-          <Route path="/competitions" element={<CompetitionsPage onLogout={onLogout} />} />
-          <Route
-            path="/competitions/:competitionId"
-            element={<CompetitionDetailPage onLogout={onLogout} />}
-          />
-          <Route
-            path="/users"
-            element={
-              canManageUsers(user.roles) ? (
-                <UsersPage currentUser={user} onLogout={onLogout} />
-              ) : (
-                <ForbiddenPage />
-              )
-            }
-          />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Layout.Content>
+      <Layout className={classes.main!}>
+        <div className={classes.breadcrumbBar!}>
+          <Breadcrumb items={breadcrumbItems} />
+        </div>
+        <Layout.Content className={classes.page!}>
+          <Routes>
+            <Route index element={<OverviewPage user={user} />} />
+            <Route path="/competitions" element={<CompetitionsPage onLogout={onLogout} />} />
+            <Route
+              path="/competitions/:competitionId"
+              element={<CompetitionDetailPage onLogout={onLogout} />}
+            />
+            <Route
+              path="/users"
+              element={
+                canManageUsers(user.roles) ? (
+                  <UsersPage currentUser={user} onLogout={onLogout} />
+                ) : (
+                  <ForbiddenPage />
+                )
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Layout.Content>
+      </Layout>
     </Layout>
   );
 }

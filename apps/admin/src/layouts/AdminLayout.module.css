@@ -1,35 +1,97 @@
 .shell {
   min-height: 100vh;
+  width: 100%;
 }
 
-.sider {
-  background: #ffffff;
-  border-right: 1px solid #e5e7eb;
-}
-
-.navbar {
+.nav {
   display: grid;
-  grid-template-rows: auto 1fr auto;
-  min-height: 100vh;
-  padding: 24px 16px;
+  align-items: center;
+  gap: 16px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 56px;
+  padding: 0 24px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .brand {
-  padding: 0 8px 24px;
+  display: flex;
+  align-items: center;
+  min-width: max-content;
+}
+
+.brandName {
+  white-space: nowrap;
+}
+
+.menu {
+  min-width: 0;
+  border-bottom: 0 !important;
 }
 
 .account {
-  display: grid;
+  display: flex;
+  align-items: center;
   gap: 8px;
-  padding: 24px 8px 0;
+  min-width: 0;
+}
+
+.accountText {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.accountName,
+.accountRoles {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.main {
+  min-width: 0;
+  width: 100%;
+}
+
+.breadcrumbBar {
+  min-width: 0;
+  padding: 16px 24px 0;
 }
 
 .page {
   min-width: 0;
   padding: 24px;
+  width: 100%;
 }
 
 @media (max-width: 768px) {
+  .nav {
+    grid-template-columns: 1fr auto;
+    row-gap: 8px;
+    padding: 10px 16px;
+  }
+
+  .brand {
+    min-width: 0;
+  }
+
+  .menu {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    overflow-x: auto;
+  }
+
+  .accountRoles {
+    display: none;
+  }
+
+  .breadcrumbBar {
+    padding: 12px 16px 0;
+  }
+
   .page {
     padding: 16px;
   }
