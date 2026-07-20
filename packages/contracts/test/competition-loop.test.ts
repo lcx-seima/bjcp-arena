@@ -5,6 +5,7 @@ import {
   beerImportPath,
   beerResultSchema,
   competitionByIdPath,
+  competitionStatusSchema,
   competitionListPath,
   competitionListQuerySchema,
   competitionListResultSchema,
@@ -30,20 +31,36 @@ import {
   roundStatusPath,
   scoreInputSchema,
   updateBeerInputSchema,
+  updateCompetitionStatusInputSchema,
 } from "../src/index.js";
 
 describe("competition loop contracts", () => {
-  it("defines competition paths, pagination and two-state lifecycle", () => {
+  it("defines competition three-state lifecycle, round two-state lifecycle and archive scope", () => {
     expect(competitionListPath).toBe("/api/competitions");
     expect(competitionByIdPath(2)).toBe("/api/competitions/2");
     expect(competitionStatusPath(2)).toBe("/api/competitions/2/status");
     expect(entityStatusSchema.parse("ongoing")).toBe("ongoing");
     expect(entityStatusSchema.parse("ended")).toBe("ended");
+    expect(() => entityStatusSchema.parse("archived")).toThrow();
     expect(() => entityStatusSchema.parse("draft")).toThrow();
-    expect(competitionListQuerySchema.parse({})).toEqual({ page: 1, limit: 50 });
-    expect(competitionListQuerySchema.parse({ page: "2", limit: "25" })).toEqual({
+    expect(competitionStatusSchema.parse("archived")).toBe("archived");
+    expect(updateCompetitionStatusInputSchema.parse({ status: "archived", confirm: true })).toEqual(
+      {
+        status: "archived",
+        confirm: true,
+      }
+    );
+    expect(competitionListQuerySchema.parse({})).toEqual({
+      page: 1,
+      limit: 50,
+      archiveScope: "unarchived",
+    });
+    expect(
+      competitionListQuerySchema.parse({ page: "2", limit: "25", archiveScope: "archived" })
+    ).toEqual({
       page: 2,
       limit: 25,
+      archiveScope: "archived",
     });
     expect(
       competitionListResultSchema.parse({

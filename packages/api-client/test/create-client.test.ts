@@ -187,7 +187,7 @@ describe("createApiClient", () => {
         jsonResponse({ competitions: [competition], total: 1, page: 1, limit: 50 })
       )
       .mockResolvedValueOnce(jsonResponse({ competition }))
-      .mockResolvedValueOnce(jsonResponse({ competition: { ...competition, status: "ended" } }))
+      .mockResolvedValueOnce(jsonResponse({ competition: { ...competition, status: "archived" } }))
       .mockResolvedValueOnce(jsonResponse({ beer }))
       .mockResolvedValueOnce(jsonResponse({ beer: { ...beer, categoryRemark: "更新备注" } }))
       .mockResolvedValueOnce(jsonResponse({ created: 1, updated: 0, beers: [beer] }))
@@ -200,9 +200,9 @@ describe("createApiClient", () => {
       getToken: () => "jwt-token",
     });
 
-    await client.listCompetitions({ page: 2, limit: 25 });
+    await client.listCompetitions({ page: 2, limit: 25, archiveScope: "archived" });
     await client.createCompetition({ name: "夏季赛" });
-    await client.updateCompetitionStatus(1, { status: "ended" });
+    await client.updateCompetitionStatus(1, { status: "archived", confirm: true });
     await client.createBeer(1, {
       entryCode: "sa1234",
       bjcpSubcategoryCode: "21A",
@@ -233,7 +233,7 @@ describe("createApiClient", () => {
 
     expect(fetcher).toHaveBeenNthCalledWith(
       1,
-      "http://localhost:4000/api/competitions?page=2&limit=25",
+      "http://localhost:4000/api/competitions?page=2&limit=25&archiveScope=archived",
       {
         headers: {
           Accept: "application/json",
@@ -243,40 +243,42 @@ describe("createApiClient", () => {
       }
     );
 
-    expect(fetcher).toHaveBeenNthCalledWith(
-      4,
-      "http://localhost:4000/api/competitions/1/beers",
-      {
-        body: JSON.stringify({
-          entryCode: "SA1234",
-          bjcpSubcategoryCode: "21A",
-          categoryRemark: "美式 IPA 备注",
-          description: "酒款介绍",
-          name: "真实酒名",
-          brewery: "真实酒厂",
-        }),
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: "Bearer jwt-token",
-        },
-        method: "POST",
-      }
-    );
+    expect(fetcher).toHaveBeenNthCalledWith(3, "http://localhost:4000/api/competitions/1/status", {
+      body: JSON.stringify({ status: "archived", confirm: true }),
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: "Bearer jwt-token",
+      },
+      method: "PATCH",
+    });
 
-    expect(fetcher).toHaveBeenNthCalledWith(
-      5,
-      "http://localhost:4000/api/competitions/1/beers/2",
-      {
-        body: JSON.stringify({ categoryRemark: "更新备注" }),
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: "Bearer jwt-token",
-        },
-        method: "PATCH",
-      }
-    );
+    expect(fetcher).toHaveBeenNthCalledWith(4, "http://localhost:4000/api/competitions/1/beers", {
+      body: JSON.stringify({
+        entryCode: "SA1234",
+        bjcpSubcategoryCode: "21A",
+        categoryRemark: "美式 IPA 备注",
+        description: "酒款介绍",
+        name: "真实酒名",
+        brewery: "真实酒厂",
+      }),
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: "Bearer jwt-token",
+      },
+      method: "POST",
+    });
+
+    expect(fetcher).toHaveBeenNthCalledWith(5, "http://localhost:4000/api/competitions/1/beers/2", {
+      body: JSON.stringify({ categoryRemark: "更新备注" }),
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: "Bearer jwt-token",
+      },
+      method: "PATCH",
+    });
 
     expect(fetcher).toHaveBeenNthCalledWith(
       9,

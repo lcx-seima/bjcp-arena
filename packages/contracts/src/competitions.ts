@@ -12,7 +12,10 @@ export function competitionStatusPath(competitionId: number) {
 
 export const entityStatuses = ["ongoing", "ended"] as const;
 export const entityStatusSchema = z.enum(entityStatuses);
-export const competitionStatusSchema = entityStatusSchema;
+export const competitionStatuses = [...entityStatuses, "archived"] as const;
+export const competitionStatusSchema = z.enum(competitionStatuses);
+export const competitionArchiveScopes = ["unarchived", "archived"] as const;
+export const competitionArchiveScopeSchema = z.enum(competitionArchiveScopes);
 
 export const createCompetitionInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -29,17 +32,21 @@ export const updateEntityStatusInputSchema = z.object({
   confirm: z.boolean().optional(),
 });
 
-export const updateCompetitionStatusInputSchema = updateEntityStatusInputSchema;
+export const updateCompetitionStatusInputSchema = z.object({
+  status: competitionStatusSchema,
+  confirm: z.boolean().optional(),
+});
 
 export const competitionListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(50),
+  archiveScope: competitionArchiveScopeSchema.default("unarchived"),
 });
 
 export const competitionSchema = z.object({
   id: z.number().int().positive(),
   name: z.string().min(1).max(120),
-  status: entityStatusSchema,
+  status: competitionStatusSchema,
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -131,7 +138,8 @@ export const roundBeerResultSchema = z.object({
 });
 
 export type EntityStatus = z.infer<typeof entityStatusSchema>;
-export type CompetitionStatus = EntityStatus;
+export type CompetitionStatus = z.infer<typeof competitionStatusSchema>;
+export type CompetitionArchiveScope = z.infer<typeof competitionArchiveScopeSchema>;
 export type CreateCompetitionInput = z.infer<typeof createCompetitionInputSchema>;
 export type UpdateCompetitionInput = z.infer<typeof updateCompetitionInputSchema>;
 export type UpdateEntityStatusInput = z.infer<typeof updateEntityStatusInputSchema>;

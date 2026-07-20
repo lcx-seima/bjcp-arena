@@ -1,12 +1,24 @@
 import { EditOutlined, EyeOutlined, PlusOutlined, ReloadOutlined } from "@ant-design/icons";
-import { Button, Card, Flex, Pagination, Space, Table, Tag, Tooltip, Typography } from "antd";
+import {
+  Button,
+  Card,
+  Flex,
+  Pagination,
+  Segmented,
+  Space,
+  Table,
+  Tag,
+  Tooltip,
+  Typography,
+} from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import type { CompetitionArchiveScope } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
 import { useRequestFeedback } from "../../app/feedback.js";
 import { PageHeader } from "../../components/ui/PageHeader.js";
 import {
-  entityStatusLabels,
+  competitionStatusLabels,
   type Competition,
 } from "../../modules/competitions/competitions-api.js";
 import { type CompetitionFormValues } from "../../modules/competitions/components/CompetitionForm.js";
@@ -28,9 +40,16 @@ function EllipsisCell({ children }: { children: string }) {
   );
 }
 
+function competitionStatusTagColor(status: Competition["status"]) {
+  if (status === "ongoing") return "processing";
+  if (status === "ended") return "default";
+  return "purple";
+}
+
 export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [page, setPage] = useState(1);
+  const [archiveScope, setArchiveScope] = useState<CompetitionArchiveScope>("unarchived");
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState<"loading" | "ready">("loading");
   const [competitionModal, setCompetitionModal] = useState<CompetitionModalState | null>(null);
@@ -38,17 +57,18 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
   const { showRequestError, showSuccess } = useRequestFeedback(onLogout);
 
   const refreshCompetitions = useCallback(
-    async (nextPage = page) => {
+    async (nextPage = page, nextArchiveScope = archiveScope) => {
       const result = await client.listCompetitions({
         page: nextPage,
         limit: competitionPageLimit,
+        archiveScope: nextArchiveScope,
       });
       setCompetitions(result.competitions);
       setTotal(result.total);
       setPage(result.page);
       setStatus("ready");
     },
-    [page]
+    [archiveScope, page]
   );
 
   useEffect(() => {
@@ -81,7 +101,8 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
         });
         showSuccess(`已创建比赛 ${result.competition.name}`);
         setCompetitionModal(null);
-        await refreshCompetitions(1);
+        setArchiveScope("unarchived");
+        await refreshCompetitions(1, "unarchived");
         return;
       }
 
@@ -119,15 +140,28 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
                   : `共 ${total} 场比赛，每页 ${competitionPageLimit} 条`}
               </Typography.Text>
             </div>
-            <Button
-              icon={<PlusOutlined />}
-              type="primary"
-              onClick={() => {
-                setCompetitionModal({ mode: "create", competition: null });
-              }}
-            >
-              新建比赛
-            </Button>
+            <Space wrap>
+              <Segmented
+                options={[
+                  { label: "未归档", value: "unarchived" },
+                  { label: "已归档", value: "archived" },
+                ]}
+                value={archiveScope}
+                onChange={(value) => {
+                  setPage(1);
+                  setArchiveScope(value as CompetitionArchiveScope);
+                }}
+              />
+              <Button
+                icon={<PlusOutlined />}
+                type="primary"
+                onClick={() => {
+                  setCompetitionModal({ mode: "create", competition: null });
+                }}
+              >
+                新建比赛
+              </Button>
+            </Space>
           </Flex>
 
           <Table<Competition>
@@ -148,8 +182,8 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
               {
                 dataIndex: "status",
                 render: (status: Competition["status"]) => (
-                  <Tag color={status === "ongoing" ? "processing" : "default"}>
-                    {entityStatusLabels[status]}
+                  <Tag color={competitionStatusTagColor(status)}>
+                    {competitionStatusLabels[status]}
                   </Tag>
                 ),
                 title: "状态",
@@ -183,6 +217,7 @@ export function CompetitionsPage({ onLogout }: { onLogout: () => void }) {
                       <Link to={`/competitions/${competition.id}`}>进入详情</Link>
                     </Button>
                     <Button
+                      disabled={competition.status !== "ongoing"}
                       icon={<EditOutlined />}
                       onClick={() => {
                         setCompetitionModal({ mode: "edit", competition });

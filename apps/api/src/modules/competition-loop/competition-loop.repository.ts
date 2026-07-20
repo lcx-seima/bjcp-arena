@@ -2,6 +2,8 @@ import {
   findBjcpSubcategory,
   isProfessionalScoreJudgeType,
   professionalScoreGrade,
+  type CompetitionArchiveScope,
+  type CompetitionStatus,
   type EntityStatus,
   type ImportBeerRow,
   type JudgeType,
@@ -13,7 +15,7 @@ import type { AuthUserSnapshot } from "../auth/auth-user-snapshot-store.js";
 export interface StoredCompetition {
   id: number;
   name: string;
-  status: EntityStatus;
+  status: CompetitionStatus;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -126,13 +128,13 @@ export interface UpsertBeerResult {
 }
 
 export interface CompetitionLoopRepository {
-  countCompetitions(): Promise<number>;
-  listCompetitions(): Promise<StoredCompetition[]>;
+  countCompetitions(archiveScope: CompetitionArchiveScope): Promise<number>;
+  listCompetitions(archiveScope: CompetitionArchiveScope): Promise<StoredCompetition[]>;
   findCompetition(id: number): Promise<StoredCompetition | null>;
   createCompetition(input: { name: string }): Promise<StoredCompetition>;
   updateCompetition(
     id: number,
-    input: { name?: string | undefined; status?: EntityStatus | undefined }
+    input: { name?: string | undefined; status?: CompetitionStatus | undefined }
   ): Promise<StoredCompetition | null>;
   listBeers(competitionId: number): Promise<StoredBeer[]>;
   findBeer(competitionId: number, beerId: number): Promise<StoredBeer | null>;
@@ -335,11 +337,20 @@ export function createMemoryCompetitionLoopRepository(): CompetitionLoopReposito
   }
 
   return {
-    async countCompetitions() {
-      return competitions.size;
+    async countCompetitions(archiveScope) {
+      return [...competitions.values()].filter((competition) =>
+        archiveScope === "archived"
+          ? competition.status === "archived"
+          : competition.status !== "archived"
+      ).length;
     },
-    async listCompetitions() {
+    async listCompetitions(archiveScope) {
       return [...competitions.values()]
+        .filter((competition) =>
+          archiveScope === "archived"
+            ? competition.status === "archived"
+            : competition.status !== "archived"
+        )
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
         .map(cloneCompetition);
     },
@@ -672,11 +683,20 @@ export function createPrismaCompetitionLoopRepository(
   }
 
   return {
-    async countCompetitions() {
-      return db.competition.count();
+    async countCompetitions(archiveScope) {
+      return db.competition.count({
+        where:
+          archiveScope === "archived" ? { status: "archived" } : { status: { not: "archived" } },
+      });
     },
-    async listCompetitions() {
-      return (await db.competition.findMany({ orderBy: { createdAt: "desc" } })).map(toCompetition);
+    async listCompetitions(archiveScope) {
+      return (
+        await db.competition.findMany({
+          where:
+            archiveScope === "archived" ? { status: "archived" } : { status: { not: "archived" } },
+          orderBy: { createdAt: "desc" },
+        })
+      ).map(toCompetition);
     },
     async findCompetition(id) {
       const value = await db.competition.findUnique({ where: { id } });

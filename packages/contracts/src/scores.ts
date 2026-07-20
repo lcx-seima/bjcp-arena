@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { judgeTypeSchema, judgeTypeSeniorEnthusiast } from "./judge-types.js";
-import { entityStatusSchema } from "./competitions.js";
+import { competitionStatusSchema, entityStatusSchema } from "./competitions.js";
 import { entryCodeSchema } from "./beers.js";
 
 export const judgeCompetitionListPath = "/api/judge/competitions" as const;
@@ -109,7 +109,7 @@ export const myScoreSchema = z.object({
 const judgeCompetitionSchema = z.object({
   id: z.number().int().positive(),
   name: z.string(),
-  status: entityStatusSchema,
+  status: competitionStatusSchema,
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -169,7 +169,7 @@ export const judgeBeerSchema = z.object({
   categoryRemark: categoryRemarkResultSchema,
   description: z.string(),
   roundStatus: entityStatusSchema,
-  competitionStatus: entityStatusSchema,
+  competitionStatus: competitionStatusSchema,
   bjcpSubcategoryDoc: z.string().url().optional(),
   canScore: z.boolean(),
 });

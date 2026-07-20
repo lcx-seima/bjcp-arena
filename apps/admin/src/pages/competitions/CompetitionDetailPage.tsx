@@ -9,6 +9,7 @@ import {
 } from "@ant-design/icons";
 import {
   App as AntdApp,
+  Alert,
   Button,
   Card,
   Drawer,
@@ -27,12 +28,13 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import * as XLSX from "xlsx";
-import type { EntityStatus, ImportBeerRow } from "@bjcp-arena/contracts";
+import type { CompetitionStatus, EntityStatus, ImportBeerRow } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
 import { useRequestFeedback } from "../../app/feedback.js";
 import { PageHeader } from "../../components/ui/PageHeader.js";
 import {
-  entityStatusLabels,
+  competitionStatusLabels,
+  roundStatusLabels,
   type Beer,
   type Competition,
   type CompetitionRound,
@@ -47,8 +49,10 @@ function readCompetitionId(value: string | undefined) {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
-function entityStatusTagColor(status: EntityStatus) {
-  return status === "ongoing" ? "green" : "red";
+function competitionStatusTagColor(status: CompetitionStatus) {
+  if (status === "ongoing") return "green";
+  if (status === "ended") return "red";
+  return "default";
 }
 
 function parseExcelRows(file: File): Promise<ImportBeerRow[]> {
@@ -99,9 +103,9 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
   const [isBusy, setIsBusy] = useState(false);
 
   const selectedRound = rounds.find((round) => round.id === selectedRoundId) ?? null;
-  const canChangeRoundStatus = competition?.status === "ongoing";
-  const isSelectedRoundWritable =
-    canChangeRoundStatus && selectedRound?.status === "ongoing";
+  const isCompetitionWritable = competition?.status === "ongoing";
+  const canChangeRoundStatus = isCompetitionWritable;
+  const isSelectedRoundWritable = canChangeRoundStatus && selectedRound?.status === "ongoing";
 
   const refreshDetail = useCallback(async () => {
     if (!competitionId) {
@@ -176,15 +180,15 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
     }
   }
 
-  async function handleCompetitionStatus(nextStatus: EntityStatus) {
+  async function handleCompetitionStatus(nextStatus: CompetitionStatus) {
     if (!competitionId || !competition) return;
     await runAction(async () => {
       const result = await client.updateCompetitionStatus(competitionId, {
         status: nextStatus,
-        ...(nextStatus === "ongoing" ? { confirm: true } : {}),
+        ...(nextStatus === "ongoing" || nextStatus === "archived" ? { confirm: true } : {}),
       });
       setCompetition(result.competition);
-      showSuccess(`比赛状态已更新为 ${entityStatusLabels[result.competition.status]}`);
+      showSuccess(`比赛状态已更新为 ${competitionStatusLabels[result.competition.status]}`);
     });
   }
 
@@ -328,32 +332,59 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
           title={competition?.name ?? "比赛详情"}
           titleExtra={
             competition ? (
-              <Tag color={entityStatusTagColor(competition.status)}>
-                {entityStatusLabels[competition.status]}
+              <Tag color={competitionStatusTagColor(competition.status)}>
+                {competitionStatusLabels[competition.status]}
               </Tag>
             ) : undefined
           }
         />
         <Space wrap>
-          {competition ? (
+          {competition?.status === "ongoing" ? (
             <Popconfirm
               cancelText="取消"
-              description={
-                competition.status === "ongoing"
-                  ? "结束后将不能继续修改比赛、轮次和酒款配置。"
-                  : "重新打开后管理员和裁判可继续修改允许状态下的数据。"
-              }
+              description="关闭后将不能继续修改比赛、轮次和酒款配置。"
               okText="确认"
-              title={competition.status === "ongoing" ? "确认结束比赛？" : "确认重新打开比赛？"}
-              onConfirm={() =>
-                void handleCompetitionStatus(
-                  competition.status === "ongoing" ? "ended" : "ongoing"
-                )
-              }
+              title="确认关闭比赛？"
+              onConfirm={() => void handleCompetitionStatus("ended")}
             >
-              <Button danger={competition.status === "ongoing"} loading={isBusy}>
-                {competition.status === "ongoing" ? "结束比赛" : "重新打开比赛"}
+              <Button danger loading={isBusy}>
+                关闭比赛
               </Button>
+            </Popconfirm>
+          ) : null}
+          {competition?.status === "ended" ? (
+            <>
+              <Popconfirm
+                cancelText="取消"
+                description="恢复后管理员和裁判可继续修改允许状态下的数据。"
+                okText="确认"
+                title="确认恢复比赛进行中？"
+                onConfirm={() => void handleCompetitionStatus("ongoing")}
+              >
+                <Button loading={isBusy}>恢复进行中</Button>
+              </Popconfirm>
+              <Popconfirm
+                cancelText="取消"
+                description="归档后裁判将无法查询本场比赛，管理端仅可查看和恢复。"
+                okText="确认归档"
+                title="确认归档比赛？"
+                onConfirm={() => void handleCompetitionStatus("archived")}
+              >
+                <Button danger loading={isBusy}>
+                  归档比赛
+                </Button>
+              </Popconfirm>
+            </>
+          ) : null}
+          {competition?.status === "archived" ? (
+            <Popconfirm
+              cancelText="取消"
+              description="恢复后比赛回到已关闭状态，裁判可以查看但仍不能提交评分。"
+              okText="确认恢复"
+              title="恢复为已关闭？"
+              onConfirm={() => void handleCompetitionStatus("ended")}
+            >
+              <Button loading={isBusy}>恢复为已关闭</Button>
             </Popconfirm>
           ) : null}
           <Button
@@ -371,6 +402,15 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
           </Button>
         </Space>
       </Flex>
+
+      {competition?.status === "archived" ? (
+        <Alert
+          showIcon
+          description="当前比赛仅可查看。恢复为已关闭后仍不可编辑，如需修改数据，需再恢复为进行中。"
+          message="比赛已归档"
+          type="info"
+        />
+      ) : null}
 
       <Tabs
         defaultActiveKey="rounds"
@@ -398,6 +438,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                     </div>
                     <Button
                       className={classes.roundCreate!}
+                      disabled={!isCompetitionWritable}
                       icon={<PlusOutlined />}
                       loading={isBusy}
                       type="primary"
@@ -435,7 +476,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                           ) : (
                             <Space size="small" wrap>
                               <Typography.Text strong>{selectedRound.name}</Typography.Text>
-                              <Tag>{entityStatusLabels[selectedRound.status]}</Tag>
+                              <Tag>{roundStatusLabels[selectedRound.status]}</Tag>
                               <Typography.Text type="secondary">
                                 {selectedRound.beerCount} 款酒 · {selectedRound.scoreCount} 条评价
                               </Typography.Text>
@@ -535,7 +576,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                 )}
                 <AddRoundBeersDrawer
                   beers={beers}
-                  isSubmitting={isBusy}
+                  isSubmitting={isBusy || !isCompetitionWritable}
                   opened={isAddRoundBeersDrawerOpen}
                   roundBeers={roundBeers}
                   roundName={selectedRound?.name ?? "当前轮次"}
@@ -544,7 +585,10 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                 />
                 <Modal
                   destroyOnHidden
-                  okButtonProps={{ disabled: !newRoundName.trim(), loading: isBusy }}
+                  okButtonProps={{
+                    disabled: !isCompetitionWritable || !newRoundName.trim(),
+                    loading: isBusy,
+                  }}
                   okText="创建"
                   open={isCreateRoundModalOpen}
                   title="新增轮次"
@@ -553,6 +597,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                 >
                   <Input
                     autoFocus
+                    disabled={!isCompetitionWritable}
                     placeholder="轮次名"
                     value={newRoundName}
                     onChange={(event) => setNewRoundName(event.currentTarget.value)}
@@ -587,6 +632,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                         }}
                       />
                       <Button
+                        disabled={!isCompetitionWritable}
                         icon={<FileExcelOutlined />}
                         loading={isBusy}
                         onClick={() => fileInputRef.current?.click()}
@@ -594,6 +640,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                         Excel 导入
                       </Button>
                       <Button
+                        disabled={!isCompetitionWritable}
                         icon={<PlusOutlined />}
                         type="primary"
                         onClick={() => setBeerDrawer({ mode: "create", beer: null })}
@@ -622,6 +669,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                         fixed: "right",
                         render: (_, beer) => (
                           <Button
+                            disabled={!isCompetitionWritable}
                             size="small"
                             onClick={() => setBeerDrawer({ mode: "edit", beer })}
                           >
@@ -654,7 +702,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
       >
         <BeerForm
           beer={beerDrawer?.mode === "edit" ? beerDrawer.beer : null}
-          isSubmitting={isBusy}
+          isSubmitting={isBusy || !isCompetitionWritable}
           submitLabel={beerDrawer?.mode === "edit" ? "保存酒款" : "新增或更新酒款"}
           onSubmit={beerDrawer?.mode === "edit" ? handleSaveBeer : handleCreateBeer}
         />

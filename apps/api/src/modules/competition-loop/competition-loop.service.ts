@@ -1,5 +1,7 @@
 import type {
   AddRoundBeerInput,
+  CompetitionListQuery,
+  CompetitionStatus,
   CreateBeerInput,
   CreateCompetitionInput,
   CreateRoundInput,
@@ -139,7 +141,7 @@ function toJudgeBeer(
   };
 }
 
-function assertOngoing(status: EntityStatus, message: string) {
+function assertOngoing(status: CompetitionStatus, message: string) {
   if (status !== "ongoing") {
     throw new CompetitionLoopError(message, 409);
   }
@@ -149,6 +151,14 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
   async function requireCompetition(competitionId: number) {
     const competition = await repository.findCompetition(competitionId);
     if (!competition) {
+      throw new CompetitionLoopError("比赛不存在", 404);
+    }
+    return competition;
+  }
+
+  async function requireJudgeCompetition(competitionId: number) {
+    const competition = await requireCompetition(competitionId);
+    if (competition.status === "archived") {
       throw new CompetitionLoopError("比赛不存在", 404);
     }
     return competition;
@@ -172,7 +182,10 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
 
   async function ensureCompetitionWritable(competitionId: number) {
     const competition = await requireCompetition(competitionId);
-    assertOngoing(competition.status, "比赛已结束，不能继续修改");
+    assertOngoing(
+      competition.status,
+      competition.status === "archived" ? "比赛已归档，不能继续修改" : "比赛已关闭，不能继续修改"
+    );
     return competition;
   }
 
@@ -190,12 +203,12 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
   }
 
   return {
-    async listCompetitions(options: { page: number; limit: number }) {
-      const all = await repository.listCompetitions();
+    async listCompetitions(options: CompetitionListQuery) {
+      const all = await repository.listCompetitions(options.archiveScope);
       const start = (options.page - 1) * options.limit;
       return {
         competitions: all.slice(start, start + options.limit).map(toCompetition),
-        total: await repository.countCompetitions(),
+        total: await repository.countCompetitions(options.archiveScope),
         page: options.page,
         limit: options.limit,
       };
@@ -218,21 +231,33 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
 
     async updateCompetitionStatus(
       competitionId: number,
-      input: { status: EntityStatus; confirm?: boolean | undefined }
+      input: { status: CompetitionStatus; confirm?: boolean | undefined }
     ) {
       const competition = await requireCompetition(competitionId);
       if (competition.status === input.status) {
         return { competition: toCompetition(competition) };
       }
+
+      if (competition.status === "archived") {
+        if (input.status !== "ended") {
+          throw new CompetitionLoopError("归档比赛需先恢复为已关闭状态", 409);
+        }
+      } else if (competition.status === "ongoing" && input.status !== "ended") {
+        throw new CompetitionLoopError("比赛进行中不能直接归档", 409);
+      }
+
       if (competition.status === "ended" && input.status === "ongoing" && !input.confirm) {
         throw new CompetitionLoopError("重新打开比赛需要二次确认", 409);
+      }
+      if (competition.status === "ended" && input.status === "archived" && !input.confirm) {
+        throw new CompetitionLoopError("归档比赛需要二次确认", 409);
       }
       if (input.status === "ended") {
         const openRounds = (await repository.listRounds(competitionId)).filter(
           (round) => round.status === "ongoing"
         );
         if (openRounds.length > 0) {
-          throw new CompetitionLoopError("仍有未结束轮次，不能结束比赛", 409, {
+          throw new CompetitionLoopError("仍有进行中轮次，不能关闭比赛", 409, {
             openRoundCount: openRounds.length,
           });
         }
@@ -327,7 +352,7 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
       input: { status: EntityStatus; confirm?: boolean | undefined }
     ) {
       const competition = await requireCompetition(competitionId);
-      assertOngoing(competition.status, "比赛已结束，不能修改轮次");
+      assertOngoing(competition.status, "比赛已关闭，不能修改轮次");
       const round = await requireRound(competitionId, roundId);
       if (round.status === input.status) {
         return { round: await roundView(round) };
@@ -425,7 +450,7 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
     },
 
     async listJudgeCompetitions() {
-      const competitions = (await repository.listCompetitions())
+      const competitions = (await repository.listCompetitions("unarchived"))
         .sort((a, b) => {
           if (a.status !== b.status) return a.status === "ongoing" ? -1 : 1;
           return b.createdAt.getTime() - a.createdAt.getTime();
@@ -435,7 +460,7 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
     },
 
     async listJudgeRounds(competitionId: number, currentUser: AuthUserSnapshot) {
-      const competition = await requireCompetition(competitionId);
+      const competition = await requireJudgeCompetition(competitionId);
       const rounds = await Promise.all(
         (await repository.listRounds(competitionId)).map(async (round) => ({
           id: round.id,
@@ -452,6 +477,7 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
     },
 
     async getJudgeRound(competitionId: number, roundId: number, currentUser: AuthUserSnapshot) {
+      await requireJudgeCompetition(competitionId);
       const round = await requireRound(competitionId, roundId);
       const scores = await repository.listActiveScoresByJudge(roundId, currentUser.id);
       return {
@@ -486,7 +512,7 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
       entryCode: string,
       currentUser: AuthUserSnapshot
     ) {
-      const competition = await requireCompetition(competitionId);
+      const competition = await requireJudgeCompetition(competitionId);
       const round = await requireRound(competitionId, roundId);
       const normalized = normalizeEntryCode(entryCode);
       const binding = (await repository.listRoundBeers(competitionId, roundId)).find(
@@ -513,7 +539,7 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
       beerId: number,
       currentUser: AuthUserSnapshot
     ) {
-      const competition = await requireCompetition(competitionId);
+      const competition = await requireJudgeCompetition(competitionId);
       const round = await requireRound(competitionId, roundId);
       const binding = await repository.findRoundBeer(competitionId, roundId, beerId);
       if (!binding) {
@@ -537,7 +563,7 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
       beerId: number,
       currentUser: AuthUserSnapshot
     ) {
-      await requireCompetition(competitionId);
+      await requireJudgeCompetition(competitionId);
       await requireRound(competitionId, roundId);
       const binding = await repository.findRoundBeer(competitionId, roundId, beerId);
       if (!binding) throw new CompetitionLoopError("本轮次未找到该酒款", 404);
@@ -552,9 +578,9 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
       currentUser: AuthUserSnapshot,
       score: ScoreInput
     ) {
-      const competition = await requireCompetition(competitionId);
+      const competition = await requireJudgeCompetition(competitionId);
       const round = await requireRound(competitionId, roundId);
-      assertOngoing(competition.status, "比赛已结束，不能提交评分");
+      assertOngoing(competition.status, "比赛已关闭，不能提交评分");
       assertOngoing(round.status, "轮次已结束，不能提交评分");
       const binding = await repository.findRoundBeer(competitionId, roundId, beerId);
       if (!binding) throw new CompetitionLoopError("本轮次未找到该酒款", 404);
@@ -585,9 +611,9 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
       beerId: number,
       currentUser: AuthUserSnapshot
     ) {
-      const competition = await requireCompetition(competitionId);
+      const competition = await requireJudgeCompetition(competitionId);
       const round = await requireRound(competitionId, roundId);
-      assertOngoing(competition.status, "比赛已结束，不能删除评分");
+      assertOngoing(competition.status, "比赛已关闭，不能删除评分");
       assertOngoing(round.status, "轮次已结束，不能删除评分");
       const binding = await repository.findRoundBeer(competitionId, roundId, beerId);
       if (!binding) throw new CompetitionLoopError("本轮次未找到该酒款", 404);
