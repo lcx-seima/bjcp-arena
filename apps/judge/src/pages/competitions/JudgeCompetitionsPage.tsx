@@ -1,8 +1,8 @@
 import { Tag } from "antd-mobile";
 import { useEffect, useState } from "react";
 import {
-  judgeTypeLabels,
   type JudgeCompetitionListResult,
+  type JudgeType,
   type UserPublic,
 } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
@@ -13,6 +13,25 @@ import { MobileShell } from "../../components/ui/MobileShell.js";
 import { isUnauthorized, readError } from "../../utils/errors.js";
 
 type JudgeCompetition = JudgeCompetitionListResult["competitions"][number];
+
+const judgeTypeTagPresentation: Record<
+  JudgeType,
+  { color: string; label: string; symbol: string; textColor: string }
+> = {
+  professional: {
+    color: "#e8b94d",
+    label: "专业裁判",
+    symbol: "★",
+    textColor: "#3b1a0b",
+  },
+  senior_enthusiast: {
+    color: "#237804",
+    label: "资深爱好者",
+    symbol: "◆",
+    textColor: "#ffffff",
+  },
+  public: { color: "#69b1ff", label: "消费者", symbol: "●", textColor: "#002c8c" },
+};
 
 function UserCenterIcon() {
   return (
@@ -78,7 +97,25 @@ export function JudgeCompetitionsPage({
         subtitle={
           <div className="brand-mark__account">
             <span>当前账号：{user.nickname}</span>
-            {user.judgeType ? <Tag color="primary">{judgeTypeLabels[user.judgeType]}</Tag> : null}
+            {user.judgeType ? (
+              <Tag
+                color={judgeTypeTagPresentation[user.judgeType].color}
+                style={{
+                  borderRadius: 999,
+                  boxShadow: "0 2px 6px rgba(0, 0, 0, 0.22)",
+                  color: judgeTypeTagPresentation[user.judgeType].textColor,
+                  fontSize: 12,
+                  fontWeight: 800,
+                  lineHeight: 1.2,
+                  padding: "3px 7px",
+                }}
+              >
+                <span aria-hidden="true" style={{ marginRight: 4 }}>
+                  {judgeTypeTagPresentation[user.judgeType].symbol}
+                </span>
+                {judgeTypeTagPresentation[user.judgeType].label}
+              </Tag>
+            ) : null}
           </div>
         }
       />
