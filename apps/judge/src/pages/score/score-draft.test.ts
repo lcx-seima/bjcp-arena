@@ -83,6 +83,30 @@ describe("score draft policy", () => {
     expect(state.shouldClearDraft).toBe(true);
   });
 
+  it("资深爱好者已提交评分时恢复专业表单内容", () => {
+    const state = resolveInitialScoreFormState({
+      draft: null,
+      score: {
+        ...submittedProfessionalScore,
+        judgeTypeSnapshot: "senior_enthusiast",
+      },
+    });
+
+    expect(state.professionalValues).toEqual({
+      aroma: 9,
+      appearance: 3,
+      flavor: 16,
+      mouthfeel: 4,
+      overall: 8,
+      aromaComment: "麦芽香气清晰",
+      appearanceComment: "泡沫细腻",
+      flavorComment: "层次完整",
+      mouthfeelComment: "酒体顺滑",
+      overallComment: "整体表现稳定",
+    });
+    expect(state.amateurValues).toBe(defaultAmateurValues);
+  });
+
   it("未提交过评分且有草稿时恢复草稿", () => {
     const state = resolveInitialScoreFormState({
       draft: {

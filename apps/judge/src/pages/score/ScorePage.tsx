@@ -5,7 +5,12 @@ import type {
   ScoreInput,
   UserPublic,
 } from "@bjcp-arena/contracts";
-import { judgeTypeLabels, professionalScoreGrade, scoreInputSchema } from "@bjcp-arena/contracts";
+import {
+  isProfessionalScoreJudgeType,
+  judgeTypeLabels,
+  professionalScoreGrade,
+  scoreInputSchema,
+} from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
 import { InlineError } from "../../components/ui/InlineError.js";
 import { MobileShell } from "../../components/ui/MobileShell.js";
@@ -143,6 +148,9 @@ export function ScorePage({
     [amateurValues]
   );
   const effectiveJudgeType = score?.judgeTypeSnapshot ?? user.judgeType;
+  const usesProfessionalScoreForm = effectiveJudgeType
+    ? isProfessionalScoreJudgeType(effectiveJudgeType)
+    : false;
   const judgeIdentityText = effectiveJudgeType
     ? `裁判身份：${judgeTypeLabels[effectiveJudgeType]}`
     : "裁判身份未设置";
@@ -152,7 +160,7 @@ export function ScorePage({
       ? `上次提交：${formatLocalDateTime(score.submittedAt)}`
       : "草稿将在修改后自动保存";
   const totalSummary =
-    effectiveJudgeType === "professional"
+    usesProfessionalScoreForm
       ? `总分 ${professionalTotal}/50 · ${professionalScoreGrade(professionalTotal)}`
       : effectiveJudgeType === "public"
         ? `总分 ${amateurTotal}/20`
@@ -260,9 +268,9 @@ export function ScorePage({
     }
 
     const payload: ScoreInput =
-      effectiveJudgeType === "professional"
+      isProfessionalScoreJudgeType(effectiveJudgeType)
         ? {
-            judgeType: "professional",
+            judgeType: effectiveJudgeType,
             professionalAromaScore: professionalValues.aroma,
             professionalAromaComment: professionalValues.aromaComment,
             professionalAppearanceScore: professionalValues.appearance,
@@ -459,7 +467,7 @@ export function ScorePage({
 
       {error ? <InlineError>{error}</InlineError> : null}
 
-      {effectiveJudgeType === "professional" ? (
+      {usesProfessionalScoreForm ? (
         <section className={classes.scoreSection}>
           <div className={classes.sectionTitle}>评价表单</div>
           <div className={classes.judgeIdentity}>{judgeIdentityText}</div>

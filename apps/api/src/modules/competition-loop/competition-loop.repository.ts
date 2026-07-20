@@ -1,8 +1,10 @@
 import {
   findBjcpSubcategory,
+  isProfessionalScoreJudgeType,
   professionalScoreGrade,
   type EntityStatus,
   type ImportBeerRow,
+  type JudgeType,
   type ScoreInput,
 } from "@bjcp-arena/contracts";
 import type { PrismaClient } from "@prisma/client";
@@ -56,7 +58,7 @@ export interface StoredScore {
   roundId: number;
   beerId: number;
   judgeUserId: number;
-  judgeTypeSnapshot: "professional" | "public";
+  judgeTypeSnapshot: JudgeType;
   judgeNicknameSnapshot: string;
   professionalAromaScore: number | null;
   professionalAromaComment: string | null;
@@ -238,6 +240,12 @@ function beerSnapshot(
   };
 }
 
+type ProfessionalScoreSubmission = Exclude<ScoreInput, { judgeType: "public" }>;
+
+function isProfessionalScoreSubmission(input: ScoreInput): input is ProfessionalScoreSubmission {
+  return isProfessionalScoreJudgeType(input.judgeType);
+}
+
 function scoreFields(input: ScoreInput, currentUser: AuthUserSnapshot) {
   const submittedAt = now();
   const base = {
@@ -246,7 +254,7 @@ function scoreFields(input: ScoreInput, currentUser: AuthUserSnapshot) {
     submittedAt,
     deletedAt: null,
   };
-  if (input.judgeType === "professional") {
+  if (isProfessionalScoreSubmission(input)) {
     const total =
       input.professionalAromaScore +
       input.professionalAppearanceScore +

@@ -20,6 +20,7 @@ import {
   judgeRoundBeerScorePath,
   judgeRoundDetailPath,
   judgeRoundListPath,
+  judgeTypeSeniorEnthusiast,
   normalizeEntryCode,
   professionalScoreGrade,
   professionalScoreInputSchema,
@@ -255,6 +256,39 @@ describe("competition loop contracts", () => {
         professionalMouthfeelComment: "酒体中等，杀口适中",
         professionalOverallScore: 8,
         professionalOverallComment: "整体完成度高",
+      })
+    ).toThrow();
+  });
+
+  it("accepts professional score fields for senior enthusiast judges", () => {
+    const professionalScore = {
+      professionalAromaScore: 10,
+      professionalAromaComment: "香气干净，酒花明显",
+      professionalAppearanceScore: 3,
+      professionalAppearanceComment: "泡沫细腻",
+      professionalFlavorScore: 18,
+      professionalFlavorComment: "入口平衡，收口干净",
+      professionalMouthfeelScore: 4,
+      professionalMouthfeelComment: "酒体中等，杀口适中",
+      professionalOverallScore: 8,
+      professionalOverallComment: "整体完成度高",
+    };
+
+    expect(
+      scoreInputSchema.parse({
+        judgeType: judgeTypeSeniorEnthusiast,
+        ...professionalScore,
+      })
+    ).toMatchObject({ judgeType: judgeTypeSeniorEnthusiast, professionalFlavorScore: 18 });
+
+    expect(() =>
+      scoreInputSchema.parse({
+        judgeType: judgeTypeSeniorEnthusiast,
+        amateurDrinkabilityScore: 4,
+        amateurBalanceScore: 5,
+        amateurFlavorAcceptanceScore: 4,
+        amateurRepeatIntentionScore: 5,
+        amateurComment: "轻松顺口，愿意复饮",
       })
     ).toThrow();
   });

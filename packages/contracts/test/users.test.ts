@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   adminRole,
   createUserInputSchema,
+  isProfessionalScoreJudgeType,
   judgeTypeProfessional,
   judgeTypePublic,
+  judgeTypeSeniorEnthusiast,
   judgeTypeLabels,
   judgeTypeSchema,
   judgeRole,
@@ -28,12 +30,18 @@ describe("users contract", () => {
   it("defines judge type constants", () => {
     expect(judgeTypeProfessional).toBe("professional");
     expect(judgeTypePublic).toBe("public");
+    expect(judgeTypeSeniorEnthusiast).toBe("senior_enthusiast");
     expect(judgeTypeLabels).toEqual({
       professional: "专业裁判",
       public: "消费者裁判",
+      senior_enthusiast: "资深爱好者裁判",
     });
     expect(judgeTypeSchema.parse("professional")).toBe("professional");
     expect(judgeTypeSchema.parse("public")).toBe("public");
+    expect(judgeTypeSchema.parse("senior_enthusiast")).toBe("senior_enthusiast");
+    expect(isProfessionalScoreJudgeType(judgeTypeProfessional)).toBe(true);
+    expect(isProfessionalScoreJudgeType(judgeTypeSeniorEnthusiast)).toBe(true);
+    expect(isProfessionalScoreJudgeType(judgeTypePublic)).toBe(false);
     expect(() => judgeTypeSchema.parse("guest")).toThrow();
   });
 
@@ -156,6 +164,9 @@ describe("users contract", () => {
 
     expect(updateUserInputSchema.parse({ judgeType: judgeTypePublic })).toEqual({
       judgeType: judgeTypePublic,
+    });
+    expect(updateUserInputSchema.parse({ judgeType: judgeTypeSeniorEnthusiast })).toEqual({
+      judgeType: judgeTypeSeniorEnthusiast,
     });
     expect(updateUserInputSchema.parse({ judgeType: null })).toEqual({
       judgeType: null,

@@ -1,4 +1,4 @@
-import type { MyScoreResult } from "@bjcp-arena/contracts";
+import { isProfessionalScoreJudgeType, type MyScoreResult } from "@bjcp-arena/contracts";
 
 export type MyScore = NonNullable<MyScoreResult["score"]>;
 
@@ -88,7 +88,7 @@ export function resolveInitialScoreFormState({
         score.judgeTypeSnapshot === "public" ? amateurValuesFromScore(score) : defaultAmateurValues,
       draftSavedAt: null,
       professionalValues:
-        score.judgeTypeSnapshot === "professional"
+        isProfessionalScoreJudgeType(score.judgeTypeSnapshot)
           ? professionalValuesFromScore(score)
           : defaultProfessionalValues,
       shouldClearDraft: draft !== null,

@@ -5,6 +5,7 @@ import {
   createUserInputSchema,
   judgeTypeProfessional,
   judgeTypePublic,
+  judgeTypeSeniorEnthusiast,
   judgeRole,
   resetUserPasswordInputSchema,
   superAdminRole,
@@ -376,6 +377,34 @@ describe("user management routes", () => {
 
     expect(restoredJudgeRole.statusCode).toBe(200);
     expect(userResultSchema.parse(restoredJudgeRole.json()).user.judgeType).toBe(judgeTypePublic);
+    await app.close();
+  });
+
+  it("creates and updates users with the senior enthusiast judge type", async () => {
+    const { app } = createTestApp();
+    const token = await bootstrapToken(app);
+
+    const created = await createUser(app, token, {
+      username: "seniorjudge",
+      nickname: "资深爱好者",
+      password: "secret123",
+      roles: judgeRole,
+      judgeType: judgeTypeSeniorEnthusiast,
+    });
+
+    expect(created.statusCode).toBe(200);
+    const user = userResultSchema.parse(created.json()).user;
+    expect(user.judgeType).toBe(judgeTypeSeniorEnthusiast);
+
+    const updated = await app.inject({
+      method: "PATCH",
+      url: userByIdPath(user.id),
+      headers: { authorization: `Bearer ${token}` },
+      payload: { judgeType: judgeTypeProfessional },
+    });
+
+    expect(updated.statusCode).toBe(200);
+    expect(userResultSchema.parse(updated.json()).user.judgeType).toBe(judgeTypeProfessional);
     await app.close();
   });
 

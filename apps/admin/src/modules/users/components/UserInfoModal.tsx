@@ -5,9 +5,8 @@ import {
   adminRole,
   hasRole,
   judgeTypeLabels,
+  judgeTypes,
   judgeRole,
-  judgeTypeProfessional,
-  judgeTypePublic,
   superAdminRole,
   type JudgeType,
   type UserPublic,
@@ -24,10 +23,10 @@ export interface UserInfoFormValues {
   username: string;
 }
 
-const judgeTypeOptions = [
-  { label: judgeTypeLabels[judgeTypeProfessional], value: judgeTypeProfessional },
-  { label: judgeTypeLabels[judgeTypePublic], value: judgeTypePublic },
-];
+const judgeTypeOptions = judgeTypes.map((judgeType) => ({
+  label: judgeTypeLabels[judgeType],
+  value: judgeType,
+}));
 
 const resetFieldNames: Array<keyof UserInfoFormValues> = [
   "username",
