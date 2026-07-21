@@ -1,4 +1,4 @@
-import { adminRole, judgeRole } from "@bjcp-arena/contracts";
+import { adminRole, judgeRole, judgeTypeProfessional } from "@bjcp-arena/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { ApiClientHttpError, createApiClient, type FetchLike } from "../src/index.js";
 
@@ -180,6 +180,31 @@ describe("createApiClient", () => {
     });
   });
 
+  it("serializes defined user list filters", async () => {
+    const fetcher: FetchLike = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ users: [publicUser], total: 1, page: 1, limit: 50 }));
+    const client = createApiClient({
+      baseUrl: "http://localhost:4000",
+      fetch: fetcher,
+      getToken: () => "jwt-token",
+    });
+
+    await client.listUsers({
+      username: "  ABC  ",
+      role: judgeRole,
+      judgeType: judgeTypeProfessional,
+    });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "http://localhost:4000/api/users?page=1&limit=50&username=ABC&role=4&judgeType=professional",
+      {
+        headers: { Accept: "application/json", Authorization: "Bearer jwt-token" },
+        method: "GET",
+      }
+    );
+  });
+
   it("calls admin competition, beer and round endpoints", async () => {
     const fetcher: FetchLike = vi
       .fn()
@@ -325,9 +350,7 @@ describe("createApiClient", () => {
       .mockResolvedValueOnce(
         jsonResponse({
           round: { ...round, submittedBeerCount: 1 },
-          beers: [
-            { ...judgeBeer, totalScore: 18, submittedAt: "2026-07-05T00:00:00.000Z" },
-          ],
+          beers: [{ ...judgeBeer, totalScore: 18, submittedAt: "2026-07-05T00:00:00.000Z" }],
         })
       )
       .mockResolvedValueOnce(jsonResponse({ beer: judgeBeer }))

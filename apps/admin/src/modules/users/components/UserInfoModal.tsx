@@ -37,7 +37,6 @@ const resetFieldNames: Array<keyof UserInfoFormValues> = [
 ];
 
 export function UserInfoModal({
-  activeSuperAdminCount,
   currentUserId,
   isSubmitting,
   mode,
@@ -46,7 +45,6 @@ export function UserInfoModal({
   onClose,
   onSubmit,
 }: {
-  activeSuperAdminCount: number;
   currentUserId: number;
   isSubmitting: boolean;
   mode: "create" | "edit";
@@ -78,8 +76,6 @@ export function UserInfoModal({
 
   const isCurrentUser = user?.id === currentUserId;
   const isExistingSuperAdmin = user ? hasRole(user.roles, superAdminRole) : false;
-  const isActiveSuperAdmin = isExistingSuperAdmin && user?.disabled === false;
-  const isOnlyActiveSuperAdmin = isActiveSuperAdmin && activeSuperAdminCount <= 1;
   const selectedHasSuperAdmin = hasRole(roles, superAdminRole);
 
   const protectionError = useMemo(() => {
@@ -95,24 +91,8 @@ export function UserInfoModal({
       return "不能把当前登录账号降权为非超级管理员。";
     }
 
-    if (isOnlyActiveSuperAdmin && disabled) {
-      return "系统只有 1 个未停用超级管理员，不能停用该账号。";
-    }
-
-    if (isOnlyActiveSuperAdmin && !selectedHasSuperAdmin) {
-      return "系统只有 1 个未停用超级管理员，不能移除该账号的超级管理员角色。";
-    }
-
     return null;
-  }, [
-    disabled,
-    isCurrentUser,
-    isExistingSuperAdmin,
-    isOnlyActiveSuperAdmin,
-    mode,
-    selectedHasSuperAdmin,
-    user,
-  ]);
+  }, [disabled, isCurrentUser, isExistingSuperAdmin, mode, selectedHasSuperAdmin, user]);
 
   return (
     <Modal
@@ -158,9 +138,7 @@ export function UserInfoModal({
             { max: 64, message: "昵称最多 64 个字符" },
           ]}
         >
-          <Input
-            placeholder={mode === "create" ? "留空默认与用户名一致" : undefined}
-          />
+          <Input placeholder={mode === "create" ? "留空默认与用户名一致" : undefined} />
         </Form.Item>
 
         {mode === "create" ? (
@@ -194,9 +172,7 @@ export function UserInfoModal({
           ]}
         >
           <RoleCheckboxGroup
-            disabledSuperAdminRemoval={
-              mode === "edit" && ((isCurrentUser && isExistingSuperAdmin) || isOnlyActiveSuperAdmin)
-            }
+            disabledSuperAdminRemoval={mode === "edit" && isCurrentUser && isExistingSuperAdmin}
           />
         </Form.Item>
 
@@ -215,7 +191,7 @@ export function UserInfoModal({
             <Switch
               checked={!disabled}
               checkedChildren="已启用"
-              disabled={isCurrentUser || isOnlyActiveSuperAdmin}
+              disabled={isCurrentUser}
               unCheckedChildren="已停用"
               onChange={(checked) => form.setFieldValue("disabled", !checked)}
             />

@@ -1,4 +1,12 @@
 import { describe, expect, it } from "vitest";
+import {
+  adminRole,
+  judgeRole,
+  judgeTypeConsumer,
+  judgeTypeProfessional,
+  judgeTypePublic,
+  superAdminRole,
+} from "@bjcp-arena/contracts";
 import { DuplicateUsernameError } from "../../src/modules/users/users.errors.js";
 import type { StoredUser } from "../../src/modules/users/users.types.js";
 import { createMemoryUserRepository } from "../../src/modules/users/users.repository.js";
@@ -111,6 +119,49 @@ describe("memory user repository", () => {
 
     const passwordReset = await repository.resetPassword(1, "new-hash");
     expect(passwordReset?.authVersion).toBe(10);
+  });
+
+  it("filters users before counting and paginating", async () => {
+    const repository = createMemoryUserRepository([
+      createStoredUser({ id: 1, username: "AdminOne", roles: adminRole }),
+      createStoredUser({
+        id: 2,
+        username: "ProJudge",
+        roles: judgeRole,
+        judgeType: judgeTypeProfessional,
+      }),
+      createStoredUser({
+        id: 3,
+        username: "MixedJudge",
+        roles: adminRole | judgeRole,
+        judgeType: judgeTypePublic,
+      }),
+      createStoredUser({
+        id: 4,
+        username: "SuperJudge",
+        roles: superAdminRole | judgeRole,
+        judgeType: judgeTypeConsumer,
+      }),
+    ]);
+
+    await expect(repository.countUsers({ role: adminRole })).resolves.toBe(2);
+    await expect(repository.countUsers({ role: judgeRole })).resolves.toBe(3);
+    await expect(
+      repository.countUsers({
+        username: "judge",
+        role: judgeRole,
+        judgeType: judgeTypePublic,
+      })
+    ).resolves.toBe(1);
+
+    const page = await repository.listUsers({
+      username: "JUDGE",
+      role: judgeRole,
+      limit: 2,
+      order: "desc",
+      page: 2,
+    });
+    expect(page.map((user) => user.username)).toEqual(["ProJudge"]);
   });
 });
 

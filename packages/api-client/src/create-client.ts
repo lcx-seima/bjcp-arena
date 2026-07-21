@@ -147,10 +147,12 @@ function joinUrl(baseUrl: string, path: string) {
   return `${baseUrl.replace(/\/+$/, "")}${path}`;
 }
 
-function withQuery(path: string, query: Record<string, string | number>) {
+function withQuery(path: string, query: Record<string, string | number | undefined>) {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
-    params.set(key, String(value));
+    if (value !== undefined) {
+      params.set(key, String(value));
+    }
   }
   return `${path}?${params.toString()}`;
 }

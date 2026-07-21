@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { nicknameSchema, passwordSchema, userPublicSchema, usernameSchema } from "./auth.js";
-import { userRolesSchema } from "./roles.js";
-import { nullableJudgeTypeSchema } from "./judge-types.js";
+import { userRoleSchema, userRolesSchema } from "./roles.js";
+import { judgeTypeSchema, nullableJudgeTypeSchema } from "./judge-types.js";
 
 export const usersPath = "/api/users" as const;
 
@@ -38,6 +38,9 @@ export const resetUserPasswordInputSchema = z.object({
 export const userListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(50),
+  username: z.string().trim().pipe(usernameSchema).optional(),
+  role: z.coerce.number().pipe(userRoleSchema).optional(),
+  judgeType: judgeTypeSchema.optional(),
 });
 
 export const userListResultSchema = z.object({

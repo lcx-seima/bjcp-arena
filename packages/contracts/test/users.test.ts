@@ -119,6 +119,26 @@ describe("users contract", () => {
     expect(() => userListQuerySchema.parse({ limit: "101" })).toThrow();
   });
 
+  it("parses user list filters", () => {
+    expect(
+      userListQuerySchema.parse({
+        username: "  Judge01  ",
+        role: String(judgeRole),
+        judgeType: judgeTypeConsumer,
+      })
+    ).toEqual({
+      page: 1,
+      limit: 50,
+      username: "Judge01",
+      role: judgeRole,
+      judgeType: judgeTypeConsumer,
+    });
+
+    expect(() => userListQuerySchema.parse({ username: "bad-name" })).toThrow();
+    expect(() => userListQuerySchema.parse({ role: adminRole | judgeRole })).toThrow();
+    expect(() => userListQuerySchema.parse({ judgeType: "guest" })).toThrow();
+  });
+
   it("parses update user input and rejects empty updates", () => {
     expect(
       updateUserInputSchema.parse({

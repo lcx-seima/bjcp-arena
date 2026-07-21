@@ -138,6 +138,55 @@ describe("user management routes", () => {
     await app.close();
   }, 15_000);
 
+  it("filters users by username, contained role, and judge type", async () => {
+    const { app } = createTestApp();
+    const token = await bootstrapToken(app);
+
+    const users = [
+      { username: "admin01", roles: adminRole },
+      {
+        username: "mixedJudge",
+        roles: adminRole | judgeRole,
+        judgeType: judgeTypePublic,
+      },
+      { username: "proJudge", roles: judgeRole, judgeType: judgeTypeProfessional },
+      { username: "consumerJudge", roles: judgeRole, judgeType: judgeTypeConsumer },
+    ];
+    for (const user of users) {
+      const response = await createUser(app, token, { ...user, password: "secret123" });
+      expect(response.statusCode).toBe(200);
+    }
+
+    const roleResponse = await app.inject({
+      method: "GET",
+      url: `${usersPath}?role=${adminRole}`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const combinedResponse = await app.inject({
+      method: "GET",
+      url: `${usersPath}?username=%20JUDGE%20&role=${judgeRole}&judgeType=${judgeTypePublic}`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const secondPageResponse = await app.inject({
+      method: "GET",
+      url: `${usersPath}?username=judge&role=${judgeRole}&page=2&limit=2`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(userListResultSchema.parse(roleResponse.json())).toMatchObject({ total: 2 });
+    expect(userListResultSchema.parse(combinedResponse.json())).toMatchObject({
+      total: 1,
+      users: [{ username: "mixedJudge" }],
+    });
+    expect(userListResultSchema.parse(secondPageResponse.json())).toMatchObject({
+      total: 3,
+      page: 2,
+      limit: 2,
+      users: [{ username: "mixedJudge" }],
+    });
+    await app.close();
+  });
+
   it("rejects invalid user list pagination query", async () => {
     const { app } = createTestApp();
     const token = await bootstrapToken(app);

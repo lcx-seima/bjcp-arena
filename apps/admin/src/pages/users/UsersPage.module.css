@@ -1,0 +1,45 @@
+.page,
+.card {
+  min-width: 0;
+}
+
+.filterForm {
+  display: flex;
+  align-items: center;
+  gap: 8px 12px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  background: #fafafa;
+  flex-wrap: wrap;
+}
+
+.filterForm :global(.ant-form-item) {
+  margin: 0;
+}
+
+.filterForm :global(.ant-form-item-label) {
+  padding: 0;
+}
+
+.filterUsername {
+  width: 180px;
+}
+
+.filterSelect {
+  width: 150px;
+}
+
+.filterActions {
+  margin-left: auto;
+}
+
+.tableContainer {
+  min-width: 0;
+}
+
+.tableContainer :global(.ant-table-wrapper) {
+  min-width: 0;
+  width: 100%;
+}

@@ -1,5 +1,13 @@
 import { Prisma, type PrismaClient, type User as PrismaUser } from "@prisma/client";
-import { nullableJudgeTypeSchema, type JudgeType } from "@bjcp-arena/contracts";
+import {
+  adminRole,
+  hasRole,
+  judgeRole,
+  nullableJudgeTypeSchema,
+  superAdminRole,
+  type JudgeType,
+  type UserRole,
+} from "@bjcp-arena/contracts";
 import { DuplicateUsernameError } from "./users.errors.js";
 import type { CreateStoredUserInput, StoredUser } from "./users.types.js";
 
@@ -11,20 +19,48 @@ export interface UpdateStoredUserInput {
   disabled?: boolean;
 }
 
-export interface ListUsersOptions {
+export interface UserFilters {
+  username?: string;
+  role?: UserRole;
+  judgeType?: JudgeType;
+}
+
+export interface ListUsersOptions extends UserFilters {
   limit?: number;
   order?: "asc" | "desc";
   page?: number;
 }
 
 export interface UserRepository {
-  countUsers(): Promise<number>;
+  countUsers(filters?: UserFilters): Promise<number>;
   findById(id: number): Promise<StoredUser | null>;
   findByUsername(username: string): Promise<StoredUser | null>;
   listUsers(options?: ListUsersOptions): Promise<StoredUser[]>;
   createUser(input: CreateStoredUserInput): Promise<StoredUser>;
   updateUser(id: number, input: UpdateStoredUserInput): Promise<StoredUser | null>;
   resetPassword(id: number, passwordHash: string): Promise<StoredUser | null>;
+}
+
+const roleCombinationsByRole: Record<UserRole, number[]> = {
+  [superAdminRole]: [superAdminRole, superAdminRole | judgeRole],
+  [adminRole]: [adminRole, adminRole | judgeRole],
+  [judgeRole]: [judgeRole, superAdminRole | judgeRole, adminRole | judgeRole],
+};
+
+function toPrismaUserWhere(filters: UserFilters): Prisma.UserWhereInput {
+  return {
+    ...(filters.username ? { username: { contains: filters.username, mode: "insensitive" } } : {}),
+    ...(filters.role ? { roles: { in: roleCombinationsByRole[filters.role] } } : {}),
+    ...(filters.judgeType ? { judgeType: filters.judgeType } : {}),
+  };
+}
+
+function matchesUserFilters(user: StoredUser, filters: UserFilters) {
+  return (
+    (!filters.username || user.username.toLowerCase().includes(filters.username.toLowerCase())) &&
+    (!filters.role || hasRole(user.roles, filters.role)) &&
+    (!filters.judgeType || user.judgeType === filters.judgeType)
+  );
 }
 
 export function cloneStoredUser(user: StoredUser): StoredUser {
@@ -81,8 +117,8 @@ function isDuplicateUsernameError(error: unknown) {
 
 export function createPrismaUserRepository(prisma: PrismaClient): UserRepository {
   return {
-    countUsers() {
-      return prisma.user.count();
+    countUsers(filters = {}) {
+      return prisma.user.count({ where: toPrismaUserWhere(filters) });
     },
 
     findById(id) {
@@ -98,10 +134,13 @@ export function createPrismaUserRepository(prisma: PrismaClient): UserRepository
     listUsers(options = {}) {
       const page = options.page ?? 1;
       const limit = options.limit;
-      return prisma.user.findMany({
-        orderBy: { id: options.order ?? "asc" },
-        ...(limit === undefined ? {} : { skip: (page - 1) * limit, take: limit }),
-      }).then((users) => users.map(toStoredUser));
+      return prisma.user
+        .findMany({
+          where: toPrismaUserWhere(options),
+          orderBy: { id: options.order ?? "asc" },
+          ...(limit === undefined ? {} : { skip: (page - 1) * limit, take: limit }),
+        })
+        .then((users) => users.map(toStoredUser));
     },
 
     async createUser(input) {
@@ -173,8 +212,8 @@ export function createMemoryUserRepository(initialUsers: StoredUser[] = []): Use
   const now = () => new Date("2026-05-28T00:00:00.000Z");
 
   return {
-    async countUsers() {
-      return users.size;
+    async countUsers(filters = {}) {
+      return Array.from(users.values()).filter((user) => matchesUserFilters(user, filters)).length;
     },
 
     async findById(id) {
@@ -190,14 +229,14 @@ export function createMemoryUserRepository(initialUsers: StoredUser[] = []): Use
     async listUsers(options = {}) {
       const page = options.page ?? 1;
       const sortedUsers = Array.from(users.values())
+        .filter((user) => matchesUserFilters(user, options))
         .sort((a, b) => (options.order === "desc" ? b.id - a.id : a.id - b.id));
       const pageUsers =
         options.limit === undefined
           ? sortedUsers
           : sortedUsers.slice((page - 1) * options.limit, page * options.limit);
 
-      return pageUsers
-        .map((user) => cloneStoredUser(user));
+      return pageUsers.map((user) => cloneStoredUser(user));
     },
 
     async createUser(input) {

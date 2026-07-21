@@ -1,7 +1,34 @@
-import { EditOutlined, KeyOutlined, PlusOutlined, ReloadOutlined } from "@ant-design/icons";
-import { Button, Card, Flex, Pagination, Space, Table, Tag, Tooltip, Typography } from "antd";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { hasRole, superAdminRole, type UserPublic } from "@bjcp-arena/contracts";
+import {
+  EditOutlined,
+  KeyOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+} from "@ant-design/icons";
+import {
+  Button,
+  Card,
+  Flex,
+  Form,
+  Input,
+  Pagination,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Tooltip,
+  Typography,
+} from "antd";
+import { useCallback, useEffect, useState } from "react";
+import {
+  judgeTypeLabels,
+  judgeTypes,
+  roleLabels,
+  userRoleValues,
+  type JudgeType,
+  type UserListQuery,
+  type UserPublic,
+} from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
 import { useRequestFeedback } from "../../app/feedback.js";
 import { PageHeader } from "../../components/ui/PageHeader.js";
@@ -11,10 +38,22 @@ import {
 } from "../../modules/users/components/UserInfoModal.js";
 import { ResetPasswordModal } from "../../modules/users/components/ResetPasswordModal.js";
 import { describeRoles } from "../../utils/roles.js";
+import styles from "./UsersPage.module.css";
 
 const userPageLimit = 50;
 
 type UserModalState = { mode: "create"; user: null } | { mode: "edit"; user: UserPublic };
+type UserFilters = Pick<UserListQuery, "judgeType" | "role" | "username">;
+
+const roleFilterOptions = userRoleValues.map((role) => ({
+  label: roleLabels[role],
+  value: role,
+}));
+
+const judgeTypeFilterOptions = judgeTypes.map((judgeType) => ({
+  label: judgeTypeLabels[judgeType],
+  value: judgeType,
+}));
 
 function EllipsisCell({ children }: { children: string }) {
   return (
@@ -33,9 +72,11 @@ export function UsersPage({
   currentUser: UserPublic;
   onLogout: () => void;
 }) {
+  const [filterForm] = Form.useForm<UserFilters>();
   const [users, setUsers] = useState<UserPublic[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [appliedFilters, setAppliedFilters] = useState<UserFilters>({});
   const [status, setStatus] = useState<"loading" | "ready">("loading");
   const [userModal, setUserModal] = useState<UserModalState | null>(null);
   const [resetPasswordUser, setResetPasswordUser] = useState<UserPublic | null>(null);
@@ -43,22 +84,21 @@ export function UsersPage({
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const { showRequestError, showSuccess } = useRequestFeedback(onLogout);
 
-  const activeSuperAdminCount = useMemo(
-    () => users.filter((user) => !user.disabled && hasRole(user.roles, superAdminRole)).length,
-    [users]
-  );
-
   const pageCount = Math.max(1, Math.ceil(total / userPageLimit));
 
   const refreshUsers = useCallback(
     async (nextPage = page) => {
-      const result = await client.listUsers({ page: nextPage, limit: userPageLimit });
+      const result = await client.listUsers({
+        page: nextPage,
+        limit: userPageLimit,
+        ...appliedFilters,
+      });
       setUsers(result.users);
       setTotal(result.total);
       setPage(result.page);
       setStatus("ready");
     },
-    [page]
+    [appliedFilters, page]
   );
 
   useEffect(() => {
@@ -75,6 +115,22 @@ export function UsersPage({
       setStatus("ready");
       showRequestError(unknownError);
     });
+  }
+
+  function handleFilterSubmit(values: UserFilters) {
+    const username = values.username?.trim();
+    setPage(1);
+    setAppliedFilters({
+      ...(username ? { username } : {}),
+      ...(values.role ? { role: values.role } : {}),
+      ...(values.judgeType ? { judgeType: values.judgeType } : {}),
+    });
+  }
+
+  function handleFilterReset() {
+    filterForm.resetFields();
+    setPage(1);
+    setAppliedFilters({});
   }
 
   async function handleUserSubmit(values: UserInfoFormValues) {
@@ -136,7 +192,7 @@ export function UsersPage({
   }
 
   return (
-    <div className="stack-lg">
+    <div className={`stack-lg ${styles.page!}`}>
       <Flex align="center" gap={16} justify="space-between" wrap>
         <PageHeader eyebrow="Users" title="账号管理" />
         <Button icon={<ReloadOutlined />} loading={status === "loading"} onClick={handleRefresh}>
@@ -144,7 +200,7 @@ export function UsersPage({
         </Button>
       </Flex>
 
-      <Card>
+      <Card className={styles.card!}>
         <div className="stack-md">
           <Flex align="center" gap={16} justify="space-between" wrap>
             <div>
@@ -167,95 +223,151 @@ export function UsersPage({
             </Button>
           </Flex>
 
-          <Table<UserPublic>
-            columns={[
-              {
-                dataIndex: "id",
-                fixed: "left",
-                render: (id: number) => <Typography.Text type="secondary">#{id}</Typography.Text>,
-                title: "ID",
-                width: 80,
-              },
-              {
-                dataIndex: "username",
-                render: (value: string) => <EllipsisCell>{value}</EllipsisCell>,
-                title: "用户名",
-                width: 160,
-              },
-              {
-                dataIndex: "nickname",
-                render: (value: string) => <EllipsisCell>{value}</EllipsisCell>,
-                title: "昵称",
-                width: 160,
-              },
-              {
-                dataIndex: "roles",
-                render: (roles: number) => <EllipsisCell>{describeRoles(roles)}</EllipsisCell>,
-                title: "角色",
-                width: 180,
-              },
-              {
-                dataIndex: "disabled",
-                render: (disabled: boolean) => (
-                  <Tag color={disabled ? "default" : "success"}>
-                    {disabled ? "已停用" : "已启用"}
-                  </Tag>
-                ),
-                title: "状态",
-                width: 100,
-              },
-              {
-                dataIndex: "createdAt",
-                render: (value: string) => (
-                  <Typography.Text type="secondary">
-                    {new Date(value).toLocaleString()}
-                  </Typography.Text>
-                ),
-                title: "创建时间",
-                width: 190,
-              },
-              {
-                dataIndex: "updatedAt",
-                render: (value: string) => (
-                  <Typography.Text type="secondary">
-                    {new Date(value).toLocaleString()}
-                  </Typography.Text>
-                ),
-                title: "更新时间",
-                width: 190,
-              },
-              {
-                fixed: "right",
-                render: (_, user) => (
-                  <Space>
-                    <Button
-                      icon={<EditOutlined />}
-                      onClick={() => {
-                        setUserModal({ mode: "edit", user });
-                      }}
-                    >
-                      编辑
-                    </Button>
-                    <Button
-                      icon={<KeyOutlined />}
-                      onClick={() => {
-                        setResetPasswordUser(user);
-                      }}
-                    >
-                      重置密码
-                    </Button>
-                  </Space>
-                ),
-                title: "操作",
-                width: 240,
-              },
-            ]}
-            dataSource={users}
-            loading={status === "loading"}
-            pagination={false}
-            rowKey="id"
-            scroll={{ x: 1300 }}
-          />
+          <Form<UserFilters>
+            className={styles.filterForm!}
+            form={filterForm}
+            layout="inline"
+            onFinish={handleFilterSubmit}
+          >
+            <Form.Item label="用户名" name="username">
+              <Input
+                allowClear
+                className={styles.filterUsername!}
+                maxLength={32}
+                placeholder="输入部分用户名"
+                size="small"
+              />
+            </Form.Item>
+            <Form.Item label="角色类型" name="role">
+              <Select
+                allowClear
+                className={styles.filterSelect!}
+                options={roleFilterOptions}
+                placeholder="全部角色类型"
+                size="small"
+              />
+            </Form.Item>
+            <Form.Item label="裁判类型" name="judgeType">
+              <Select
+                allowClear
+                className={styles.filterSelect!}
+                options={judgeTypeFilterOptions}
+                placeholder="全部裁判类型"
+                size="small"
+              />
+            </Form.Item>
+            <Flex className={styles.filterActions!} gap={8}>
+              <Button size="small" onClick={handleFilterReset}>
+                重置
+              </Button>
+              <Button htmlType="submit" icon={<SearchOutlined />} size="small" type="primary">
+                查询
+              </Button>
+            </Flex>
+          </Form>
+
+          <div className={styles.tableContainer!}>
+            <Table<UserPublic>
+              columns={[
+                {
+                  dataIndex: "id",
+                  fixed: "left",
+                  render: (id: number) => <Typography.Text type="secondary">#{id}</Typography.Text>,
+                  title: "ID",
+                  width: 80,
+                },
+                {
+                  dataIndex: "username",
+                  render: (value: string) => <EllipsisCell>{value}</EllipsisCell>,
+                  title: "用户名",
+                  width: 160,
+                },
+                {
+                  dataIndex: "nickname",
+                  render: (value: string) => <EllipsisCell>{value}</EllipsisCell>,
+                  title: "昵称",
+                  width: 160,
+                },
+                {
+                  dataIndex: "roles",
+                  render: (roles: number) => <EllipsisCell>{describeRoles(roles)}</EllipsisCell>,
+                  title: "角色",
+                  width: 180,
+                },
+                {
+                  dataIndex: "judgeType",
+                  render: (judgeType: JudgeType | null) =>
+                    judgeType ? (
+                      <EllipsisCell>{judgeTypeLabels[judgeType]}</EllipsisCell>
+                    ) : (
+                      <Typography.Text type="secondary">—</Typography.Text>
+                    ),
+                  title: "裁判类型",
+                  width: 140,
+                },
+                {
+                  dataIndex: "disabled",
+                  render: (disabled: boolean) => (
+                    <Tag color={disabled ? "default" : "success"}>
+                      {disabled ? "已停用" : "已启用"}
+                    </Tag>
+                  ),
+                  title: "状态",
+                  width: 100,
+                },
+                {
+                  dataIndex: "createdAt",
+                  render: (value: string) => (
+                    <Typography.Text type="secondary">
+                      {new Date(value).toLocaleString()}
+                    </Typography.Text>
+                  ),
+                  title: "创建时间",
+                  width: 190,
+                },
+                {
+                  dataIndex: "updatedAt",
+                  render: (value: string) => (
+                    <Typography.Text type="secondary">
+                      {new Date(value).toLocaleString()}
+                    </Typography.Text>
+                  ),
+                  title: "更新时间",
+                  width: 190,
+                },
+                {
+                  fixed: "right",
+                  render: (_, user) => (
+                    <Space>
+                      <Button
+                        icon={<EditOutlined />}
+                        onClick={() => {
+                          setUserModal({ mode: "edit", user });
+                        }}
+                      >
+                        编辑
+                      </Button>
+                      <Button
+                        icon={<KeyOutlined />}
+                        onClick={() => {
+                          setResetPasswordUser(user);
+                        }}
+                      >
+                        重置密码
+                      </Button>
+                    </Space>
+                  ),
+                  title: "操作",
+                  width: 240,
+                },
+              ]}
+              dataSource={users}
+              loading={status === "loading"}
+              pagination={false}
+              rowKey="id"
+              scroll={{ x: 1440 }}
+            />
+          </div>
 
           <Flex justify="flex-end">
             <Pagination
@@ -271,7 +383,6 @@ export function UsersPage({
       </Card>
 
       <UserInfoModal
-        activeSuperAdminCount={activeSuperAdminCount}
         currentUserId={currentUser.id}
         isSubmitting={isSubmittingUser}
         mode={userModal?.mode ?? "create"}

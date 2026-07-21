@@ -166,10 +166,8 @@ async function assertKeepsActiveSuperAdmin(
   existingUser: NonNullable<Awaited<ReturnType<UserRepository["findById"]>>>,
   input: ReturnType<typeof updateUserInputSchema.parse>
 ) {
-  const isActiveSuperAdmin =
-    !existingUser.disabled && hasRole(existingUser.roles, superAdminRole);
-  const removesSuperAdminRole =
-    input.roles !== undefined && !hasRole(input.roles, superAdminRole);
+  const isActiveSuperAdmin = !existingUser.disabled && hasRole(existingUser.roles, superAdminRole);
+  const removesSuperAdminRole = input.roles !== undefined && !hasRole(input.roles, superAdminRole);
   const disablesUser = input.disabled === true;
 
   if (!isActiveSuperAdmin || (!removesSuperAdminRole && !disablesUser)) {
@@ -183,7 +181,6 @@ async function assertKeepsActiveSuperAdmin(
   if (activeSuperAdminCount <= 1) {
     throw new AuthError("Cannot remove the last active super admin", 409);
   }
-
 }
 
 export function registerUserRoutes(
@@ -209,8 +206,14 @@ export function registerUserRoutes(
       return requireSuperAdmin(auth, request)
         .then(async () => {
           const query = userListQuerySchema.parse(request.query);
-          const total = await users.countUsers();
+          const filters = {
+            ...(query.username ? { username: query.username } : {}),
+            ...(query.role ? { role: query.role } : {}),
+            ...(query.judgeType ? { judgeType: query.judgeType } : {}),
+          };
+          const total = await users.countUsers(filters);
           const pageUsers = await users.listUsers({
+            ...filters,
             limit: query.limit,
             order: "desc",
             page: query.page,
