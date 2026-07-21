@@ -5,6 +5,7 @@ export const pingPath = "/api/ping" as const;
 export const pingResultSchema = z.object({
   message: z.literal("pong"),
   service: z.literal("bjcp-arena-api"),
+  lanIp: z.ipv4().nullable(),
 });
 
 export type PingResult = z.infer<typeof pingResultSchema>;

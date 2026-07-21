@@ -107,7 +107,13 @@ describe("createApiClient", () => {
   it("requests public and authenticated auth endpoints", async () => {
     const fetcher: FetchLike = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse({ message: "pong", service: "bjcp-arena-api" }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          message: "pong",
+          service: "bjcp-arena-api",
+          lanIp: "192.168.1.23",
+        })
+      )
       .mockResolvedValueOnce(jsonResponse({ hasUsers: false }))
       .mockResolvedValueOnce(jsonResponse({ token: "jwt-token", user: publicUser }))
       .mockResolvedValueOnce(jsonResponse({ user: publicUser }))
@@ -121,6 +127,7 @@ describe("createApiClient", () => {
     await expect(client.ping()).resolves.toEqual({
       message: "pong",
       service: "bjcp-arena-api",
+      lanIp: "192.168.1.23",
     });
     await expect(client.getBootstrapStatus()).resolves.toEqual({ hasUsers: false });
     await expect(client.login({ username: "abc123", password: "secret123" })).resolves.toEqual({

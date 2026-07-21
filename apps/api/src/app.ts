@@ -25,6 +25,7 @@ import {
   createPrismaUserRepository,
   type UserRepository,
 } from "./modules/users/users.repository.js";
+import { findLanIpv4Address } from "./shared/network/lan-ip.js";
 
 export interface CreateAppOptions {
   config?: Partial<ApiConfig>;
@@ -35,6 +36,7 @@ export interface CreateAppOptions {
   jwtSecret?: string;
   jwtExpiresIn?: string;
   authUserCacheTtlSeconds?: number;
+  getLanIp?: () => string | null;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
@@ -46,6 +48,7 @@ export function createApp(options: CreateAppOptions = {}) {
     ...options.config,
   };
   const allowedOrigins = options.allowedOrigins ?? config.allowedOrigins;
+  const getLanIp = options.getLanIp ?? findLanIpv4Address;
   const corsOrigin = allowedOrigins.includes("*") ? true : allowedOrigins;
   let prisma: ReturnType<typeof createPrismaClient> | undefined;
   let users = options.users;
@@ -99,6 +102,7 @@ export function createApp(options: CreateAppOptions = {}) {
       return {
         message: "pong",
         service: "bjcp-arena-api",
+        lanIp: getLanIp(),
       };
     }
   );

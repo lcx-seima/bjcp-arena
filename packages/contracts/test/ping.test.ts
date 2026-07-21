@@ -10,10 +10,22 @@ describe("ping contract", () => {
     const result: PingResult = pingResultSchema.parse({
       message: "pong",
       service: "bjcp-arena-api",
+      lanIp: "192.168.1.23",
     });
 
     expect(result.message).toBe("pong");
     expect(result.service).toBe("bjcp-arena-api");
+    expect(result.lanIp).toBe("192.168.1.23");
+  });
+
+  it("accepts a missing LAN IPv4 address", () => {
+    expect(
+      pingResultSchema.parse({
+        message: "pong",
+        service: "bjcp-arena-api",
+        lanIp: null,
+      }).lanIp
+    ).toBeNull();
   });
 
   it("rejects responses that drift from the contract", () => {
@@ -21,6 +33,17 @@ describe("ping contract", () => {
       pingResultSchema.parse({
         message: "ok",
         service: "bjcp-arena-api",
+        lanIp: "192.168.1.23",
+      })
+    ).toThrow();
+  });
+
+  it("rejects invalid LAN IP addresses", () => {
+    expect(() =>
+      pingResultSchema.parse({
+        message: "pong",
+        service: "bjcp-arena-api",
+        lanIp: "not-an-ip",
       })
     ).toThrow();
   });

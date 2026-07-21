@@ -1,0 +1,24 @@
+.judgeAccessCard {
+  max-width: 720px;
+}
+
+.judgeAccessContent {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.judgeAccessDetails {
+  min-width: 0;
+}
+
+.judgeAccessUrl {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 560px) {
+  .judgeAccessContent {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

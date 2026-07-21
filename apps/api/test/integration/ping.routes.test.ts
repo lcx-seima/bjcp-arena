@@ -4,7 +4,7 @@ import { createApp } from "../../src/app.js";
 
 describe("GET /api/ping", () => {
   it("returns the public ping response", async () => {
-    const app = createApp();
+    const app = createApp({ getLanIp: () => "192.168.1.23" });
 
     const response = await app.inject({
       method: "GET",
@@ -15,6 +15,7 @@ describe("GET /api/ping", () => {
     expect(pingResultSchema.parse(response.json())).toEqual({
       message: "pong",
       service: "bjcp-arena-api",
+      lanIp: "192.168.1.23",
     });
     await app.close();
   });
