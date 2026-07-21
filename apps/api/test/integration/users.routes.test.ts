@@ -3,9 +3,9 @@ import {
   adminRole,
   authMePath,
   createUserInputSchema,
+  judgeTypeConsumer,
   judgeTypeProfessional,
   judgeTypePublic,
-  judgeTypeSeniorEnthusiast,
   judgeRole,
   resetUserPasswordInputSchema,
   superAdminRole,
@@ -380,21 +380,21 @@ describe("user management routes", () => {
     await app.close();
   });
 
-  it("creates and updates users with the senior enthusiast judge type", async () => {
+  it("creates and updates users with the consumer judge type", async () => {
     const { app } = createTestApp();
     const token = await bootstrapToken(app);
 
     const created = await createUser(app, token, {
-      username: "seniorjudge",
-      nickname: "资深爱好者",
+      username: "consumerjudge",
+      nickname: "消费者裁判",
       password: "secret123",
       roles: judgeRole,
-      judgeType: judgeTypeSeniorEnthusiast,
+      judgeType: judgeTypeConsumer,
     });
 
     expect(created.statusCode).toBe(200);
     const user = userResultSchema.parse(created.json()).user;
-    expect(user.judgeType).toBe(judgeTypeSeniorEnthusiast);
+    expect(user.judgeType).toBe(judgeTypeConsumer);
 
     const updated = await app.inject({
       method: "PATCH",

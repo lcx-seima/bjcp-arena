@@ -1,6 +1,7 @@
 import { Tag } from "antd-mobile";
 import { useEffect, useState } from "react";
 import {
+  judgeTypeLabels,
   type JudgeCompetitionListResult,
   type JudgeType,
   type UserPublic,
@@ -16,21 +17,19 @@ type JudgeCompetition = JudgeCompetitionListResult["competitions"][number];
 
 const judgeTypeTagPresentation: Record<
   JudgeType,
-  { color: string; label: string; symbol: string; textColor: string }
+  { color: string; symbol: string; textColor: string }
 > = {
   professional: {
     color: "#e8b94d",
-    label: "专业裁判",
     symbol: "★",
     textColor: "#3b1a0b",
   },
-  senior_enthusiast: {
+  consumer: {
     color: "#237804",
-    label: "资深爱好者",
     symbol: "◆",
     textColor: "#ffffff",
   },
-  public: { color: "#69b1ff", label: "消费者", symbol: "●", textColor: "#002c8c" },
+  public: { color: "#69b1ff", symbol: "●", textColor: "#002c8c" },
 };
 
 function UserCenterIcon() {
@@ -113,7 +112,7 @@ export function JudgeCompetitionsPage({
                 <span aria-hidden="true" style={{ marginRight: 4 }}>
                   {judgeTypeTagPresentation[user.judgeType].symbol}
                 </span>
-                {judgeTypeTagPresentation[user.judgeType].label}
+                {judgeTypeLabels[user.judgeType]}
               </Tag>
             ) : null}
           </div>

@@ -26,7 +26,7 @@ import {
   judgeRoundDetailResultSchema,
   judgeRoundDetailPath,
   judgeRoundListPath,
-  judgeTypeSeniorEnthusiast,
+  judgeTypeConsumer,
   myScoreResultSchema,
   professionalScoreInputSchema,
   removeRoundBeerInputSchema,
@@ -773,26 +773,26 @@ describe("competition loop routes", () => {
     await app.close();
   });
 
-  it("stores senior enthusiast scores with professional totals and an independent type snapshot", async () => {
+  it("stores consumer scores with professional totals and an independent type snapshot", async () => {
     const { app } = createTestApp();
     const adminToken = await bootstrapToken(app);
     const competition = await createCompetition(app, adminToken);
     const beer = await createBeer(app, adminToken, competition.id, "SA3002");
     const round = await createRound(app, adminToken, competition.id);
     await addRoundBeer(app, adminToken, competition.id, round.id, beer.id);
-    await createJudge(app, adminToken, "seniorjudge", judgeTypeSeniorEnthusiast);
-    const judgeToken = await login(app, "seniorjudge");
+    await createJudge(app, adminToken, "consumerjudge", judgeTypeConsumer);
+    const judgeToken = await login(app, "consumerjudge");
 
     const submit = await app.inject({
       method: "PUT",
       url: judgeRoundBeerScorePath(competition.id, round.id, beer.id),
       headers: { authorization: `Bearer ${judgeToken}` },
-      payload: { judgeType: judgeTypeSeniorEnthusiast, ...professionalScore },
+      payload: { judgeType: judgeTypeConsumer, ...professionalScore },
     });
 
     expect(submit.statusCode).toBe(200);
     expect(submitMyScoreResultSchema.parse(submit.json()).score).toMatchObject({
-      judgeTypeSnapshot: judgeTypeSeniorEnthusiast,
+      judgeTypeSnapshot: judgeTypeConsumer,
       professionalTotalScore: 43,
       professionalGrade: "Excellent",
       amateurTotalScore: null,
@@ -811,15 +811,15 @@ describe("competition loop routes", () => {
     await app.close();
   });
 
-  it("rejects consumer score fields from a senior enthusiast judge", async () => {
+  it("rejects public score fields from a consumer judge", async () => {
     const { app } = createTestApp();
     const adminToken = await bootstrapToken(app);
     const competition = await createCompetition(app, adminToken);
     const beer = await createBeer(app, adminToken, competition.id, "SA3003");
     const round = await createRound(app, adminToken, competition.id);
     await addRoundBeer(app, adminToken, competition.id, round.id, beer.id);
-    await createJudge(app, adminToken, "seniorjudge2", judgeTypeSeniorEnthusiast);
-    const judgeToken = await login(app, "seniorjudge2");
+    await createJudge(app, adminToken, "consumerjudge2", judgeTypeConsumer);
+    const judgeToken = await login(app, "consumerjudge2");
 
     const submit = await app.inject({
       method: "PUT",

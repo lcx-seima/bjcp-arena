@@ -22,7 +22,7 @@ import {
   judgeRoundDetailResultSchema,
   judgeRoundDetailPath,
   judgeRoundListPath,
-  judgeTypeSeniorEnthusiast,
+  judgeTypeConsumer,
   normalizeEntryCode,
   professionalScoreGrade,
   professionalScoreInputSchema,
@@ -315,7 +315,7 @@ describe("competition loop contracts", () => {
     ).toThrow();
   });
 
-  it("accepts professional score fields for senior enthusiast judges", () => {
+  it("accepts professional score fields for consumer judges", () => {
     const professionalScore = {
       professionalAromaScore: 10,
       professionalAromaComment: "香气干净，酒花明显",
@@ -331,19 +331,26 @@ describe("competition loop contracts", () => {
 
     expect(
       scoreInputSchema.parse({
-        judgeType: judgeTypeSeniorEnthusiast,
+        judgeType: judgeTypeConsumer,
         ...professionalScore,
       })
-    ).toMatchObject({ judgeType: judgeTypeSeniorEnthusiast, professionalFlavorScore: 18 });
+    ).toMatchObject({ judgeType: judgeTypeConsumer, professionalFlavorScore: 18 });
 
     expect(() =>
       scoreInputSchema.parse({
-        judgeType: judgeTypeSeniorEnthusiast,
+        judgeType: judgeTypeConsumer,
         amateurDrinkabilityScore: 4,
         amateurBalanceScore: 5,
         amateurFlavorAcceptanceScore: 4,
         amateurRepeatIntentionScore: 5,
         amateurComment: "轻松顺口，愿意复饮",
+      })
+    ).toThrow();
+
+    expect(() =>
+      scoreInputSchema.parse({
+        judgeType: "senior_enthusiast",
+        ...professionalScore,
       })
     ).toThrow();
   });

@@ -3,10 +3,10 @@ import {
   adminRole,
   createUserInputSchema,
   isProfessionalScoreJudgeType,
+  judgeTypeConsumer,
+  judgeTypeLabels,
   judgeTypeProfessional,
   judgeTypePublic,
-  judgeTypeSeniorEnthusiast,
-  judgeTypeLabels,
   judgeTypeSchema,
   judgeRole,
   resetUserPasswordInputSchema,
@@ -30,19 +30,20 @@ describe("users contract", () => {
   it("defines judge type constants", () => {
     expect(judgeTypeProfessional).toBe("professional");
     expect(judgeTypePublic).toBe("public");
-    expect(judgeTypeSeniorEnthusiast).toBe("senior_enthusiast");
+    expect(judgeTypeConsumer).toBe("consumer");
     expect(judgeTypeLabels).toEqual({
+      consumer: "消费者裁判",
       professional: "专业裁判",
-      public: "消费者裁判",
-      senior_enthusiast: "资深爱好者裁判",
+      public: "大众评委",
     });
+    expect(judgeTypeSchema.parse("consumer")).toBe("consumer");
     expect(judgeTypeSchema.parse("professional")).toBe("professional");
     expect(judgeTypeSchema.parse("public")).toBe("public");
-    expect(judgeTypeSchema.parse("senior_enthusiast")).toBe("senior_enthusiast");
     expect(isProfessionalScoreJudgeType(judgeTypeProfessional)).toBe(true);
-    expect(isProfessionalScoreJudgeType(judgeTypeSeniorEnthusiast)).toBe(true);
+    expect(isProfessionalScoreJudgeType(judgeTypeConsumer)).toBe(true);
     expect(isProfessionalScoreJudgeType(judgeTypePublic)).toBe(false);
     expect(() => judgeTypeSchema.parse("guest")).toThrow();
+    expect(() => judgeTypeSchema.parse("senior_enthusiast")).toThrow();
   });
 
   it("parses create user input with optional username and nickname", () => {
@@ -165,8 +166,8 @@ describe("users contract", () => {
     expect(updateUserInputSchema.parse({ judgeType: judgeTypePublic })).toEqual({
       judgeType: judgeTypePublic,
     });
-    expect(updateUserInputSchema.parse({ judgeType: judgeTypeSeniorEnthusiast })).toEqual({
-      judgeType: judgeTypeSeniorEnthusiast,
+    expect(updateUserInputSchema.parse({ judgeType: judgeTypeConsumer })).toEqual({
+      judgeType: judgeTypeConsumer,
     });
     expect(updateUserInputSchema.parse({ judgeType: null })).toEqual({
       judgeType: null,

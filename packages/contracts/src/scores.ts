@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { judgeTypeSchema, judgeTypeSeniorEnthusiast } from "./judge-types.js";
+import { judgeTypeConsumer, judgeTypeSchema } from "./judge-types.js";
 import { competitionStatusSchema, entityStatusSchema } from "./competitions.js";
 import { entryCodeSchema } from "./beers.js";
 
@@ -52,7 +52,7 @@ export const amateurScoreInputSchema = z.object({
 
 export const scoreInputSchema = z.discriminatedUnion("judgeType", [
   professionalScoreInputSchema.extend({ judgeType: z.literal("professional") }),
-  professionalScoreInputSchema.extend({ judgeType: z.literal(judgeTypeSeniorEnthusiast) }),
+  professionalScoreInputSchema.extend({ judgeType: z.literal(judgeTypeConsumer) }),
   amateurScoreInputSchema.extend({ judgeType: z.literal("public") }),
 ]);
 

@@ -106,11 +106,11 @@ pages/users/UsersPage.module.css
 
 ## 文案约定
 
-裁判类型的内部契约使用 `professional`、`senior_enthusiast` 和 `public`。面向用户展示时统一使用：
+裁判类型的内部契约使用 `professional`、`consumer` 和 `public`。面向用户展示时统一使用：
 
 - `professional`：专业裁判
-- `senior_enthusiast`：资深爱好者裁判，使用与专业裁判相同的 50 分评价表单，但身份和评分快照保持独立
-- `public`：消费者裁判
+- `consumer`：消费者裁判，使用与专业裁判相同的 50 分评价表单，但身份和评分快照保持独立
+- `public`：大众评委，使用轻量 20 分评价表单
 
 前端展示裁判类型时优先复用 `packages/contracts` 导出的共享标签，不在 admin 或 judge 内重复维护另一套文案。
 

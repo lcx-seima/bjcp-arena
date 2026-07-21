@@ -83,12 +83,12 @@ describe("score draft policy", () => {
     expect(state.shouldClearDraft).toBe(true);
   });
 
-  it("资深爱好者已提交评分时恢复专业表单内容", () => {
+  it("消费者裁判已提交评分时恢复专业表单内容", () => {
     const state = resolveInitialScoreFormState({
       draft: null,
       score: {
         ...submittedProfessionalScore,
-        judgeTypeSnapshot: "senior_enthusiast",
+        judgeTypeSnapshot: "consumer",
       },
     });
 
