@@ -342,10 +342,36 @@ textarea {
   overflow-wrap: anywhere;
 }
 
-.submitted-beer-item__time {
+.submitted-beer-item__meta {
+  align-items: center;
   color: var(--bjcp-slate);
+  display: flex;
+  flex-wrap: wrap;
   font-size: 13px;
+  gap: 6px 12px;
   line-height: 1.35;
+}
+
+.submitted-beer-item__meta-item {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+  min-width: 0;
+}
+
+.submitted-beer-item__meta-icon {
+  display: inline-flex;
+  flex: 0 0 14px;
+  height: 14px;
+  width: 14px;
+}
+
+.submitted-beer-item__score {
+  color: var(--bjcp-copper-primary);
+  font-weight: 800;
+}
+
+.submitted-beer-item__submitted-at {
   overflow-wrap: anywhere;
 }
 

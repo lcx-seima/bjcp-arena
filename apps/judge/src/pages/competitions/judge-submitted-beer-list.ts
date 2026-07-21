@@ -2,6 +2,7 @@ import { formatFullDateTime } from "../../utils/datetime.js";
 
 type JudgeSubmittedBeerListItemInput = {
   entryCode: string;
+  totalScore: number;
   bjcpSubcategoryCode: string;
   bjcpSubcategoryName: string;
   submittedAt: string | Date;
@@ -10,7 +11,8 @@ type JudgeSubmittedBeerListItemInput = {
 export function formatJudgeSubmittedBeerListItem(beer: JudgeSubmittedBeerListItemInput) {
   return {
     entryCode: beer.entryCode,
+    totalScoreLabel: `${beer.totalScore}分`,
     bjcpSubcategoryLabel: `${beer.bjcpSubcategoryCode} ${beer.bjcpSubcategoryName}`,
-    submittedAtLabel: `提交时间：${formatFullDateTime(beer.submittedAt)}`,
+    submittedAtLabel: formatFullDateTime(beer.submittedAt),
   };
 }

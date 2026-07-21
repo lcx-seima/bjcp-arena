@@ -139,6 +139,7 @@ export const judgeSubmittedBeerSchema = z.object({
   roundId: z.number().int().positive(),
   entryCode: entryCodeSchema,
   entryNumber: z.number().int().positive(),
+  totalScore: z.number().int().nonnegative().max(50),
   bjcpCategoryCode: z.string(),
   bjcpCategoryName: z.string(),
   bjcpSubcategoryCode: z.string(),

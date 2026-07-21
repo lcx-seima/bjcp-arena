@@ -13,7 +13,11 @@ import type {
   UpdateCompetitionInput,
   UpdateRoundInput,
 } from "@bjcp-arena/contracts";
-import { findBjcpSubcategory, normalizeEntryCode } from "@bjcp-arena/contracts";
+import {
+  findBjcpSubcategory,
+  isProfessionalScoreJudgeType,
+  normalizeEntryCode,
+} from "@bjcp-arena/contracts";
 import type { AuthUserSnapshot } from "../auth/auth-user-snapshot-store.js";
 import type {
   CompetitionLoopRepository,
@@ -113,6 +117,16 @@ function toScore(score: StoredScore) {
     submittedAt: toIso(score.submittedAt),
     updatedAt: toIso(score.updatedAt),
   };
+}
+
+function requireStoredTotalScore(score: StoredScore) {
+  const totalScore = isProfessionalScoreJudgeType(score.judgeTypeSnapshot)
+    ? score.professionalTotalScore
+    : score.amateurTotalScore;
+  if (totalScore === null) {
+    throw new CompetitionLoopError("已提交评价缺少已落库总分", 500);
+  }
+  return totalScore;
 }
 
 function toJudgeBeer(
@@ -496,6 +510,7 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
           roundId,
           entryCode: score.beer.entryCode,
           entryNumber: score.beer.entryNumber,
+          totalScore: requireStoredTotalScore(score),
           bjcpCategoryCode: score.beer.bjcpCategoryCode,
           bjcpCategoryName: score.beer.bjcpCategoryName,
           bjcpSubcategoryCode: score.beer.bjcpSubcategoryCode,

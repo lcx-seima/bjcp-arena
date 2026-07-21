@@ -325,7 +325,9 @@ describe("createApiClient", () => {
       .mockResolvedValueOnce(
         jsonResponse({
           round: { ...round, submittedBeerCount: 1 },
-          beers: [{ ...judgeBeer, submittedAt: "2026-07-05T00:00:00.000Z" }],
+          beers: [
+            { ...judgeBeer, totalScore: 18, submittedAt: "2026-07-05T00:00:00.000Z" },
+          ],
         })
       )
       .mockResolvedValueOnce(jsonResponse({ beer: judgeBeer }))
@@ -340,7 +342,8 @@ describe("createApiClient", () => {
 
     await client.listJudgeCompetitions();
     await client.listJudgeRounds(1);
-    await client.getJudgeRound(1, 3);
+    const judgeRound = await client.getJudgeRound(1, 3);
+    expect(judgeRound.beers[0]?.totalScore).toBe(18);
     await client.lookupJudgeBeer(1, 3, { entryCode: "sa1234" });
     await client.getMyScore(1, 3, 2);
     await client.submitMyScore(1, 3, 2, {

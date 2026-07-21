@@ -23,6 +23,7 @@ import {
   judgeRoundBeerDetailPath,
   judgeRoundBeerLookupPath,
   judgeRoundBeerScorePath,
+  judgeRoundDetailResultSchema,
   judgeRoundDetailPath,
   judgeRoundListPath,
   judgeTypeSeniorEnthusiast,
@@ -758,6 +759,17 @@ describe("competition loop routes", () => {
       judgeTypeSnapshot: "public",
       amateurTotalScore: 18,
     });
+
+    const detail = await app.inject({
+      method: "GET",
+      url: judgeRoundDetailPath(competition.id, round.id),
+      headers: { authorization: `Bearer ${judgeToken}` },
+    });
+    expect(detail.statusCode).toBe(200);
+    expect(judgeRoundDetailResultSchema.parse(detail.json()).beers[0]).toMatchObject({
+      id: beer.id,
+      totalScore: 18,
+    });
     await app.close();
   });
 
@@ -784,6 +796,17 @@ describe("competition loop routes", () => {
       professionalTotalScore: 43,
       professionalGrade: "Excellent",
       amateurTotalScore: null,
+    });
+
+    const detail = await app.inject({
+      method: "GET",
+      url: judgeRoundDetailPath(competition.id, round.id),
+      headers: { authorization: `Bearer ${judgeToken}` },
+    });
+    expect(detail.statusCode).toBe(200);
+    expect(judgeRoundDetailResultSchema.parse(detail.json()).beers[0]).toMatchObject({
+      id: beer.id,
+      totalScore: 43,
     });
     await app.close();
   });

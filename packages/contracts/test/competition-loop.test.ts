@@ -19,6 +19,7 @@ import {
   judgeRoundBeerLookupPath,
   judgeRoundBeerDetailPath,
   judgeRoundBeerScorePath,
+  judgeRoundDetailResultSchema,
   judgeRoundDetailPath,
   judgeRoundListPath,
   judgeTypeSeniorEnthusiast,
@@ -98,6 +99,43 @@ describe("competition loop contracts", () => {
     expect(judgeRoundBeerScorePath(2, 5, 8)).toBe(
       "/api/judge/competitions/2/rounds/5/beers/8/my-score"
     );
+  });
+
+  it("requires the persisted total score in judge submitted beer results", () => {
+    const submittedBeer = {
+      id: 8,
+      competitionId: 2,
+      roundId: 5,
+      entryCode: "SA1234",
+      entryNumber: 1,
+      totalScore: 18,
+      bjcpCategoryCode: "21",
+      bjcpCategoryName: "IPA",
+      bjcpSubcategoryCode: "21A",
+      bjcpSubcategoryName: "American IPA",
+      description: "参赛介绍",
+      submittedAt: "2026-07-21T10:00:00.000Z",
+    };
+    const result = {
+      round: {
+        id: 5,
+        competitionId: 2,
+        name: "第一轮",
+        status: "ongoing",
+        submittedBeerCount: 1,
+        createdAt: "2026-07-21T09:00:00.000Z",
+        updatedAt: "2026-07-21T09:00:00.000Z",
+      },
+      beers: [submittedBeer],
+    };
+
+    expect(judgeRoundDetailResultSchema.parse(result).beers[0]?.totalScore).toBe(18);
+    expect(() =>
+      judgeRoundDetailResultSchema.parse({
+        ...result,
+        beers: [{ ...submittedBeer, totalScore: undefined }],
+      })
+    ).toThrow();
   });
 
   it("validates judge score deletion result", () => {
