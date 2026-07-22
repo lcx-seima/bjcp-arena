@@ -74,6 +74,7 @@ function competitionStatusTagColor(status: CompetitionStatus) {
 export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
   const { modal } = AntdApp.useApp();
   const [beerFilterForm] = Form.useForm<BeerListFilters>();
+  const [roundBeerFilterForm] = Form.useForm<BeerListFilters>();
   const { showError, showRequestError, showSuccess } = useRequestFeedback(onLogout);
   const { competitionId: competitionIdParam } = useParams();
   const competitionId = readCompetitionId(competitionIdParam);
@@ -97,12 +98,17 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
   const [isParsingBeerImport, setIsParsingBeerImport] = useState(false);
   const [parsedBeerImport, setParsedBeerImport] = useState<ParsedBeerImportFile | null>(null);
   const [beerFilters, setBeerFilters] = useState<BeerListFilters>({});
+  const [roundBeerFilters, setRoundBeerFilters] = useState<BeerListFilters>({});
 
   const selectedRound = rounds.find((round) => round.id === selectedRoundId) ?? null;
   const isCompetitionWritable = competition?.status === "ongoing";
   const canChangeRoundStatus = isCompetitionWritable;
   const isSelectedRoundWritable = canChangeRoundStatus && selectedRound?.status === "ongoing";
   const filteredBeers = useMemo(() => filterBeerList(beers, beerFilters), [beerFilters, beers]);
+  const filteredRoundBeers = useMemo(
+    () => filterBeerList(roundBeers, roundBeerFilters),
+    [roundBeerFilters, roundBeers]
+  );
 
   const refreshDetail = useCallback(async () => {
     if (!competitionId) {
@@ -255,6 +261,19 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
   function handleBeerFilterReset() {
     beerFilterForm.resetFields();
     setBeerFilters({});
+  }
+
+  function handleRoundBeerFilterSubmit(values: BeerListFilters) {
+    const keyword = values.keyword?.trim();
+    setRoundBeerFilters({
+      ...(keyword ? { keyword } : {}),
+      ...(values.bjcpSubcategoryCode ? { bjcpSubcategoryCode: values.bjcpSubcategoryCode } : {}),
+    });
+  }
+
+  function handleRoundBeerFilterReset() {
+    roundBeerFilterForm.resetFields();
+    setRoundBeerFilters({});
   }
 
   async function handleCreateRound() {
@@ -507,7 +526,8 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                               <Typography.Text strong>{selectedRound.name}</Typography.Text>
                               <Tag>{roundStatusLabels[selectedRound.status]}</Tag>
                               <Typography.Text type="secondary">
-                                {selectedRound.beerCount} 款酒 · {selectedRound.scoreCount} 条评价
+                                筛选结果 {filteredRoundBeers.length} 款，共 {roundBeers.length} 款 ·{" "}
+                                {selectedRound.scoreCount} 条评价
                               </Typography.Text>
                             </Space>
                           )}
@@ -559,6 +579,45 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                         </Space>
                       </div>
 
+                      <Form<BeerListFilters>
+                        className={`${classes.beerFilterForm!} ${classes.roundBeerFilterForm!}`}
+                        form={roundBeerFilterForm}
+                        layout="inline"
+                        onFinish={handleRoundBeerFilterSubmit}
+                      >
+                        <Form.Item label="关键词" name="keyword">
+                          <Input
+                            allowClear
+                            className={classes.beerFilterKeyword!}
+                            placeholder="参赛编号、酒名或酒厂"
+                            size="small"
+                          />
+                        </Form.Item>
+                        <Form.Item label="BJCP" name="bjcpSubcategoryCode">
+                          <Select
+                            allowClear
+                            className={classes.beerFilterSelect!}
+                            options={bjcpStyleOptions}
+                            placeholder="全部 BJCP 类型"
+                            showSearch
+                            size="small"
+                          />
+                        </Form.Item>
+                        <Flex className={classes.beerFilterActions!} gap={8}>
+                          <Button size="small" onClick={handleRoundBeerFilterReset}>
+                            重置
+                          </Button>
+                          <Button
+                            htmlType="submit"
+                            icon={<SearchOutlined />}
+                            size="small"
+                            type="primary"
+                          >
+                            查询
+                          </Button>
+                        </Flex>
+                      </Form>
+
                       <Table<RoundBeer>
                         columns={[
                           {
@@ -569,6 +628,8 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                           },
                           { dataIndex: "entryCode", title: "参赛编号", width: 140 },
                           { dataIndex: "bjcpSubcategoryCode", title: "BJCP", width: 120 },
+                          { dataIndex: "name", title: "参赛酒名", width: 180 },
+                          { dataIndex: "brewery", title: "参赛酒厂", width: 180 },
                           { dataIndex: "scoreCount", title: "评价数", width: 110 },
                           {
                             fixed: "right",
@@ -587,11 +648,17 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                             width: 120,
                           },
                         ]}
-                        dataSource={roundBeers}
+                        dataSource={filteredRoundBeers}
                         loading={status === "loading"}
-                        pagination={false}
+                        pagination={{
+                          defaultPageSize: 20,
+                          pageSizeOptions: [20, 50, 100],
+                          showSizeChanger: true,
+                          showTotal: (total) => `共 ${total} 款`,
+                        }}
                         rowKey="beerId"
-                        scroll={{ x: 580 }}
+                        scroll={{ x: 940 }}
+                        size="small"
                       />
                     </div>
                   </Card>
@@ -766,9 +833,15 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                     ]}
                     dataSource={filteredBeers}
                     loading={status === "loading"}
-                    pagination={false}
+                    pagination={{
+                      defaultPageSize: 20,
+                      pageSizeOptions: [20, 50, 100],
+                      showSizeChanger: true,
+                      showTotal: (total) => `共 ${total} 款`,
+                    }}
                     rowKey="id"
                     scroll={{ x: 1040 }}
+                    size="small"
                   />
                 </Card>
               </div>

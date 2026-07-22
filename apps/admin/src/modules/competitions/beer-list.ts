@@ -5,11 +5,13 @@ export interface BeerListFilters {
   bjcpSubcategoryCode?: string;
 }
 
+type FilterableBeer = Pick<Beer, "entryCode" | "name" | "brewery" | "bjcpSubcategoryCode">;
+
 function normalizeSearchText(value: string) {
   return value.trim().toLocaleLowerCase();
 }
 
-export function filterBeerList(beers: Beer[], filters: BeerListFilters) {
+export function filterBeerList<T extends FilterableBeer>(beers: T[], filters: BeerListFilters) {
   const keyword = normalizeSearchText(filters.keyword ?? "");
   return beers.filter((beer) => {
     if (

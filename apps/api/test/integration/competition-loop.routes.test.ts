@@ -227,6 +227,31 @@ describe("competition loop routes", () => {
     await app.close();
   });
 
+  it("returns beer names and breweries in admin round beer results", async () => {
+    const { app } = createTestApp();
+    const token = await bootstrapToken(app);
+    const competition = await createCompetition(app, token);
+    const beer = await createBeer(app, token, competition.id, "SA1235");
+    const round = await createRound(app, token, competition.id);
+
+    const addedBeer = await addRoundBeer(app, token, competition.id, round.id, beer.id);
+    expect(addedBeer).toMatchObject({
+      name: "真实酒名 SA1235",
+      brewery: "酒厂 SA1235",
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: roundBeerPath(competition.id, round.id),
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().beers).toMatchObject([
+      { name: "真实酒名 SA1235", brewery: "酒厂 SA1235" },
+    ]);
+    await app.close();
+  });
+
   it("updates beer category remarks independently", async () => {
     const { app } = createTestApp();
     const token = await bootstrapToken(app);

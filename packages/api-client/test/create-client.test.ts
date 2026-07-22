@@ -69,6 +69,8 @@ const roundBeer = {
   bjcpSubcategoryCode: "21A",
   bjcpSubcategoryName: "American IPA",
   description: "酒款介绍",
+  name: "真实酒名",
+  brewery: "真实酒厂",
   scoreCount: 0,
   createdAt: "2026-07-05T00:00:00.000Z",
 };

@@ -125,6 +125,8 @@ export const roundBeerSchema = z.object({
   bjcpSubcategoryCode: z.string(),
   bjcpSubcategoryName: z.string(),
   description: z.string(),
+  name: z.string(),
+  brewery: z.string(),
   scoreCount: z.number().int().nonnegative(),
   createdAt: z.string().datetime(),
 });

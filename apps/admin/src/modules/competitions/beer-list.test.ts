@@ -40,6 +40,8 @@ function createRoundBeer(beerId: number): RoundBeer {
     bjcpSubcategoryCode: "21A",
     bjcpSubcategoryName: "American IPA",
     description: "介绍",
+    name: "松针 IPA",
+    brewery: "山谷酒厂",
     scoreCount: 0,
     createdAt: "2026-07-22T00:00:00.000Z",
   };
@@ -64,6 +66,24 @@ describe("admin beer list helpers", () => {
     ]);
     expect(filterBeerList(beers, { keyword: "酒厂", bjcpSubcategoryCode: "10A" })).toEqual([]);
     expect(filterBeerList(beers, {})).toEqual(beers);
+  });
+
+  it("filters round beers with the same keyword and BJCP rules", () => {
+    const roundBeers = [
+      createRoundBeer(1),
+      {
+        ...createRoundBeer(2),
+        entryCode: "BB0002",
+        bjcpSubcategoryCode: "10A",
+        name: "麦香啤酒",
+        brewery: "北方工坊",
+      },
+    ];
+
+    expect(filterBeerList(roundBeers, { keyword: "山谷", bjcpSubcategoryCode: "21A" })).toEqual([
+      roundBeers[0],
+    ]);
+    expect(filterBeerList(roundBeers, { keyword: "北方", bjcpSubcategoryCode: "21A" })).toEqual([]);
   });
 
   it("turns generated Markdown into a single readable plain-text summary", () => {

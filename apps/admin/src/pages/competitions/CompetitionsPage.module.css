@@ -139,6 +139,10 @@ th.actionsColumn {
   padding: 0;
 }
 
+.roundBeerFilterForm {
+  margin-bottom: 0;
+}
+
 .beerFilterKeyword {
   width: 240px;
 }

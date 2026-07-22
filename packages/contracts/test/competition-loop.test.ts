@@ -27,6 +27,7 @@ import {
   professionalScoreGrade,
   professionalScoreInputSchema,
   roundBeerPath,
+  roundBeerSchema,
   roundByIdPath,
   roundListPath,
   roundStatusPath,
@@ -88,6 +89,28 @@ describe("competition loop contracts", () => {
     expect(roundByIdPath(2, 5)).toBe("/api/competitions/2/rounds/5");
     expect(roundStatusPath(2, 5)).toBe("/api/competitions/2/rounds/5/status");
     expect(roundBeerPath(2, 5)).toBe("/api/competitions/2/rounds/5/beers");
+  });
+
+  it("includes the public beer name and brewery in admin round beers", () => {
+    const parsed = roundBeerSchema.parse({
+      id: 8,
+      roundId: 5,
+      beerId: 3,
+      competitionId: 2,
+      entryCode: "SA1234",
+      entryNumber: 1,
+      bjcpCategoryCode: "21",
+      bjcpCategoryName: "IPA",
+      bjcpSubcategoryCode: "21A",
+      bjcpSubcategoryName: "American IPA",
+      description: "参赛介绍",
+      name: "参赛酒名",
+      brewery: "参赛酒厂",
+      scoreCount: 0,
+      createdAt: "2026-07-21T10:00:00.000Z",
+    });
+
+    expect(parsed).toMatchObject({ name: "参赛酒名", brewery: "参赛酒厂" });
   });
 
   it("defines judge paths", () => {

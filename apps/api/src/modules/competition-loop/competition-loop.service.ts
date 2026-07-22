@@ -419,6 +419,8 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
           bjcpSubcategoryCode: binding.beer.bjcpSubcategoryCode,
           bjcpSubcategoryName: binding.beer.bjcpSubcategoryName,
           description: binding.beer.description,
+          name: binding.beer.name,
+          brewery: binding.beer.brewery,
           scoreCount: await repository.countActiveScores(roundId, binding.beerId),
           createdAt: toIso(binding.createdAt),
         }))
@@ -443,6 +445,8 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
           bjcpSubcategoryCode: binding.beer.bjcpSubcategoryCode,
           bjcpSubcategoryName: binding.beer.bjcpSubcategoryName,
           description: binding.beer.description,
+          name: binding.beer.name,
+          brewery: binding.beer.brewery,
           scoreCount: await repository.countActiveScores(roundId, binding.beerId),
           createdAt: toIso(binding.createdAt),
         },
