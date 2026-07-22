@@ -30,6 +30,7 @@ import {
   myScoreResultSchema,
   professionalScoreInputSchema,
   removeRoundBeerInputSchema,
+  roundBeerListResultSchema,
   roundBeerPath,
   roundBeerResultSchema,
   roundByIdPath,
@@ -248,6 +249,102 @@ describe("competition loop routes", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().beers).toMatchObject([
       { name: "真实酒名 SA1235", brewery: "酒厂 SA1235" },
+    ]);
+    await app.close();
+  });
+
+  it("returns separate active 50-point and 20-point statistics for round beers", async () => {
+    const { app } = createTestApp();
+    const adminToken = await bootstrapToken(app);
+    const competition = await createCompetition(app, adminToken);
+    const scoredBeer = await createBeer(app, adminToken, competition.id, "SA1236");
+    const unscoredBeer = await createBeer(app, adminToken, competition.id, "SA1237");
+    const round = await createRound(app, adminToken, competition.id);
+    await addRoundBeer(app, adminToken, competition.id, round.id, scoredBeer.id);
+    await addRoundBeer(app, adminToken, competition.id, round.id, unscoredBeer.id);
+
+    const judges = [
+      { username: "statsprofessional", judgeType: "professional" as const },
+      { username: "statsconsumer", judgeType: judgeTypeConsumer },
+      { username: "statspublicactive", judgeType: "public" as const },
+      { username: "statspublicdeleted", judgeType: "public" as const },
+    ];
+    for (const judge of judges) {
+      await createJudge(app, adminToken, judge.username, judge.judgeType);
+    }
+    const [professionalToken, consumerToken, activePublicToken, deletedPublicToken] =
+      await Promise.all(judges.map((judge) => login(app, judge.username)));
+
+    const submissions = [
+      {
+        token: professionalToken,
+        payload: { judgeType: "professional", ...professionalScore },
+      },
+      {
+        token: consumerToken,
+        payload: {
+          judgeType: judgeTypeConsumer,
+          ...professionalScore,
+          professionalAromaScore: 8,
+          professionalFlavorScore: 16,
+        },
+      },
+      {
+        token: activePublicToken,
+        payload: { judgeType: "public", ...amateurScore },
+      },
+      {
+        token: deletedPublicToken,
+        payload: {
+          judgeType: "public",
+          ...amateurScore,
+          amateurBalanceScore: 4,
+          amateurFlavorAcceptanceScore: 3,
+          amateurRepeatIntentionScore: 4,
+        },
+      },
+    ];
+    for (const submission of submissions) {
+      const response = await app.inject({
+        method: "PUT",
+        url: judgeRoundBeerScorePath(competition.id, round.id, scoredBeer.id),
+        headers: { authorization: `Bearer ${submission.token}` },
+        payload: submission.payload,
+      });
+      expect(response.statusCode).toBe(200);
+    }
+
+    const deleted = await app.inject({
+      method: "DELETE",
+      url: judgeRoundBeerScorePath(competition.id, round.id, scoredBeer.id),
+      headers: { authorization: `Bearer ${deletedPublicToken}` },
+    });
+    expect(deleted.statusCode).toBe(200);
+
+    const response = await app.inject({
+      method: "GET",
+      url: roundBeerPath(competition.id, round.id),
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    expect(response.statusCode).toBe(200);
+    const result = roundBeerListResultSchema.parse(response.json());
+    expect(result.beers).toMatchObject([
+      {
+        beerId: scoredBeer.id,
+        scoreCount: 3,
+        fiftyPointScoreCount: 2,
+        fiftyPointAverageScore: 41,
+        twentyPointScoreCount: 1,
+        twentyPointAverageScore: 18,
+      },
+      {
+        beerId: unscoredBeer.id,
+        scoreCount: 0,
+        fiftyPointScoreCount: 0,
+        fiftyPointAverageScore: null,
+        twentyPointScoreCount: 0,
+        twentyPointAverageScore: null,
+      },
     ]);
     await app.close();
   });

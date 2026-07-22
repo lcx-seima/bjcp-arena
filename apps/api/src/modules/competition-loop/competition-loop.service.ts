@@ -21,9 +21,11 @@ import {
 import type { AuthUserSnapshot } from "../auth/auth-user-snapshot-store.js";
 import type {
   CompetitionLoopRepository,
+  RoundBeerScoreStatistics,
   StoredBeer,
   StoredCompetition,
   StoredRound,
+  StoredRoundBeer,
   StoredScore,
 } from "./competition-loop.repository.js";
 
@@ -84,6 +86,43 @@ function toRound(round: StoredRound, beerCount: number, scoreCount: number) {
     scoreCount,
     createdAt: toIso(round.createdAt),
     updatedAt: toIso(round.updatedAt),
+  };
+}
+
+function emptyRoundBeerScoreStatistics(beerId: number): RoundBeerScoreStatistics {
+  return {
+    beerId,
+    fiftyPointScoreCount: 0,
+    fiftyPointAverageScore: null,
+    twentyPointScoreCount: 0,
+    twentyPointAverageScore: null,
+  };
+}
+
+function toRoundBeer(
+  binding: StoredRoundBeer & { beer: StoredBeer },
+  statistics: RoundBeerScoreStatistics
+) {
+  return {
+    id: binding.id,
+    roundId: binding.roundId,
+    beerId: binding.beerId,
+    competitionId: binding.competitionId,
+    entryCode: binding.beer.entryCode,
+    entryNumber: binding.beer.entryNumber,
+    bjcpCategoryCode: binding.beer.bjcpCategoryCode,
+    bjcpCategoryName: binding.beer.bjcpCategoryName,
+    bjcpSubcategoryCode: binding.beer.bjcpSubcategoryCode,
+    bjcpSubcategoryName: binding.beer.bjcpSubcategoryName,
+    description: binding.beer.description,
+    name: binding.beer.name,
+    brewery: binding.beer.brewery,
+    scoreCount: statistics.fiftyPointScoreCount + statistics.twentyPointScoreCount,
+    fiftyPointScoreCount: statistics.fiftyPointScoreCount,
+    fiftyPointAverageScore: statistics.fiftyPointAverageScore,
+    twentyPointScoreCount: statistics.twentyPointScoreCount,
+    twentyPointAverageScore: statistics.twentyPointAverageScore,
+    createdAt: toIso(binding.createdAt),
   };
 }
 
@@ -406,24 +445,18 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
 
     async listRoundBeers(competitionId: number, roundId: number) {
       await requireRound(competitionId, roundId);
-      const beers = await Promise.all(
-        (await repository.listRoundBeers(competitionId, roundId)).map(async (binding) => ({
-          id: binding.id,
-          roundId: binding.roundId,
-          beerId: binding.beerId,
-          competitionId: binding.competitionId,
-          entryCode: binding.beer.entryCode,
-          entryNumber: binding.beer.entryNumber,
-          bjcpCategoryCode: binding.beer.bjcpCategoryCode,
-          bjcpCategoryName: binding.beer.bjcpCategoryName,
-          bjcpSubcategoryCode: binding.beer.bjcpSubcategoryCode,
-          bjcpSubcategoryName: binding.beer.bjcpSubcategoryName,
-          description: binding.beer.description,
-          name: binding.beer.name,
-          brewery: binding.beer.brewery,
-          scoreCount: await repository.countActiveScores(roundId, binding.beerId),
-          createdAt: toIso(binding.createdAt),
-        }))
+      const [bindings, scoreStatistics] = await Promise.all([
+        repository.listRoundBeers(competitionId, roundId),
+        repository.listActiveScoreStatisticsByBeer(roundId),
+      ]);
+      const scoreStatisticsByBeer = new Map(
+        scoreStatistics.map((statistics) => [statistics.beerId, statistics])
+      );
+      const beers = bindings.map((binding) =>
+        toRoundBeer(
+          binding,
+          scoreStatisticsByBeer.get(binding.beerId) ?? emptyRoundBeerScoreStatistics(binding.beerId)
+        )
       );
       return { beers };
     },
@@ -432,24 +465,11 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
       await ensureRoundWritable(competitionId, roundId);
       await requireBeer(competitionId, input.beerId);
       const binding = await repository.addRoundBeer(competitionId, roundId, input.beerId);
+      const statistics = (await repository.listActiveScoreStatisticsByBeer(roundId)).find(
+        (candidate) => candidate.beerId === binding.beerId
+      );
       return {
-        beer: {
-          id: binding.id,
-          roundId: binding.roundId,
-          beerId: binding.beerId,
-          competitionId: binding.competitionId,
-          entryCode: binding.beer.entryCode,
-          entryNumber: binding.beer.entryNumber,
-          bjcpCategoryCode: binding.beer.bjcpCategoryCode,
-          bjcpCategoryName: binding.beer.bjcpCategoryName,
-          bjcpSubcategoryCode: binding.beer.bjcpSubcategoryCode,
-          bjcpSubcategoryName: binding.beer.bjcpSubcategoryName,
-          description: binding.beer.description,
-          name: binding.beer.name,
-          brewery: binding.beer.brewery,
-          scoreCount: await repository.countActiveScores(roundId, binding.beerId),
-          createdAt: toIso(binding.createdAt),
-        },
+        beer: toRoundBeer(binding, statistics ?? emptyRoundBeerScoreStatistics(binding.beerId)),
       };
     },
 

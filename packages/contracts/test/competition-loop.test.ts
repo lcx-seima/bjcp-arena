@@ -91,7 +91,7 @@ describe("competition loop contracts", () => {
     expect(roundBeerPath(2, 5)).toBe("/api/competitions/2/rounds/5/beers");
   });
 
-  it("includes the public beer name and brewery in admin round beers", () => {
+  it("includes public beer fields and separate score statistics in admin round beers", () => {
     const parsed = roundBeerSchema.parse({
       id: 8,
       roundId: 5,
@@ -106,11 +106,39 @@ describe("competition loop contracts", () => {
       description: "参赛介绍",
       name: "参赛酒名",
       brewery: "参赛酒厂",
-      scoreCount: 0,
+      scoreCount: 3,
+      fiftyPointScoreCount: 2,
+      fiftyPointAverageScore: 42.5,
+      twentyPointScoreCount: 1,
+      twentyPointAverageScore: 18,
       createdAt: "2026-07-21T10:00:00.000Z",
     });
 
-    expect(parsed).toMatchObject({ name: "参赛酒名", brewery: "参赛酒厂" });
+    expect(parsed).toMatchObject({
+      name: "参赛酒名",
+      brewery: "参赛酒厂",
+      scoreCount: 3,
+      fiftyPointScoreCount: 2,
+      fiftyPointAverageScore: 42.5,
+      twentyPointScoreCount: 1,
+      twentyPointAverageScore: 18,
+    });
+
+    expect(
+      roundBeerSchema.parse({
+        ...parsed,
+        scoreCount: 0,
+        fiftyPointScoreCount: 0,
+        fiftyPointAverageScore: null,
+        twentyPointScoreCount: 0,
+        twentyPointAverageScore: null,
+      })
+    ).toMatchObject({
+      fiftyPointScoreCount: 0,
+      fiftyPointAverageScore: null,
+      twentyPointScoreCount: 0,
+      twentyPointAverageScore: null,
+    });
   });
 
   it("defines judge paths", () => {

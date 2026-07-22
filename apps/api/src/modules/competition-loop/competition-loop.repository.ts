@@ -99,6 +99,18 @@ interface DbBeerEntryAggregate {
   };
 }
 
+interface DbRoundBeerScoreAggregate {
+  beerId: number;
+  _count: {
+    professionalTotalScore: number;
+    amateurTotalScore: number;
+  };
+  _avg: {
+    professionalTotalScore: number | null;
+    amateurTotalScore: number | null;
+  };
+}
+
 interface DbDelegate<Entity> {
   count(args?: unknown): Promise<number>;
   findMany<Result = Entity>(args?: unknown): Promise<Result[]>;
@@ -114,12 +126,16 @@ interface DbBeerEntryDelegate extends DbDelegate<StoredBeer> {
   aggregate(args: unknown): Promise<DbBeerEntryAggregate>;
 }
 
+interface DbScoreDelegate extends DbDelegate<StoredScore> {
+  groupBy<Result = DbRoundBeerScoreAggregate>(args: unknown): Promise<Result[]>;
+}
+
 interface CompetitionLoopTransactionClient {
   competition: DbDelegate<StoredCompetition>;
   beerEntry: DbBeerEntryDelegate;
   competitionRound: DbDelegate<StoredRound>;
   roundBeer: DbDelegate<StoredRoundBeer>;
-  score: DbDelegate<StoredScore>;
+  score: DbScoreDelegate;
 }
 
 interface CompetitionLoopPrismaClient extends CompetitionLoopTransactionClient {
@@ -131,6 +147,14 @@ interface CompetitionLoopPrismaClient extends CompetitionLoopTransactionClient {
 export interface UpsertBeerResult {
   beer: StoredBeer;
   created: boolean;
+}
+
+export interface RoundBeerScoreStatistics {
+  beerId: number;
+  fiftyPointScoreCount: number;
+  fiftyPointAverageScore: number | null;
+  twentyPointScoreCount: number;
+  twentyPointAverageScore: number | null;
 }
 
 export interface CompetitionLoopRepository {
@@ -174,6 +198,7 @@ export interface CompetitionLoopRepository {
   ): Promise<StoredRoundBeer & { beer: StoredBeer }>;
   removeRoundBeer(competitionId: number, roundId: number, beerId: number): Promise<boolean>;
   countActiveScores(roundId: number, beerId?: number): Promise<number>;
+  listActiveScoreStatisticsByBeer(roundId: number): Promise<RoundBeerScoreStatistics[]>;
   softDeleteScores(roundId: number, beerId: number): Promise<number>;
   softDeleteActiveScore(roundId: number, beerId: number, judgeUserId: number): Promise<number>;
   findActiveScore(
@@ -566,6 +591,50 @@ export function createMemoryCompetitionLoopRepository(): CompetitionLoopReposito
           (beerId === undefined || score.beerId === beerId)
       ).length;
     },
+    async listActiveScoreStatisticsByBeer(roundId) {
+      const statisticsByBeer = new Map<
+        number,
+        {
+          fiftyPointScoreCount: number;
+          fiftyPointScoreTotal: number;
+          twentyPointScoreCount: number;
+          twentyPointScoreTotal: number;
+        }
+      >();
+
+      for (const score of scores.values()) {
+        if (score.roundId !== roundId || score.deletedAt !== null) continue;
+        const statistics = statisticsByBeer.get(score.beerId) ?? {
+          fiftyPointScoreCount: 0,
+          fiftyPointScoreTotal: 0,
+          twentyPointScoreCount: 0,
+          twentyPointScoreTotal: 0,
+        };
+        if (score.professionalTotalScore !== null) {
+          statistics.fiftyPointScoreCount += 1;
+          statistics.fiftyPointScoreTotal += score.professionalTotalScore;
+        }
+        if (score.amateurTotalScore !== null) {
+          statistics.twentyPointScoreCount += 1;
+          statistics.twentyPointScoreTotal += score.amateurTotalScore;
+        }
+        statisticsByBeer.set(score.beerId, statistics);
+      }
+
+      return [...statisticsByBeer.entries()].map(([beerId, statistics]) => ({
+        beerId,
+        fiftyPointScoreCount: statistics.fiftyPointScoreCount,
+        fiftyPointAverageScore:
+          statistics.fiftyPointScoreCount === 0
+            ? null
+            : statistics.fiftyPointScoreTotal / statistics.fiftyPointScoreCount,
+        twentyPointScoreCount: statistics.twentyPointScoreCount,
+        twentyPointAverageScore:
+          statistics.twentyPointScoreCount === 0
+            ? null
+            : statistics.twentyPointScoreTotal / statistics.twentyPointScoreCount,
+      }));
+    },
     async softDeleteScores(roundId, beerId) {
       let count = 0;
       const time = now();
@@ -908,6 +977,21 @@ export function createPrismaCompetitionLoopRepository(
     },
     async countActiveScores(roundId, beerId) {
       return db.score.count({ where: { roundId, beerId, deletedAt: null } });
+    },
+    async listActiveScoreStatisticsByBeer(roundId) {
+      const aggregates = await db.score.groupBy<DbRoundBeerScoreAggregate>({
+        by: ["beerId"],
+        where: { roundId, deletedAt: null },
+        _count: { professionalTotalScore: true, amateurTotalScore: true },
+        _avg: { professionalTotalScore: true, amateurTotalScore: true },
+      });
+      return aggregates.map((aggregate) => ({
+        beerId: aggregate.beerId,
+        fiftyPointScoreCount: aggregate._count.professionalTotalScore,
+        fiftyPointAverageScore: aggregate._avg.professionalTotalScore,
+        twentyPointScoreCount: aggregate._count.amateurTotalScore,
+        twentyPointAverageScore: aggregate._avg.amateurTotalScore,
+      }));
     },
     async softDeleteScores(roundId, beerId) {
       const result = await db.score.updateMany({

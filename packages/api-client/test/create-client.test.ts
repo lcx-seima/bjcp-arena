@@ -72,6 +72,10 @@ const roundBeer = {
   name: "真实酒名",
   brewery: "真实酒厂",
   scoreCount: 0,
+  fiftyPointScoreCount: 0,
+  fiftyPointAverageScore: null,
+  twentyPointScoreCount: 0,
+  twentyPointAverageScore: null,
   createdAt: "2026-07-05T00:00:00.000Z",
 };
 
@@ -226,6 +230,7 @@ describe("createApiClient", () => {
       .mockResolvedValueOnce(jsonResponse({ beer: { ...beer, categoryRemark: "更新备注" } }))
       .mockResolvedValueOnce(jsonResponse({ created: 1, updated: 0, beers: [beer] }))
       .mockResolvedValueOnce(jsonResponse({ round }))
+      .mockResolvedValueOnce(jsonResponse({ beers: [roundBeer] }))
       .mockResolvedValueOnce(jsonResponse({ beer: roundBeer }))
       .mockResolvedValueOnce(jsonResponse({ ok: true }));
     const client = createApiClient({
@@ -262,6 +267,13 @@ describe("createApiClient", () => {
       ],
     });
     await client.createRound(1, { name: "第一轮" });
+    const roundBeers = await client.listRoundBeers(1, 3);
+    expect(roundBeers.beers[0]).toMatchObject({
+      fiftyPointScoreCount: 0,
+      fiftyPointAverageScore: null,
+      twentyPointScoreCount: 0,
+      twentyPointAverageScore: null,
+    });
     await client.addRoundBeer(1, 3, { beerId: 2 });
     await client.removeRoundBeer(1, 3, 2, { confirm: true });
 
@@ -315,7 +327,7 @@ describe("createApiClient", () => {
     });
 
     expect(fetcher).toHaveBeenNthCalledWith(
-      9,
+      10,
       "http://localhost:4000/api/competitions/1/rounds/3/beers/2",
       {
         body: JSON.stringify({ confirm: true }),

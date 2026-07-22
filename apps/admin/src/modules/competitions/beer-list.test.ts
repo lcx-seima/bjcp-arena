@@ -5,6 +5,7 @@ import {
   beerDescriptionToPlainText,
   filterBeerList,
   matchesRoundBeerSearch,
+  sortRoundBeers,
 } from "./beer-list.js";
 
 function createBeer(overrides: Partial<Beer> = {}): Beer {
@@ -43,6 +44,10 @@ function createRoundBeer(beerId: number): RoundBeer {
     name: "松针 IPA",
     brewery: "山谷酒厂",
     scoreCount: 0,
+    fiftyPointScoreCount: 0,
+    fiftyPointAverageScore: null,
+    twentyPointScoreCount: 0,
+    twentyPointAverageScore: null,
     createdAt: "2026-07-22T00:00:00.000Z",
   };
 }
@@ -84,6 +89,53 @@ describe("admin beer list helpers", () => {
       roundBeers[0],
     ]);
     expect(filterBeerList(roundBeers, { keyword: "北方", bjcpSubcategoryCode: "21A" })).toEqual([]);
+  });
+
+  it("sorts round beers by separate score counts and averages", () => {
+    const roundBeers = [
+      {
+        ...createRoundBeer(3),
+        fiftyPointScoreCount: 2,
+        fiftyPointAverageScore: 40,
+        twentyPointScoreCount: 3,
+        twentyPointAverageScore: 18,
+      },
+      {
+        ...createRoundBeer(1),
+        fiftyPointScoreCount: 1,
+        fiftyPointAverageScore: 45,
+        twentyPointScoreCount: 2,
+        twentyPointAverageScore: 16,
+      },
+      {
+        ...createRoundBeer(2),
+        fiftyPointScoreCount: 2,
+        fiftyPointAverageScore: null,
+        twentyPointScoreCount: 1,
+        twentyPointAverageScore: null,
+      },
+    ];
+
+    expect(
+      sortRoundBeers(roundBeers, { field: "fiftyPointScoreCount", direction: "asc" }).map(
+        (beer) => beer.entryNumber
+      )
+    ).toEqual([1, 2, 3]);
+    expect(
+      sortRoundBeers(roundBeers, { field: "twentyPointScoreCount", direction: "desc" }).map(
+        (beer) => beer.entryNumber
+      )
+    ).toEqual([3, 1, 2]);
+    expect(
+      sortRoundBeers(roundBeers, { field: "fiftyPointAverageScore", direction: "desc" }).map(
+        (beer) => beer.entryNumber
+      )
+    ).toEqual([1, 3, 2]);
+    expect(
+      sortRoundBeers(roundBeers, { field: "twentyPointAverageScore", direction: "asc" }).map(
+        (beer) => beer.entryNumber
+      )
+    ).toEqual([1, 3, 2]);
   });
 
   it("turns generated Markdown into a single readable plain-text summary", () => {

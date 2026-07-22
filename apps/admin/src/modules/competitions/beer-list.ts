@@ -5,6 +5,19 @@ export interface BeerListFilters {
   bjcpSubcategoryCode?: string;
 }
 
+export const roundBeerSortFields = [
+  "fiftyPointScoreCount",
+  "fiftyPointAverageScore",
+  "twentyPointScoreCount",
+  "twentyPointAverageScore",
+] as const;
+
+export type RoundBeerSortField = (typeof roundBeerSortFields)[number];
+export type RoundBeerSort = {
+  field: RoundBeerSortField;
+  direction: "asc" | "desc";
+};
+
 type FilterableBeer = Pick<Beer, "entryCode" | "name" | "brewery" | "bjcpSubcategoryCode">;
 
 function normalizeSearchText(value: string) {
@@ -23,6 +36,25 @@ export function filterBeerList<T extends FilterableBeer>(beers: T[], filters: Be
       return false;
     }
     return !filters.bjcpSubcategoryCode || beer.bjcpSubcategoryCode === filters.bjcpSubcategoryCode;
+  });
+}
+
+export function isRoundBeerSortField(value: unknown): value is RoundBeerSortField {
+  return roundBeerSortFields.some((field) => field === value);
+}
+
+export function sortRoundBeers(beers: RoundBeer[], sort: RoundBeerSort | null) {
+  if (!sort) return beers;
+  return [...beers].sort((left, right) => {
+    const leftValue = left[sort.field];
+    const rightValue = right[sort.field];
+    if (leftValue === null && rightValue === null) return left.entryNumber - right.entryNumber;
+    if (leftValue === null) return 1;
+    if (rightValue === null) return -1;
+    const comparison = leftValue - rightValue;
+    return comparison === 0
+      ? left.entryNumber - right.entryNumber
+      : comparison * (sort.direction === "asc" ? 1 : -1);
   });
 }
 

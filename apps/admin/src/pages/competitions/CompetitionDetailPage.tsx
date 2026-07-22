@@ -29,6 +29,7 @@ import {
   Tooltip,
   Typography,
 } from "antd";
+import type { TableProps } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import type { CompetitionStatus, EntityStatus } from "@bjcp-arena/contracts";
@@ -47,7 +48,10 @@ import {
 import {
   beerDescriptionToPlainText,
   filterBeerList,
+  isRoundBeerSortField,
+  sortRoundBeers,
   type BeerListFilters,
+  type RoundBeerSort,
 } from "../../modules/competitions/beer-list.js";
 import { AddRoundBeersDrawer } from "../../modules/competitions/components/AddRoundBeersDrawer.js";
 import { BeerForm, type BeerFormValues } from "../../modules/competitions/components/BeerForm.js";
@@ -99,6 +103,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
   const [parsedBeerImport, setParsedBeerImport] = useState<ParsedBeerImportFile | null>(null);
   const [beerFilters, setBeerFilters] = useState<BeerListFilters>({});
   const [roundBeerFilters, setRoundBeerFilters] = useState<BeerListFilters>({});
+  const [roundBeerSort, setRoundBeerSort] = useState<RoundBeerSort | null>(null);
 
   const selectedRound = rounds.find((round) => round.id === selectedRoundId) ?? null;
   const isCompetitionWritable = competition?.status === "ongoing";
@@ -108,6 +113,10 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
   const filteredRoundBeers = useMemo(
     () => filterBeerList(roundBeers, roundBeerFilters),
     [roundBeerFilters, roundBeers]
+  );
+  const sortedRoundBeers = useMemo(
+    () => sortRoundBeers(filteredRoundBeers, roundBeerSort),
+    [filteredRoundBeers, roundBeerSort]
   );
 
   const refreshDetail = useCallback(async () => {
@@ -275,6 +284,22 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
     roundBeerFilterForm.resetFields();
     setRoundBeerFilters({});
   }
+
+  const handleRoundBeerTableChange: TableProps<RoundBeer>["onChange"] = (
+    _pagination,
+    _filters,
+    sorter
+  ) => {
+    const activeSorter = Array.isArray(sorter) ? sorter[0] : sorter;
+    if (!activeSorter?.order || !isRoundBeerSortField(activeSorter.field)) {
+      setRoundBeerSort(null);
+      return;
+    }
+    setRoundBeerSort({
+      field: activeSorter.field,
+      direction: activeSorter.order === "ascend" ? "asc" : "desc",
+    });
+  };
 
   async function handleCreateRound() {
     if (!competitionId || !newRoundName.trim()) return;
@@ -630,7 +655,58 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                           { dataIndex: "bjcpSubcategoryCode", title: "BJCP", width: 120 },
                           { dataIndex: "name", title: "参赛酒名", width: 180 },
                           { dataIndex: "brewery", title: "参赛酒厂", width: 180 },
-                          { dataIndex: "scoreCount", title: "评价数", width: 110 },
+                          {
+                            dataIndex: "fiftyPointScoreCount",
+                            sorter: true,
+                            sortOrder:
+                              roundBeerSort?.field === "fiftyPointScoreCount"
+                                ? roundBeerSort.direction === "asc"
+                                  ? "ascend"
+                                  : "descend"
+                                : null,
+                            title: "50分评价数",
+                            width: 130,
+                          },
+                          {
+                            dataIndex: "fiftyPointAverageScore",
+                            render: (value: number | null) =>
+                              value === null ? "--" : value.toFixed(2),
+                            sorter: true,
+                            sortOrder:
+                              roundBeerSort?.field === "fiftyPointAverageScore"
+                                ? roundBeerSort.direction === "asc"
+                                  ? "ascend"
+                                  : "descend"
+                                : null,
+                            title: "50分平均分",
+                            width: 130,
+                          },
+                          {
+                            dataIndex: "twentyPointScoreCount",
+                            sorter: true,
+                            sortOrder:
+                              roundBeerSort?.field === "twentyPointScoreCount"
+                                ? roundBeerSort.direction === "asc"
+                                  ? "ascend"
+                                  : "descend"
+                                : null,
+                            title: "20分评价数",
+                            width: 130,
+                          },
+                          {
+                            dataIndex: "twentyPointAverageScore",
+                            render: (value: number | null) =>
+                              value === null ? "--" : value.toFixed(2),
+                            sorter: true,
+                            sortOrder:
+                              roundBeerSort?.field === "twentyPointAverageScore"
+                                ? roundBeerSort.direction === "asc"
+                                  ? "ascend"
+                                  : "descend"
+                                : null,
+                            title: "20分平均分",
+                            width: 130,
+                          },
                           {
                             fixed: "right",
                             render: (_, beer) => (
@@ -648,8 +724,9 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                             width: 120,
                           },
                         ]}
-                        dataSource={filteredRoundBeers}
+                        dataSource={sortedRoundBeers}
                         loading={status === "loading"}
+                        onChange={handleRoundBeerTableChange}
                         pagination={{
                           defaultPageSize: 20,
                           pageSizeOptions: [20, 50, 100],
@@ -657,7 +734,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                           showTotal: (total) => `共 ${total} 款`,
                         }}
                         rowKey="beerId"
-                        scroll={{ x: 940 }}
+                        scroll={{ x: 1350 }}
                         size="small"
                       />
                     </div>
