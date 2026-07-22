@@ -1,10 +1,6 @@
-import { Button, Dialog, Slider, Tag, TextArea, Toast } from "antd-mobile";
+import { Button, Dialog, Popup, Slider, Tag, TextArea, Toast } from "antd-mobile";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type {
-  JudgeBeerResult,
-  ScoreInput,
-  UserPublic,
-} from "@bjcp-arena/contracts";
+import type { JudgeBeerResult, ScoreInput, UserPublic } from "@bjcp-arena/contracts";
 import {
   isProfessionalScoreJudgeType,
   judgeTypeLabels,
@@ -13,6 +9,7 @@ import {
 } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
 import { InlineError } from "../../components/ui/InlineError.js";
+import { MarkdownText } from "../../components/ui/MarkdownText.js";
 import { MobileShell } from "../../components/ui/MobileShell.js";
 import { isUnauthorized, readError } from "../../utils/errors.js";
 import {
@@ -122,6 +119,7 @@ export function ScorePage({
   const [error, setError] = useState<string | null>(null);
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
   const [hasUserEdited, setHasUserEdited] = useState(false);
+  const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
@@ -159,12 +157,11 @@ export function ScorePage({
     : score
       ? `上次提交：${formatLocalDateTime(score.submittedAt)}`
       : "草稿将在修改后自动保存";
-  const totalSummary =
-    usesProfessionalScoreForm
-      ? `总分 ${professionalTotal}/50 · ${professionalScoreGrade(professionalTotal)}`
-      : effectiveJudgeType === "public"
-        ? `总分 ${amateurTotal}/20`
-        : "总分暂不可用";
+  const totalSummary = usesProfessionalScoreForm
+    ? `总分 ${professionalTotal}/50 · ${professionalScoreGrade(professionalTotal)}`
+    : effectiveJudgeType === "public"
+      ? `总分 ${amateurTotal}/20`
+      : "总分暂不可用";
 
   const clearValidationError = useCallback((field: ScoreField) => {
     setValidationErrors((current) => {
@@ -267,29 +264,28 @@ export function ScorePage({
       return;
     }
 
-    const payload: ScoreInput =
-      isProfessionalScoreJudgeType(effectiveJudgeType)
-        ? {
-            judgeType: effectiveJudgeType,
-            professionalAromaScore: professionalValues.aroma,
-            professionalAromaComment: professionalValues.aromaComment,
-            professionalAppearanceScore: professionalValues.appearance,
-            professionalAppearanceComment: professionalValues.appearanceComment,
-            professionalFlavorScore: professionalValues.flavor,
-            professionalFlavorComment: professionalValues.flavorComment,
-            professionalMouthfeelScore: professionalValues.mouthfeel,
-            professionalMouthfeelComment: professionalValues.mouthfeelComment,
-            professionalOverallScore: professionalValues.overall,
-            professionalOverallComment: professionalValues.overallComment,
-          }
-        : {
-            judgeType: "public",
-            amateurDrinkabilityScore: amateurValues.drinkability,
-            amateurBalanceScore: amateurValues.balance,
-            amateurFlavorAcceptanceScore: amateurValues.flavorAcceptance,
-            amateurRepeatIntentionScore: amateurValues.repeatIntention,
-            amateurComment: amateurValues.comment,
-          };
+    const payload: ScoreInput = isProfessionalScoreJudgeType(effectiveJudgeType)
+      ? {
+          judgeType: effectiveJudgeType,
+          professionalAromaScore: professionalValues.aroma,
+          professionalAromaComment: professionalValues.aromaComment,
+          professionalAppearanceScore: professionalValues.appearance,
+          professionalAppearanceComment: professionalValues.appearanceComment,
+          professionalFlavorScore: professionalValues.flavor,
+          professionalFlavorComment: professionalValues.flavorComment,
+          professionalMouthfeelScore: professionalValues.mouthfeel,
+          professionalMouthfeelComment: professionalValues.mouthfeelComment,
+          professionalOverallScore: professionalValues.overall,
+          professionalOverallComment: professionalValues.overallComment,
+        }
+      : {
+          judgeType: "public",
+          amateurDrinkabilityScore: amateurValues.drinkability,
+          amateurBalanceScore: amateurValues.balance,
+          amateurFlavorAcceptanceScore: amateurValues.flavorAcceptance,
+          amateurRepeatIntentionScore: amateurValues.repeatIntention,
+          amateurComment: amateurValues.comment,
+        };
     const validation = validateScoreInput(payload);
     setValidationErrors(validation.errors);
     if (validation.firstField) {
@@ -342,9 +338,7 @@ export function ScorePage({
     try {
       localStorage.setItem(
         draftKey,
-        JSON.stringify(
-          scoreDraftFromCurrentValues({ amateurValues, professionalValues, savedAt })
-        )
+        JSON.stringify(scoreDraftFromCurrentValues({ amateurValues, professionalValues, savedAt }))
       );
     } catch {
       Toast.show({ content: "本地草稿保存失败，已取消删除", icon: "fail" });
@@ -457,7 +451,26 @@ export function ScorePage({
                 </tr>
                 <tr>
                   <th>介绍</th>
-                  <td style={{ whiteSpace: "pre-wrap" }}>{beer.description}</td>
+                  <td>
+                    <div
+                      aria-haspopup="dialog"
+                      aria-label="查看完整酒款介绍"
+                      className={classes.descriptionPreview}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setIsDescriptionOpen(true)}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter" && event.key !== " ") return;
+                        event.preventDefault();
+                        setIsDescriptionOpen(true);
+                      }}
+                    >
+                      <div className={classes.descriptionMarkdown}>
+                        <MarkdownText>{beer.description}</MarkdownText>
+                      </div>
+                      <span className={classes.descriptionPreviewHint}>轻触查看全文</span>
+                    </div>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -494,6 +507,36 @@ export function ScorePage({
       ) : (
         <InlineError>当前账号没有预设裁判类型，请联系管理员。</InlineError>
       )}
+      <Popup
+        bodyStyle={{
+          borderRadius: "8px 8px 0 0",
+          boxSizing: "border-box",
+          maxHeight: "calc(100vh - 96px)",
+          padding: 16,
+        }}
+        visible={isDescriptionOpen}
+        onMaskClick={() => setIsDescriptionOpen(false)}
+      >
+        <div
+          aria-labelledby="beer-description-title"
+          aria-modal="true"
+          className={classes.descriptionSheet}
+          role="dialog"
+        >
+          <div className={classes.descriptionSheetHeader}>
+            <strong id="beer-description-title">酒款介绍</strong>
+            <Button fill="none" size="mini" onClick={() => setIsDescriptionOpen(false)}>
+              关闭
+            </Button>
+          </div>
+          <div
+            className={`${classes.descriptionMarkdown!} ${classes.descriptionSheetContent!}`}
+            tabIndex={0}
+          >
+            <MarkdownText>{beer?.description ?? ""}</MarkdownText>
+          </div>
+        </div>
+      </Popup>
     </MobileShell>
   );
 }
@@ -722,10 +765,9 @@ function AmateurForm({
         />
       </div>
       <div
-        className={[
-          "score-dimension",
-          errors.amateurComment ? classes.invalidField : "",
-        ].filter(Boolean).join(" ")}
+        className={["score-dimension", errors.amateurComment ? classes.invalidField : ""]
+          .filter(Boolean)
+          .join(" ")}
         data-score-field="amateurComment"
       >
         <strong>总反馈</strong>

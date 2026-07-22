@@ -1,6 +1,8 @@
-import { Button, Drawer, Select, Space, Typography } from "antd";
+import { Button, Drawer, Space, Transfer, Typography } from "antd";
 import { useEffect, useMemo, useState } from "react";
+import { availableRoundBeers, matchesRoundBeerSearch } from "../beer-list.js";
 import { type Beer, type RoundBeer } from "../competitions-api.js";
+import classes from "./AddRoundBeersDrawer.module.css";
 
 export function AddRoundBeersDrawer({
   beers,
@@ -27,15 +29,7 @@ export function AddRoundBeersDrawer({
     }
   }, [opened]);
 
-  const existingBeerIds = useMemo(
-    () => new Set(roundBeers.map((beer) => beer.beerId)),
-    [roundBeers]
-  );
-
-  const availableBeers = useMemo(
-    () => beers.filter((beer) => !existingBeerIds.has(beer.id)),
-    [beers, existingBeerIds]
-  );
+  const availableBeers = useMemo(() => availableRoundBeers(beers, roundBeers), [beers, roundBeers]);
 
   return (
     <Drawer
@@ -56,30 +50,44 @@ export function AddRoundBeersDrawer({
         </Space>
       }
       open={opened}
+      size="min(920px, calc(100vw - 24px))"
+      styles={{ body: { overflow: "hidden" } }}
       title={`添加酒款到 ${roundName}`}
-      width={560}
       onClose={onClose}
     >
-      <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+      <div className={classes.content!}>
         <Typography.Text type="secondary">
-          可一次选择多个尚未加入当前轮次的酒款。
+          左侧仅展示尚未加入当前轮次的酒款，移动到右侧后提交本次导入。
         </Typography.Text>
-        <Select
-          allowClear
-          mode="multiple"
-          notFoundContent="没有可添加的酒款"
-          optionFilterProp="label"
-          options={availableBeers.map((beer) => ({
-            label: `#${beer.entryNumber} ${beer.entryCode} ${beer.bjcpSubcategoryCode} ${beer.name}`,
-            value: beer.id,
-          }))}
-          placeholder="选择酒款"
+        <Transfer<Beer>
+          actions={["加入本次", "移回待选"]}
+          className={classes.transfer!}
+          classNames={{ section: classes.transferSection! }}
+          dataSource={availableBeers}
+          filterOption={(input, beer) => matchesRoundBeerSearch(beer, input)}
+          locale={{
+            itemUnit: "款",
+            itemsUnit: "款",
+            notFoundContent: "没有符合条件的酒款",
+            searchPlaceholder: "搜索序号、编号、BJCP、酒名或酒厂",
+          }}
+          render={(beer) =>
+            `#${beer.entryNumber} ${beer.entryCode} · ${beer.bjcpSubcategoryCode} · ${beer.name} · ${beer.brewery}`
+          }
+          rowKey={(beer) => beer.id}
           showSearch
-          style={{ width: "100%" }}
-          value={selectedBeerIds}
-          onChange={setSelectedBeerIds}
+          styles={{
+            section: {
+              flex: "1 1 0",
+              height: "100%",
+              width: 0,
+            },
+          }}
+          targetKeys={selectedBeerIds}
+          titles={["待导入酒款", "本次导入酒款"]}
+          onChange={(targetKeys) => setSelectedBeerIds(targetKeys.map(Number))}
         />
-      </Space>
+      </div>
     </Drawer>
   );
 }

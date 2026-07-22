@@ -118,6 +118,47 @@ th.actionsColumn {
   flex: 0 0 auto;
 }
 
+.beerFilterForm {
+  display: flex;
+  align-items: center;
+  gap: 8px 12px;
+  min-width: 0;
+  margin-bottom: 16px;
+  padding: 8px 10px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  background: #fafafa;
+  flex-wrap: wrap;
+}
+
+.beerFilterForm :global(.ant-form-item) {
+  margin: 0;
+}
+
+.beerFilterForm :global(.ant-form-item-label) {
+  padding: 0;
+}
+
+.beerFilterKeyword {
+  width: 240px;
+}
+
+.beerFilterSelect {
+  width: 220px;
+}
+
+.beerFilterActions {
+  margin-left: auto;
+}
+
+.beerDescriptionText {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 74em) {
   .beerRow {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -142,5 +183,14 @@ th.actionsColumn {
   .roundNameEditor {
     flex: 1 1 100%;
     width: 100%;
+  }
+
+  .beerFilterKeyword,
+  .beerFilterSelect {
+    width: min(100%, 280px);
+  }
+
+  .beerFilterActions {
+    margin-left: 0;
   }
 }

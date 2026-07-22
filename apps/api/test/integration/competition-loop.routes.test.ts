@@ -288,6 +288,44 @@ describe("competition loop routes", () => {
       message: expect.stringContaining("第 3 行"),
     });
 
+    const duplicate = await app.inject({
+      method: "POST",
+      url: beerImportPath(competition.id),
+      headers: { authorization: `Bearer ${token}` },
+      payload: importBeersInputSchema.parse({
+        beers: [
+          {
+            rowNumber: 6,
+            entryCode: "SA1001",
+            bjcpSubcategoryCode: "21A",
+            description: "第一条",
+            name: "酒款一",
+            brewery: "酒厂一",
+          },
+          {
+            rowNumber: 9,
+            entryCode: "sa1001",
+            bjcpSubcategoryCode: "21A",
+            description: "重复条目",
+            name: "酒款二",
+            brewery: "酒厂二",
+          },
+        ],
+      }),
+    });
+
+    expect(duplicate.statusCode).toBe(400);
+    expect(duplicate.json()).toEqual({
+      message: "第 9 行：参赛ID SA1001 重复，首次出现在第 6 行",
+    });
+
+    const emptyList = await app.inject({
+      method: "GET",
+      url: beerListPath(competition.id),
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(emptyList.json()).toMatchObject({ beers: [] });
+
     const valid = await app.inject({
       method: "POST",
       url: beerImportPath(competition.id),
@@ -312,6 +350,40 @@ describe("competition loop routes", () => {
       created: 1,
       updated: 0,
       beers: [{ entryCode: "SA1001", entryNumber: 1, categoryRemark: "导入备注" }],
+    });
+
+    const mixed = await app.inject({
+      method: "POST",
+      url: beerImportPath(competition.id),
+      headers: { authorization: `Bearer ${token}` },
+      payload: importBeersInputSchema.parse({
+        beers: [
+          {
+            rowNumber: 2,
+            entryCode: "SA1001",
+            bjcpSubcategoryCode: "21A",
+            description: "更新介绍",
+            name: "更新酒名",
+            brewery: "更新酒厂",
+          },
+          {
+            rowNumber: 3,
+            entryCode: "SA1002",
+            bjcpSubcategoryCode: "999",
+            description: "新增介绍",
+            name: "新增酒名",
+            brewery: "新增酒厂",
+          },
+        ],
+      }),
+    });
+    expect(importBeersResultSchema.parse(mixed.json())).toMatchObject({
+      created: 1,
+      updated: 1,
+      beers: [
+        { entryCode: "SA1001", entryNumber: 1, name: "更新酒名" },
+        { entryCode: "SA1002", entryNumber: 2, name: "新增酒名" },
+      ],
     });
     await app.close();
   });

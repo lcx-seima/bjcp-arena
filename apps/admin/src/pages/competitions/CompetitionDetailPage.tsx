@@ -6,6 +6,7 @@ import {
   FileExcelOutlined,
   PlusOutlined,
   ReloadOutlined,
+  SearchOutlined,
 } from "@ant-design/icons";
 import {
   App as AntdApp,
@@ -15,33 +16,48 @@ import {
   Drawer,
   Empty,
   Flex,
+  Form,
   Input,
   Modal,
   Popconfirm,
   Segmented,
+  Select,
   Space,
   Table,
   Tabs,
   Tag,
+  Tooltip,
   Typography,
 } from "antd";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import * as XLSX from "xlsx";
-import type { CompetitionStatus, EntityStatus, ImportBeerRow } from "@bjcp-arena/contracts";
+import type { CompetitionStatus, EntityStatus } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
 import { useRequestFeedback } from "../../app/feedback.js";
 import { PageHeader } from "../../components/ui/PageHeader.js";
 import {
   competitionStatusLabels,
+  bjcpStyleOptions,
   roundStatusLabels,
   type Beer,
   type Competition,
   type CompetitionRound,
   type RoundBeer,
 } from "../../modules/competitions/competitions-api.js";
+import {
+  beerDescriptionToPlainText,
+  filterBeerList,
+  type BeerListFilters,
+} from "../../modules/competitions/beer-list.js";
 import { AddRoundBeersDrawer } from "../../modules/competitions/components/AddRoundBeersDrawer.js";
 import { BeerForm, type BeerFormValues } from "../../modules/competitions/components/BeerForm.js";
+import { ImportBeersDrawer } from "../../modules/competitions/components/ImportBeersDrawer.js";
+import {
+  buildImportBeerRows,
+  parseBeerImportFile,
+  type BeerImportMapping,
+  type ParsedBeerImportFile,
+} from "../../modules/competitions/beer-import.js";
 import classes from "./CompetitionsPage.module.css";
 
 function readCompetitionId(value: string | undefined) {
@@ -55,32 +71,9 @@ function competitionStatusTagColor(status: CompetitionStatus) {
   return "default";
 }
 
-function parseExcelRows(file: File): Promise<ImportBeerRow[]> {
-  return file.arrayBuffer().then((buffer) => {
-    const workbook = XLSX.read(buffer, { type: "array" });
-    const firstSheet = workbook.Sheets[workbook.SheetNames[0] ?? ""];
-    if (!firstSheet) return [];
-    const rows = XLSX.utils.sheet_to_json<Array<string | number | null>>(firstSheet, {
-      header: 1,
-      raw: false,
-      blankrows: false,
-    });
-    return rows.slice(1).map((row, index) => ({
-      rowNumber: index + 2,
-      entryCode: String(row[0] ?? "")
-        .trim()
-        .toUpperCase(),
-      bjcpSubcategoryCode: String(row[1] ?? "").trim() as ImportBeerRow["bjcpSubcategoryCode"],
-      description: String(row[2] ?? "").trim(),
-      name: String(row[3] ?? "").trim(),
-      brewery: String(row[4] ?? "").trim(),
-      categoryRemark: String(row[5] ?? "").trim(),
-    }));
-  });
-}
-
 export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
   const { modal } = AntdApp.useApp();
+  const [beerFilterForm] = Form.useForm<BeerListFilters>();
   const { showError, showRequestError, showSuccess } = useRequestFeedback(onLogout);
   const { competitionId: competitionIdParam } = useParams();
   const competitionId = readCompetitionId(competitionIdParam);
@@ -101,11 +94,15 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
   const [newRoundName, setNewRoundName] = useState("");
   const [roundNameDraft, setRoundNameDraft] = useState("");
   const [isBusy, setIsBusy] = useState(false);
+  const [isParsingBeerImport, setIsParsingBeerImport] = useState(false);
+  const [parsedBeerImport, setParsedBeerImport] = useState<ParsedBeerImportFile | null>(null);
+  const [beerFilters, setBeerFilters] = useState<BeerListFilters>({});
 
   const selectedRound = rounds.find((round) => round.id === selectedRoundId) ?? null;
   const isCompetitionWritable = competition?.status === "ongoing";
   const canChangeRoundStatus = isCompetitionWritable;
   const isSelectedRoundWritable = canChangeRoundStatus && selectedRound?.status === "ongoing";
+  const filteredBeers = useMemo(() => filterBeerList(beers, beerFilters), [beerFilters, beers]);
 
   const refreshDetail = useCallback(async () => {
     if (!competitionId) {
@@ -218,14 +215,46 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
     });
   }
 
-  async function handleImport(file: File | null) {
-    if (!competitionId || !file) return;
+  async function handleReadImportFile(file: File | null) {
+    if (!file) return;
+    setIsParsingBeerImport(true);
+    try {
+      setParsedBeerImport(await parseBeerImportFile(file));
+    } catch (unknownError) {
+      showError(unknownError instanceof Error ? unknownError.message : "Excel 文件解析失败");
+    } finally {
+      setIsParsingBeerImport(false);
+    }
+  }
+
+  async function handleImport(mapping: BeerImportMapping) {
+    if (!competitionId || !parsedBeerImport) return;
+    let rows;
+    try {
+      rows = buildImportBeerRows(parsedBeerImport, mapping);
+    } catch (unknownError) {
+      showError(unknownError instanceof Error ? unknownError.message : "Excel 数据校验失败");
+      return;
+    }
     await runAction(async () => {
-      const rows = await parseExcelRows(file);
       const result = await client.importBeers(competitionId, { beers: rows });
       await refreshDetail();
+      setParsedBeerImport(null);
       showSuccess(`导入完成：新增 ${result.created}，更新 ${result.updated}`);
     });
+  }
+
+  function handleBeerFilterSubmit(values: BeerListFilters) {
+    const keyword = values.keyword?.trim();
+    setBeerFilters({
+      ...(keyword ? { keyword } : {}),
+      ...(values.bjcpSubcategoryCode ? { bjcpSubcategoryCode: values.bjcpSubcategoryCode } : {}),
+    });
+  }
+
+  function handleBeerFilterReset() {
+    beerFilterForm.resetFields();
+    setBeerFilters({});
   }
 
   async function handleCreateRound() {
@@ -617,7 +646,9 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                     <div>
                       <Typography.Text strong>酒款列表</Typography.Text>
                       <br />
-                      <Typography.Text type="secondary">{beers.length} 款酒</Typography.Text>
+                      <Typography.Text type="secondary">
+                        筛选结果 {filteredBeers.length} 款，共 {beers.length} 款
+                      </Typography.Text>
                     </div>
                     <Space>
                       <input
@@ -628,13 +659,13 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                         onChange={(event) => {
                           const file = event.currentTarget.files?.[0] ?? null;
                           event.currentTarget.value = "";
-                          void handleImport(file);
+                          void handleReadImportFile(file);
                         }}
                       />
                       <Button
-                        disabled={!isCompetitionWritable}
+                        disabled={!isCompetitionWritable || isBusy}
                         icon={<FileExcelOutlined />}
-                        loading={isBusy}
+                        loading={isBusy || isParsingBeerImport}
                         onClick={() => fileInputRef.current?.click()}
                       >
                         Excel 导入
@@ -652,6 +683,44 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                 </Card>
 
                 <Card>
+                  <Form<BeerListFilters>
+                    className={classes.beerFilterForm!}
+                    form={beerFilterForm}
+                    layout="inline"
+                    onFinish={handleBeerFilterSubmit}
+                  >
+                    <Form.Item label="关键词" name="keyword">
+                      <Input
+                        allowClear
+                        className={classes.beerFilterKeyword!}
+                        placeholder="参赛编号、酒名或酒厂"
+                        size="small"
+                      />
+                    </Form.Item>
+                    <Form.Item label="BJCP" name="bjcpSubcategoryCode">
+                      <Select
+                        allowClear
+                        className={classes.beerFilterSelect!}
+                        options={bjcpStyleOptions}
+                        placeholder="全部 BJCP 类型"
+                        showSearch
+                        size="small"
+                      />
+                    </Form.Item>
+                    <Flex className={classes.beerFilterActions!} gap={8}>
+                      <Button size="small" onClick={handleBeerFilterReset}>
+                        重置
+                      </Button>
+                      <Button
+                        htmlType="submit"
+                        icon={<SearchOutlined />}
+                        size="small"
+                        type="primary"
+                      >
+                        查询
+                      </Button>
+                    </Flex>
+                  </Form>
                   <Table<Beer>
                     columns={[
                       {
@@ -664,7 +733,22 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                       { dataIndex: "bjcpSubcategoryCode", title: "BJCP", width: 100 },
                       { dataIndex: "name", title: "参赛酒名", width: 180 },
                       { dataIndex: "brewery", title: "参赛酒厂", width: 180 },
-                      { dataIndex: "description", ellipsis: true, title: "介绍", width: 260 },
+                      {
+                        dataIndex: "description",
+                        ellipsis: true,
+                        render: (description: string) => {
+                          const summary = beerDescriptionToPlainText(description) || "—";
+                          return (
+                            <Tooltip title={summary}>
+                              <Typography.Text className={classes.beerDescriptionText!}>
+                                {summary}
+                              </Typography.Text>
+                            </Tooltip>
+                          );
+                        },
+                        title: "介绍",
+                        width: 260,
+                      },
                       {
                         fixed: "right",
                         render: (_, beer) => (
@@ -680,7 +764,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                         width: 100,
                       },
                     ]}
-                    dataSource={beers}
+                    dataSource={filteredBeers}
                     loading={status === "loading"}
                     pagination={false}
                     rowKey="id"
@@ -693,11 +777,18 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
         ]}
       />
 
+      <ImportBeersDrawer
+        file={parsedBeerImport}
+        isSubmitting={isBusy}
+        onClose={() => setParsedBeerImport(null)}
+        onSubmit={handleImport}
+      />
+
       <Drawer
         destroyOnClose
         open={beerDrawer !== null}
+        size={640}
         title={beerDrawer?.mode === "edit" ? "编辑酒款" : "新增酒款"}
-        width={640}
         onClose={() => setBeerDrawer(null)}
       >
         <BeerForm

@@ -91,7 +91,7 @@ export function BeerForm({
         name="description"
         rules={[{ max: 5000, required: true, message: "请填写裁判可见介绍" }]}
       >
-        <Input.TextArea autoSize={{ minRows: 4 }} />
+        <Input.TextArea rows={10} />
       </Form.Item>
       <Form.Item>
         <Button htmlType="submit" icon={<SaveOutlined />} loading={isSubmitting} type="primary">

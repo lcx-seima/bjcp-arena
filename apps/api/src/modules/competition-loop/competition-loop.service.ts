@@ -295,32 +295,42 @@ export function createCompetitionLoopService({ repository }: CompetitionLoopServ
 
     async importBeers(competitionId: number, input: ImportBeersInput) {
       await ensureCompetitionWritable(competitionId);
+      const normalizedRows = [];
+      const firstRowByEntryCode = new Map<string, number>();
       for (const row of input.beers) {
+        let entryCode: string;
         try {
-          normalizeEntryCode(row.entryCode);
-          if (!findBjcpSubcategory(row.bjcpSubcategoryCode)) {
-            throw new Error("BJCP 类型不存在");
-          }
-        } catch (error) {
+          entryCode = normalizeEntryCode(row.entryCode);
+        } catch {
           throw new CompetitionLoopError(
-            `第 ${row.rowNumber} 行：${error instanceof Error ? error.message : "格式错误"}`,
+            `第 ${row.rowNumber} 行：参赛ID必须为 2 个字母加 4 个数字，例如 SA1234`,
             400
           );
         }
+
+        const firstRow = firstRowByEntryCode.get(entryCode);
+        if (firstRow !== undefined) {
+          throw new CompetitionLoopError(
+            `第 ${row.rowNumber} 行：参赛ID ${entryCode} 重复，首次出现在第 ${firstRow} 行`,
+            400
+          );
+        }
+        firstRowByEntryCode.set(entryCode, row.rowNumber);
+
+        if (!findBjcpSubcategory(row.bjcpSubcategoryCode)) {
+          throw new CompetitionLoopError(
+            `第 ${row.rowNumber} 行：BJCP类型 ${row.bjcpSubcategoryCode} 不合法`,
+            400
+          );
+        }
+        normalizedRows.push({ ...row, entryCode });
       }
-      let created = 0;
-      let updated = 0;
-      const beers = [];
-      for (const row of input.beers) {
-        const result = await repository.upsertBeer(competitionId, {
-          ...row,
-          entryCode: normalizeEntryCode(row.entryCode),
-        });
-        if (result.created) created += 1;
-        else updated += 1;
-        beers.push(toBeer(result.beer));
-      }
-      return { created, updated, beers };
+      const results = await repository.upsertBeersAtomically(competitionId, normalizedRows);
+      return {
+        created: results.filter((result) => result.created).length,
+        updated: results.filter((result) => !result.created).length,
+        beers: results.map((result) => toBeer(result.beer)),
+      };
     },
 
     async updateBeer(competitionId: number, beerId: number, input: UpdateBeerInput) {

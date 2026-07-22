@@ -114,12 +114,18 @@ interface DbBeerEntryDelegate extends DbDelegate<StoredBeer> {
   aggregate(args: unknown): Promise<DbBeerEntryAggregate>;
 }
 
-interface CompetitionLoopPrismaClient {
+interface CompetitionLoopTransactionClient {
   competition: DbDelegate<StoredCompetition>;
   beerEntry: DbBeerEntryDelegate;
   competitionRound: DbDelegate<StoredRound>;
   roundBeer: DbDelegate<StoredRoundBeer>;
   score: DbDelegate<StoredScore>;
+}
+
+interface CompetitionLoopPrismaClient extends CompetitionLoopTransactionClient {
+  $transaction<Result>(
+    callback: (transaction: CompetitionLoopTransactionClient) => Promise<Result>
+  ): Promise<Result>;
 }
 
 export interface UpsertBeerResult {
@@ -139,6 +145,10 @@ export interface CompetitionLoopRepository {
   listBeers(competitionId: number): Promise<StoredBeer[]>;
   findBeer(competitionId: number, beerId: number): Promise<StoredBeer | null>;
   upsertBeer(competitionId: number, input: ImportBeerRow): Promise<UpsertBeerResult>;
+  upsertBeersAtomically(
+    competitionId: number,
+    inputs: ImportBeerRow[]
+  ): Promise<UpsertBeerResult[]>;
   listRounds(competitionId: number): Promise<StoredRound[]>;
   findRound(competitionId: number, roundId: number): Promise<StoredRound | null>;
   createRound(competitionId: number, input: { name: string }): Promise<StoredRound>;
@@ -417,6 +427,52 @@ export function createMemoryCompetitionLoopRepository(): CompetitionLoopReposito
       beers.set(beer.id, beer);
       return { beer: cloneBeer(beer), created: true };
     },
+    async upsertBeersAtomically(competitionId, inputs) {
+      const stagedBeers = new Map(
+        [...beers.entries()].map(([id, beer]) => [id, cloneBeer(beer)] as const)
+      );
+      let stagedBeerSeq = beerSeq;
+      const results: UpsertBeerResult[] = [];
+
+      for (const input of inputs) {
+        const existing = [...stagedBeers.values()].find(
+          (beer) => beer.competitionId === competitionId && beer.entryCode === input.entryCode
+        );
+        if (existing) {
+          const updated: StoredBeer = {
+            ...existing,
+            ...beerSnapshot(competitionId, existing.entryNumber, input),
+            id: existing.id,
+            createdAt: existing.createdAt,
+            updatedAt: now(),
+          };
+          stagedBeers.set(existing.id, updated);
+          results.push({ beer: cloneBeer(updated), created: false });
+          continue;
+        }
+
+        const current = [...stagedBeers.values()].filter(
+          (beer) => beer.competitionId === competitionId
+        );
+        const entryNumber =
+          current.length === 0 ? 1 : Math.max(...current.map((beer) => beer.entryNumber)) + 1;
+        const time = now();
+        const beer: StoredBeer = {
+          id: stagedBeerSeq,
+          ...beerSnapshot(competitionId, entryNumber, input),
+          createdAt: time,
+          updatedAt: time,
+        };
+        stagedBeerSeq += 1;
+        stagedBeers.set(beer.id, beer);
+        results.push({ beer: cloneBeer(beer), created: true });
+      }
+
+      beers.clear();
+      for (const [id, beer] of stagedBeers) beers.set(id, beer);
+      beerSeq = stagedBeerSeq;
+      return results;
+    },
     async listRounds(competitionId) {
       return [...rounds.values()]
         .filter((round) => round.competitionId === competitionId)
@@ -682,6 +738,48 @@ export function createPrismaCompetitionLoopRepository(
     };
   }
 
+  async function upsertBeerRows(
+    database: CompetitionLoopTransactionClient,
+    competitionId: number,
+    inputs: ImportBeerRow[]
+  ) {
+    const existingBeers = await database.beerEntry.findMany<StoredBeer>({
+      where: {
+        competitionId,
+        entryCode: { in: inputs.map((input) => input.entryCode) },
+      },
+    });
+    const existingByEntryCode = new Map(existingBeers.map((beer) => [beer.entryCode, beer]));
+    const maximum = await database.beerEntry.aggregate({
+      where: { competitionId },
+      _max: { entryNumber: true },
+    });
+    let nextEntryNumber = (maximum._max.entryNumber ?? 0) + 1;
+    const results: UpsertBeerResult[] = [];
+
+    for (const input of inputs) {
+      const existing = existingByEntryCode.get(input.entryCode);
+      if (existing) {
+        const updated = await database.beerEntry.update<StoredBeer>({
+          where: { id: existing.id },
+          data: beerSnapshot(competitionId, existing.entryNumber, input),
+        });
+        existingByEntryCode.set(input.entryCode, updated);
+        results.push({ beer: toBeer(updated), created: false });
+        continue;
+      }
+
+      const created = await database.beerEntry.create<StoredBeer>({
+        data: beerSnapshot(competitionId, nextEntryNumber, input),
+      });
+      nextEntryNumber += 1;
+      existingByEntryCode.set(input.entryCode, created);
+      results.push({ beer: toBeer(created), created: true });
+    }
+
+    return results;
+  }
+
   return {
     async countCompetitions(archiveScope) {
       return db.competition.count({
@@ -738,6 +836,9 @@ export function createPrismaCompetitionLoopRepository(
         data: beerSnapshot(competitionId, (max._max.entryNumber ?? 0) + 1, input),
       });
       return { beer: toBeer(created), created: true };
+    },
+    async upsertBeersAtomically(competitionId, inputs) {
+      return db.$transaction((transaction) => upsertBeerRows(transaction, competitionId, inputs));
     },
     async listRounds(competitionId) {
       return (

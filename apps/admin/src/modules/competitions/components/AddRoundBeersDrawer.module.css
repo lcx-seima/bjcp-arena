@@ -1,0 +1,40 @@
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  min-height: 0;
+}
+
+.transfer {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+.transfer :global(.ant-transfer-list-content-item-text) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 48em) {
+  .transfer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .transferSection {
+    flex-basis: auto !important;
+    width: 100% !important;
+    height: min(420px, calc(50vh - 100px)) !important;
+    min-height: 280px;
+  }
+
+  .transfer :global(.ant-transfer-operation) {
+    flex-direction: row;
+    justify-content: center;
+    margin: 12px 0;
+  }
+}
