@@ -19,6 +19,7 @@ import {
   scoreDraftFromCurrentValues,
   scoreLeaveConfirmContent,
   scoreSubmitButtonText,
+  scoreValuesHaveZeroDimension,
   shouldDisableScoreSubmit,
   shouldDisableScoreDelete,
   shouldSaveScoreDraft,
@@ -149,6 +150,11 @@ export function ScorePage({
   const usesProfessionalScoreForm = effectiveJudgeType
     ? isProfessionalScoreJudgeType(effectiveJudgeType)
     : false;
+  const hasZeroScoreDimension = usesProfessionalScoreForm
+    ? scoreValuesHaveZeroDimension(professionalValues)
+    : effectiveJudgeType === "public"
+      ? scoreValuesHaveZeroDimension(amateurValues)
+      : true;
   const judgeIdentityText = effectiveJudgeType
     ? `裁判身份：${judgeTypeLabels[effectiveJudgeType]}`
     : "裁判身份未设置";
@@ -261,6 +267,10 @@ export function ScorePage({
       const message = "当前账号未预设裁判类型，无法提交评分。";
       setError(message);
       Toast.show({ content: message, icon: "fail" });
+      return;
+    }
+    if (hasZeroScoreDimension) {
+      Toast.show({ content: "请先完成所有评分维度", icon: "fail" });
       return;
     }
 
@@ -407,6 +417,7 @@ export function ScorePage({
               disabled={shouldDisableScoreSubmit({
                 canScore: beer?.canScore ?? false,
                 hasJudgeType: Boolean(effectiveJudgeType),
+                hasZeroScoreDimension,
                 hasUserEdited,
                 score,
               })}
@@ -811,7 +822,7 @@ function AmateurMetric({
       <Slider
         disabled={disabled}
         max={5}
-        min={1}
+        min={0}
         popover
         step={1}
         value={value}

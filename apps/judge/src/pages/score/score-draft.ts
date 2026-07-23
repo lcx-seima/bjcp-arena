@@ -30,11 +30,11 @@ export interface ScoreDraft {
 }
 
 export const defaultProfessionalValues: ProfessionalValues = {
-  aroma: 6,
-  appearance: 2,
-  flavor: 10,
-  mouthfeel: 3,
-  overall: 5,
+  aroma: 0,
+  appearance: 0,
+  flavor: 0,
+  mouthfeel: 0,
+  overall: 0,
   aromaComment: "",
   appearanceComment: "",
   flavorComment: "",
@@ -43,10 +43,10 @@ export const defaultProfessionalValues: ProfessionalValues = {
 };
 
 export const defaultAmateurValues: AmateurValues = {
-  drinkability: 3,
-  balance: 3,
-  flavorAcceptance: 3,
-  repeatIntention: 3,
+  drinkability: 0,
+  balance: 0,
+  flavorAcceptance: 0,
+  repeatIntention: 0,
   comment: "",
 };
 
@@ -67,10 +67,10 @@ export function professionalValuesFromScore(score: MyScore): ProfessionalValues 
 
 export function amateurValuesFromScore(score: MyScore): AmateurValues {
   return {
-    drinkability: score.amateurDrinkabilityScore ?? 3,
-    balance: score.amateurBalanceScore ?? 3,
-    flavorAcceptance: score.amateurFlavorAcceptanceScore ?? 3,
-    repeatIntention: score.amateurRepeatIntentionScore ?? 3,
+    drinkability: score.amateurDrinkabilityScore ?? 0,
+    balance: score.amateurBalanceScore ?? 0,
+    flavorAcceptance: score.amateurFlavorAcceptanceScore ?? 0,
+    repeatIntention: score.amateurRepeatIntentionScore ?? 0,
     comment: score.amateurComment ?? "",
   };
 }
@@ -117,18 +117,34 @@ export function shouldSaveScoreDraft({
   return status === "ready" && hasUserEdited && score === null;
 }
 
+export function scoreValuesHaveZeroDimension(values: AmateurValues | ProfessionalValues) {
+  const dimensions =
+    "aroma" in values
+      ? [values.aroma, values.appearance, values.flavor, values.mouthfeel, values.overall]
+      : [values.drinkability, values.balance, values.flavorAcceptance, values.repeatIntention];
+
+  return dimensions.some((value) => value === 0);
+}
+
 export function shouldDisableScoreSubmit({
   canScore,
   hasJudgeType,
+  hasZeroScoreDimension,
   hasUserEdited,
   score,
 }: {
   canScore: boolean;
   hasJudgeType: boolean;
+  hasZeroScoreDimension: boolean;
   hasUserEdited: boolean;
   score: MyScore | null;
 }) {
-  return !canScore || !hasJudgeType || (score !== null && !hasUserEdited);
+  return (
+    !canScore ||
+    !hasJudgeType ||
+    hasZeroScoreDimension ||
+    (score !== null && !hasUserEdited)
+  );
 }
 
 export function shouldDisableScoreDelete({

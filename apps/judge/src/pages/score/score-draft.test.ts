@@ -7,6 +7,7 @@ import {
   scoreDraftFromCurrentValues,
   scoreLeaveConfirmContent,
   scoreSubmitButtonText,
+  scoreValuesHaveZeroDimension,
   shouldDisableScoreDelete,
   shouldSaveScoreDraft,
   shouldDisableScoreSubmit,
@@ -45,6 +46,46 @@ const submittedProfessionalScore: MyScore = {
 };
 
 describe("score draft policy", () => {
+  it("新评分的所有维度都从 0 开始", () => {
+    expect(defaultProfessionalValues).toMatchObject({
+      aroma: 0,
+      appearance: 0,
+      flavor: 0,
+      mouthfeel: 0,
+      overall: 0,
+    });
+    expect(defaultAmateurValues).toMatchObject({
+      drinkability: 0,
+      balance: 0,
+      flavorAcceptance: 0,
+      repeatIntention: 0,
+    });
+    expect(scoreValuesHaveZeroDimension(defaultProfessionalValues)).toBe(true);
+    expect(scoreValuesHaveZeroDimension(defaultAmateurValues)).toBe(true);
+  });
+
+  it("只有所有评分维度都大于 0 时才算填写完整", () => {
+    expect(
+      scoreValuesHaveZeroDimension({
+        ...defaultProfessionalValues,
+        aroma: 1,
+        appearance: 1,
+        flavor: 1,
+        mouthfeel: 1,
+        overall: 1,
+      })
+    ).toBe(false);
+    expect(
+      scoreValuesHaveZeroDimension({
+        ...defaultAmateurValues,
+        drinkability: 1,
+        balance: 1,
+        flavorAcceptance: 1,
+        repeatIntention: 1,
+      })
+    ).toBe(false);
+  });
+
   it("已提交过评分时使用 DB 内容并要求清理本地草稿", () => {
     const state = resolveInitialScoreFormState({
       draft: {
@@ -157,6 +198,7 @@ describe("score draft policy", () => {
     expect(
       shouldDisableScoreSubmit({
         canScore: true,
+        hasZeroScoreDimension: false,
         hasUserEdited: false,
         hasJudgeType: true,
         score: submittedProfessionalScore,
@@ -165,6 +207,7 @@ describe("score draft policy", () => {
     expect(
       shouldDisableScoreSubmit({
         canScore: true,
+        hasZeroScoreDimension: false,
         hasUserEdited: true,
         hasJudgeType: true,
         score: submittedProfessionalScore,
@@ -173,8 +216,30 @@ describe("score draft policy", () => {
     expect(
       shouldDisableScoreSubmit({
         canScore: true,
+        hasZeroScoreDimension: false,
         hasUserEdited: false,
         hasJudgeType: true,
+        score: null,
+      })
+    ).toBe(false);
+  });
+
+  it("任一评分维度为 0 时禁用提交按钮", () => {
+    expect(
+      shouldDisableScoreSubmit({
+        canScore: true,
+        hasJudgeType: true,
+        hasZeroScoreDimension: true,
+        hasUserEdited: true,
+        score: null,
+      })
+    ).toBe(true);
+    expect(
+      shouldDisableScoreSubmit({
+        canScore: true,
+        hasJudgeType: true,
+        hasZeroScoreDimension: false,
+        hasUserEdited: true,
         score: null,
       })
     ).toBe(false);
