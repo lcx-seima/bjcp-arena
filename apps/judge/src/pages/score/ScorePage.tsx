@@ -98,6 +98,27 @@ function scrollToScoreField(field: ScoreField) {
   });
 }
 
+function InfoLabel({ children, hint }: { children: string; hint: string }) {
+  return (
+    <span className={classes.infoLabel}>
+      <span>{children}</span>
+      <button
+        aria-label={`查看${children}说明`}
+        className={classes.infoButton}
+        type="button"
+        onClick={() => {
+          void Dialog.alert({
+            content: hint,
+            title: children,
+          });
+        }}
+      >
+        <span aria-hidden="true">i</span>
+      </button>
+    </span>
+  );
+}
+
 export function ScorePage({
   beerId,
   competitionId,
@@ -443,7 +464,17 @@ export function ScorePage({
                   <td>{beer.entryCode}</td>
                 </tr>
                 <tr>
-                  <th>BJCP分类</th>
+                  <th>
+                    <InfoLabel hint="此处是参赛者报名时填写的分类原文">申报分类</InfoLabel>
+                  </th>
+                  <td>{beer.categoryRemark || "无"}</td>
+                </tr>
+                <tr>
+                  <th>
+                    <InfoLabel hint="此处是根据 “申报分类” 映射出的 BJCP 分类，仅供参考">
+                      BJCP分类
+                    </InfoLabel>
+                  </th>
                   <td>
                     {beer.bjcpSubcategoryDoc ? (
                       <a href={beer.bjcpSubcategoryDoc} rel="noreferrer" target="_blank">
@@ -455,10 +486,6 @@ export function ScorePage({
                       </>
                     )}
                   </td>
-                </tr>
-                <tr>
-                  <th>分类备注</th>
-                  <td>{beer.categoryRemark || "无"}</td>
                 </tr>
                 <tr>
                   <th>介绍</th>
