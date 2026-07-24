@@ -1,4 +1,4 @@
-import { Button, Dialog, Popup, Slider, Tag, TextArea, Toast } from "antd-mobile";
+import { Button, Dialog, Slider, Tag, TextArea, Toast } from "antd-mobile";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JudgeBeerResult, ScoreInput, UserPublic } from "@bjcp-arena/contracts";
 import {
@@ -134,6 +134,9 @@ export function ScorePage({
 }) {
   const draftKey = `bjcp-score-draft:${user.id}:${competitionId}:${roundId}:${beerId}`;
   const roundHref = `/competitions/${competitionId}/rounds/${roundId}`;
+  const descriptionContentRef = useRef<HTMLDivElement>(null);
+  const descriptionPanelRef = useRef<HTMLElement>(null);
+  const infoTableRef = useRef<HTMLTableElement>(null);
   const shouldSkipLeaveWarningRef = useRef(false);
   const [beer, setBeer] = useState<JudgeBeer | null>(null);
   const [score, setScore] = useState<MyScore | null>(null);
@@ -142,6 +145,8 @@ export function ScorePage({
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
   const [hasUserEdited, setHasUserEdited] = useState(false);
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
+  const [descriptionPanelHeight, setDescriptionPanelHeight] = useState<number | null>(null);
+  const [showDescriptionScrollHint, setShowDescriptionScrollHint] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
@@ -189,6 +194,57 @@ export function ScorePage({
     : effectiveJudgeType === "public"
       ? `总分 ${amateurTotal}/20`
       : "总分暂不可用";
+
+  const syncDescriptionScrollHint = useCallback(() => {
+    const descriptionContent = descriptionContentRef.current;
+    if (!descriptionContent) return;
+
+    const hasOverflow = descriptionContent.scrollHeight - descriptionContent.clientHeight > 1;
+    const isAtBottom =
+      descriptionContent.scrollTop + descriptionContent.clientHeight >=
+      descriptionContent.scrollHeight - 1;
+    setShowDescriptionScrollHint(hasOverflow && !isAtBottom);
+  }, []);
+
+  useEffect(() => {
+    const infoTable = infoTableRef.current;
+    if (!infoTable) return;
+
+    const syncDescriptionPanelHeight = () => {
+      setDescriptionPanelHeight(infoTable.getBoundingClientRect().height);
+    };
+
+    syncDescriptionPanelHeight();
+    const resizeObserver = new ResizeObserver(syncDescriptionPanelHeight);
+    resizeObserver.observe(infoTable);
+
+    return () => resizeObserver.disconnect();
+  }, [beer]);
+
+  useEffect(() => {
+    if (!isDescriptionOpen) return;
+
+    const descriptionContent = descriptionContentRef.current;
+    if (!descriptionContent) return;
+
+    const animationFrame = window.requestAnimationFrame(syncDescriptionScrollHint);
+    const resizeObserver = new ResizeObserver(syncDescriptionScrollHint);
+    resizeObserver.observe(descriptionContent);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      resizeObserver.disconnect();
+    };
+  }, [beer?.description, descriptionPanelHeight, isDescriptionOpen, syncDescriptionScrollHint]);
+
+  useEffect(() => {
+    if (!isDescriptionOpen) return;
+
+    window.requestAnimationFrame(() => {
+      descriptionPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      descriptionPanelRef.current?.focus({ preventScroll: true });
+    });
+  }, [isDescriptionOpen]);
 
   const clearValidationError = useCallback((field: ScoreField) => {
     setValidationErrors((current) => {
@@ -453,11 +509,53 @@ export function ScorePage({
       rightAction={beer ? <Tag color="primary">#{beer.entryNumber}</Tag> : null}
       title={beer ? `评鉴 ${beer.entryCode}` : "评分"}
     >
+      {beer && isDescriptionOpen ? (
+        <section
+          aria-labelledby="beer-description-title"
+          className={classes.descriptionSticky}
+          id="beer-description-panel"
+          ref={descriptionPanelRef}
+          style={descriptionPanelHeight ? { height: descriptionPanelHeight } : undefined}
+          tabIndex={-1}
+        >
+          <div className={classes.descriptionStickyHeader}>
+            <strong id="beer-description-title">酒款介绍</strong>
+            <Button
+              fill="none"
+              size="mini"
+              onClick={() => {
+                setShowDescriptionScrollHint(false);
+                setIsDescriptionOpen(false);
+              }}
+            >
+              收起
+            </Button>
+          </div>
+          <div className={classes.descriptionStickyBody}>
+            <div
+              aria-label="完整酒款介绍，可上下滑动"
+              className={`${classes.descriptionMarkdown!} ${classes.descriptionStickyContent!}`}
+              ref={descriptionContentRef}
+              tabIndex={0}
+              onScroll={syncDescriptionScrollHint}
+            >
+              <MarkdownText>{beer.description}</MarkdownText>
+            </div>
+            {showDescriptionScrollHint ? (
+              <div aria-hidden="true" className={classes.descriptionScrollHint}>
+                <span className={classes.descriptionScrollHintIcon}>↕</span>
+                <span>上下滑动查看完整介绍</span>
+              </div>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
       {beer ? (
         <section className={classes.scoreSection}>
           <div className={classes.sectionTitle}>基础信息</div>
           <div className="stack-xs">
-            <table className="info-table">
+            <table className="info-table" ref={infoTableRef}>
               <tbody>
                 <tr>
                   <th>参赛编号</th>
@@ -488,10 +586,11 @@ export function ScorePage({
                   </td>
                 </tr>
                 <tr>
-                  <th>介绍</th>
+                  <th>酒款介绍</th>
                   <td>
                     <div
-                      aria-haspopup="dialog"
+                      aria-controls="beer-description-panel"
+                      aria-expanded={isDescriptionOpen}
                       aria-label="查看完整酒款介绍"
                       className={classes.descriptionPreview}
                       role="button"
@@ -506,7 +605,7 @@ export function ScorePage({
                       <div className={classes.descriptionMarkdown}>
                         <MarkdownText>{beer.description}</MarkdownText>
                       </div>
-                      <span className={classes.descriptionPreviewHint}>轻触查看全文</span>
+                      <span className={classes.descriptionPreviewHint}>吸顶展示</span>
                     </div>
                   </td>
                 </tr>
@@ -545,36 +644,6 @@ export function ScorePage({
       ) : (
         <InlineError>当前账号没有预设裁判类型，请联系管理员。</InlineError>
       )}
-      <Popup
-        bodyStyle={{
-          borderRadius: "8px 8px 0 0",
-          boxSizing: "border-box",
-          maxHeight: "calc(100vh - 96px)",
-          padding: 16,
-        }}
-        visible={isDescriptionOpen}
-        onMaskClick={() => setIsDescriptionOpen(false)}
-      >
-        <div
-          aria-labelledby="beer-description-title"
-          aria-modal="true"
-          className={classes.descriptionSheet}
-          role="dialog"
-        >
-          <div className={classes.descriptionSheetHeader}>
-            <strong id="beer-description-title">酒款介绍</strong>
-            <Button fill="none" size="mini" onClick={() => setIsDescriptionOpen(false)}>
-              关闭
-            </Button>
-          </div>
-          <div
-            className={`${classes.descriptionMarkdown!} ${classes.descriptionSheetContent!}`}
-            tabIndex={0}
-          >
-            <MarkdownText>{beer?.description ?? ""}</MarkdownText>
-          </div>
-        </div>
-      </Popup>
     </MobileShell>
   );
 }
