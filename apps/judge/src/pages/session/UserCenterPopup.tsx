@@ -11,6 +11,7 @@ type Mode = "summary" | "nickname";
 export function UserCenterPopup({
   initialMode = "summary",
   opened,
+  requiresNicknameChange = false,
   user,
   onClose,
   onLogout,
@@ -19,6 +20,7 @@ export function UserCenterPopup({
 }: {
   initialMode?: Mode;
   opened: boolean;
+  requiresNicknameChange?: boolean;
   user: UserPublic;
   onClose: () => void;
   onLogout: () => void;
@@ -26,20 +28,23 @@ export function UserCenterPopup({
   onUserUpdated: (user: UserPublic) => void;
 }) {
   const [form] = Form.useForm<{ nickname: string }>();
-  const [mode, setMode] = useState<Mode>(initialMode);
+  const [mode, setMode] = useState<Mode>(
+    requiresNicknameChange ? "nickname" : initialMode
+  );
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitRef = useRef<HTMLButtonElement>(null);
+  const visibleMode = requiresNicknameChange ? "nickname" : mode;
 
   useEffect(() => {
     if (!opened) {
       return;
     }
 
-    setMode(initialMode);
+    setMode(requiresNicknameChange ? "nickname" : initialMode);
     setError(null);
-    form.setFieldsValue({ nickname: user.nickname });
-  }, [form, initialMode, opened, user.nickname]);
+    form.setFieldsValue({ nickname: requiresNicknameChange ? "" : user.nickname });
+  }, [form, initialMode, opened, requiresNicknameChange, user.nickname]);
 
   async function handleSubmit(values: { nickname: string }) {
     setError(null);
@@ -71,9 +76,13 @@ export function UserCenterPopup({
     <Popup
       bodyStyle={{ borderRadius: "8px 8px 0 0", padding: 16 }}
       visible={opened}
-      onMaskClick={onClose}
+      onMaskClick={() => {
+        if (!requiresNicknameChange) {
+          onClose();
+        }
+      }}
     >
-      {mode === "summary" ? (
+      {visibleMode === "summary" ? (
         <div className="stack-md">
           <PageHeader eyebrow="Profile" title="个人中心" />
           <table className="info-table">
@@ -101,19 +110,29 @@ export function UserCenterPopup({
         <div className="stack-md">
           <PageHeader
             eyebrow="Nickname"
-            title="修改昵称"
-            description="昵称会展示在裁判端主页和评分记录中。"
+            title={requiresNicknameChange ? "请输入您的称呼或昵称" : "修改昵称"}
+            description={
+              requiresNicknameChange
+                ? "保存后才能继续使用裁判端。"
+                : "昵称会展示在裁判端主页和评分记录中。"
+            }
           />
           <Form form={form} layout="vertical" onFinish={handleSubmit}>
             <Form.Item
-              label="昵称"
+              label="称呼/昵称"
               name="nickname"
               rules={[
-                { required: true, message: "请填写昵称" },
-                { max: 64, message: "昵称最多 64 个字符" },
+                { required: true, message: "请输入您的称呼或昵称" },
+                { max: 64, message: "称呼/昵称最多 64 个字符" },
+                {
+                  validator: (_, value: string | undefined) =>
+                    value?.trim() === user.username
+                      ? Promise.reject(new Error("称呼/昵称不能与用户名相同"))
+                      : Promise.resolve(),
+                },
               ]}
             >
-              <Input clearable />
+              <Input autoFocus clearable placeholder="请输入您的称呼或昵称" />
             </Form.Item>
             <button ref={submitRef} className="sr-only" type="submit">
               保存昵称
@@ -129,9 +148,11 @@ export function UserCenterPopup({
             >
               保存昵称
             </Button>
-            <Button block disabled={isSubmitting} onClick={() => setMode("summary")}>
-              返回个人中心
-            </Button>
+            {requiresNicknameChange ? null : (
+              <Button block disabled={isSubmitting} onClick={() => setMode("summary")}>
+                返回个人中心
+              </Button>
+            )}
           </Space>
         </div>
       )}
