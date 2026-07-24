@@ -92,10 +92,13 @@ function toRound(round: StoredRound, beerCount: number, scoreCount: number) {
 function emptyRoundBeerScoreStatistics(beerId: number): RoundBeerScoreStatistics {
   return {
     beerId,
-    fiftyPointScoreCount: 0,
-    fiftyPointAverageScore: null,
-    twentyPointScoreCount: 0,
-    twentyPointAverageScore: null,
+    professionalScoreCount: 0,
+    professionalAverageScore: null,
+    consumerScoreCount: 0,
+    consumerAverageScore: null,
+    weightedFiftyPointAverageScore: null,
+    publicScoreCount: 0,
+    publicAverageScore: null,
   };
 }
 
@@ -117,11 +120,17 @@ function toRoundBeer(
     description: binding.beer.description,
     name: binding.beer.name,
     brewery: binding.beer.brewery,
-    scoreCount: statistics.fiftyPointScoreCount + statistics.twentyPointScoreCount,
-    fiftyPointScoreCount: statistics.fiftyPointScoreCount,
-    fiftyPointAverageScore: statistics.fiftyPointAverageScore,
-    twentyPointScoreCount: statistics.twentyPointScoreCount,
-    twentyPointAverageScore: statistics.twentyPointAverageScore,
+    scoreCount:
+      statistics.professionalScoreCount +
+      statistics.consumerScoreCount +
+      statistics.publicScoreCount,
+    professionalScoreCount: statistics.professionalScoreCount,
+    professionalAverageScore: statistics.professionalAverageScore,
+    consumerScoreCount: statistics.consumerScoreCount,
+    consumerAverageScore: statistics.consumerAverageScore,
+    weightedFiftyPointAverageScore: statistics.weightedFiftyPointAverageScore,
+    publicScoreCount: statistics.publicScoreCount,
+    publicAverageScore: statistics.publicAverageScore,
     createdAt: toIso(binding.createdAt),
   };
 }

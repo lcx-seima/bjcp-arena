@@ -108,10 +108,13 @@ describe("competition loop repository beer import", () => {
     await expect(repository.listActiveScoreStatisticsByBeer(round.id)).resolves.toEqual([
       {
         beerId: beer.id,
-        fiftyPointScoreCount: 2,
-        fiftyPointAverageScore: 41,
-        twentyPointScoreCount: 1,
-        twentyPointAverageScore: 18,
+        professionalScoreCount: 1,
+        professionalAverageScore: 43,
+        consumerScoreCount: 1,
+        consumerAverageScore: 39,
+        weightedFiftyPointAverageScore: 42,
+        publicScoreCount: 1,
+        publicAverageScore: 18,
       },
     ]);
 
@@ -119,10 +122,27 @@ describe("competition loop repository beer import", () => {
     await expect(repository.listActiveScoreStatisticsByBeer(round.id)).resolves.toEqual([
       {
         beerId: beer.id,
-        fiftyPointScoreCount: 2,
-        fiftyPointAverageScore: 41,
-        twentyPointScoreCount: 0,
-        twentyPointAverageScore: null,
+        professionalScoreCount: 1,
+        professionalAverageScore: 43,
+        consumerScoreCount: 1,
+        consumerAverageScore: 39,
+        weightedFiftyPointAverageScore: 42,
+        publicScoreCount: 0,
+        publicAverageScore: null,
+      },
+    ]);
+
+    await repository.softDeleteActiveScore(round.id, beer.id, 2);
+    await expect(repository.listActiveScoreStatisticsByBeer(round.id)).resolves.toEqual([
+      {
+        beerId: beer.id,
+        professionalScoreCount: 1,
+        professionalAverageScore: 43,
+        consumerScoreCount: 0,
+        consumerAverageScore: null,
+        weightedFiftyPointAverageScore: 43,
+        publicScoreCount: 0,
+        publicAverageScore: null,
       },
     ]);
   });
@@ -131,8 +151,24 @@ describe("competition loop repository beer import", () => {
     const groupBy = vi.fn().mockResolvedValue([
       {
         beerId: 2,
-        _count: { professionalTotalScore: 2, amateurTotalScore: 1 },
-        _avg: { professionalTotalScore: 41, amateurTotalScore: 18 },
+        judgeTypeSnapshot: "professional",
+        _count: { professionalTotalScore: 3, amateurTotalScore: 0 },
+        _avg: { professionalTotalScore: 125 / 3, amateurTotalScore: null },
+        _sum: { professionalTotalScore: 125 },
+      },
+      {
+        beerId: 2,
+        judgeTypeSnapshot: "consumer",
+        _count: { professionalTotalScore: 2, amateurTotalScore: 0 },
+        _avg: { professionalTotalScore: 39.5, amateurTotalScore: null },
+        _sum: { professionalTotalScore: 79 },
+      },
+      {
+        beerId: 2,
+        judgeTypeSnapshot: "public",
+        _count: { professionalTotalScore: 0, amateurTotalScore: 1 },
+        _avg: { professionalTotalScore: null, amateurTotalScore: 18 },
+        _sum: { professionalTotalScore: null },
       },
     ]);
     const repository = createPrismaCompetitionLoopRepository({ score: { groupBy } } as never);
@@ -140,18 +176,70 @@ describe("competition loop repository beer import", () => {
     await expect(repository.listActiveScoreStatisticsByBeer(3)).resolves.toEqual([
       {
         beerId: 2,
-        fiftyPointScoreCount: 2,
-        fiftyPointAverageScore: 41,
-        twentyPointScoreCount: 1,
-        twentyPointAverageScore: 18,
+        professionalScoreCount: 3,
+        professionalAverageScore: 125 / 3,
+        consumerScoreCount: 2,
+        consumerAverageScore: 39.5,
+        weightedFiftyPointAverageScore: 41.13,
+        publicScoreCount: 1,
+        publicAverageScore: 18,
       },
     ]);
     expect(groupBy).toHaveBeenCalledTimes(1);
     expect(groupBy).toHaveBeenCalledWith({
-      by: ["beerId"],
+      by: ["beerId", "judgeTypeSnapshot"],
       where: { roundId: 3, deletedAt: null },
       _count: { professionalTotalScore: true, amateurTotalScore: true },
       _avg: { professionalTotalScore: true, amateurTotalScore: true },
+      _sum: { professionalTotalScore: true },
     });
+  });
+
+  it.each([
+    {
+      aggregate: {
+        beerId: 2,
+        judgeTypeSnapshot: "professional",
+        _count: { professionalTotalScore: 3, amateurTotalScore: 0 },
+        _avg: { professionalTotalScore: 125 / 3, amateurTotalScore: null },
+        _sum: { professionalTotalScore: 125 },
+      },
+      expected: {
+        beerId: 2,
+        professionalScoreCount: 3,
+        professionalAverageScore: 125 / 3,
+        consumerScoreCount: 0,
+        consumerAverageScore: null,
+        weightedFiftyPointAverageScore: 41.67,
+        publicScoreCount: 0,
+        publicAverageScore: null,
+      },
+    },
+    {
+      aggregate: {
+        beerId: 2,
+        judgeTypeSnapshot: "consumer",
+        _count: { professionalTotalScore: 2, amateurTotalScore: 0 },
+        _avg: { professionalTotalScore: 39.5, amateurTotalScore: null },
+        _sum: { professionalTotalScore: 79 },
+      },
+      expected: {
+        beerId: 2,
+        professionalScoreCount: 0,
+        professionalAverageScore: null,
+        consumerScoreCount: 2,
+        consumerAverageScore: 39.5,
+        weightedFiftyPointAverageScore: 39.5,
+        publicScoreCount: 0,
+        publicAverageScore: null,
+      },
+    },
+  ])("uses the available 50-point judge type when the other type is missing", async (testCase) => {
+    const groupBy = vi.fn().mockResolvedValue([testCase.aggregate]);
+    const repository = createPrismaCompetitionLoopRepository({ score: { groupBy } } as never);
+
+    await expect(repository.listActiveScoreStatisticsByBeer(3)).resolves.toEqual([
+      testCase.expected,
+    ]);
   });
 });

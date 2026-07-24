@@ -107,10 +107,13 @@ describe("competition loop contracts", () => {
       name: "参赛酒名",
       brewery: "参赛酒厂",
       scoreCount: 3,
-      fiftyPointScoreCount: 2,
-      fiftyPointAverageScore: 42.5,
-      twentyPointScoreCount: 1,
-      twentyPointAverageScore: 18,
+      professionalScoreCount: 1,
+      professionalAverageScore: 43,
+      consumerScoreCount: 1,
+      consumerAverageScore: 42,
+      weightedFiftyPointAverageScore: 42.75,
+      publicScoreCount: 1,
+      publicAverageScore: 18,
       createdAt: "2026-07-21T10:00:00.000Z",
     });
 
@@ -118,26 +121,35 @@ describe("competition loop contracts", () => {
       name: "参赛酒名",
       brewery: "参赛酒厂",
       scoreCount: 3,
-      fiftyPointScoreCount: 2,
-      fiftyPointAverageScore: 42.5,
-      twentyPointScoreCount: 1,
-      twentyPointAverageScore: 18,
+      professionalScoreCount: 1,
+      professionalAverageScore: 43,
+      consumerScoreCount: 1,
+      consumerAverageScore: 42,
+      weightedFiftyPointAverageScore: 42.75,
+      publicScoreCount: 1,
+      publicAverageScore: 18,
     });
 
     expect(
       roundBeerSchema.parse({
         ...parsed,
         scoreCount: 0,
-        fiftyPointScoreCount: 0,
-        fiftyPointAverageScore: null,
-        twentyPointScoreCount: 0,
-        twentyPointAverageScore: null,
+        professionalScoreCount: 0,
+        professionalAverageScore: null,
+        consumerScoreCount: 0,
+        consumerAverageScore: null,
+        weightedFiftyPointAverageScore: null,
+        publicScoreCount: 0,
+        publicAverageScore: null,
       })
     ).toMatchObject({
-      fiftyPointScoreCount: 0,
-      fiftyPointAverageScore: null,
-      twentyPointScoreCount: 0,
-      twentyPointAverageScore: null,
+      professionalScoreCount: 0,
+      professionalAverageScore: null,
+      consumerScoreCount: 0,
+      consumerAverageScore: null,
+      weightedFiftyPointAverageScore: null,
+      publicScoreCount: 0,
+      publicAverageScore: null,
     });
   });
 

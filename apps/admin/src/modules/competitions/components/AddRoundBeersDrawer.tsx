@@ -1,4 +1,4 @@
-import { Button, Drawer, Space, Transfer, Typography } from "antd";
+import { Button, Drawer, Space, Tooltip, Transfer, Typography } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { availableRoundBeers, matchesRoundBeerSearch } from "../beer-list.js";
 import { type Beer, type RoundBeer } from "../competitions-api.js";
@@ -71,9 +71,20 @@ export function AddRoundBeersDrawer({
             notFoundContent: "没有符合条件的酒款",
             searchPlaceholder: "搜索序号、编号、BJCP、酒名或酒厂",
           }}
-          render={(beer) =>
-            `#${beer.entryNumber} ${beer.entryCode} · ${beer.bjcpSubcategoryCode} · ${beer.name} · ${beer.brewery}`
-          }
+          render={(beer) => (
+            <Tooltip
+              title={
+                <div>
+                  <div>酒款：{beer.name}</div>
+                  <div>酒厂：{beer.brewery}</div>
+                </div>
+              }
+            >
+              <span className={classes.transferItem!}>
+                #{beer.entryNumber} {beer.entryCode} · {beer.bjcpSubcategoryCode}
+              </span>
+            </Tooltip>
+          )}
           rowKey={(beer) => beer.id}
           showSearch
           styles={{

@@ -128,10 +128,13 @@ export const roundBeerSchema = z.object({
   name: z.string(),
   brewery: z.string(),
   scoreCount: z.number().int().nonnegative(),
-  fiftyPointScoreCount: z.number().int().nonnegative(),
-  fiftyPointAverageScore: z.number().min(0).max(50).nullable(),
-  twentyPointScoreCount: z.number().int().nonnegative(),
-  twentyPointAverageScore: z.number().min(4).max(20).nullable(),
+  professionalScoreCount: z.number().int().nonnegative(),
+  professionalAverageScore: z.number().min(0).max(50).nullable(),
+  consumerScoreCount: z.number().int().nonnegative(),
+  consumerAverageScore: z.number().min(0).max(50).nullable(),
+  weightedFiftyPointAverageScore: z.number().min(0).max(50).nullable(),
+  publicScoreCount: z.number().int().nonnegative(),
+  publicAverageScore: z.number().min(4).max(20).nullable(),
   createdAt: z.string().datetime(),
 });
 

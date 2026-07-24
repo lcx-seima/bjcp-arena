@@ -72,10 +72,13 @@ const roundBeer = {
   name: "真实酒名",
   brewery: "真实酒厂",
   scoreCount: 0,
-  fiftyPointScoreCount: 0,
-  fiftyPointAverageScore: null,
-  twentyPointScoreCount: 0,
-  twentyPointAverageScore: null,
+  professionalScoreCount: 0,
+  professionalAverageScore: null,
+  consumerScoreCount: 0,
+  consumerAverageScore: null,
+  weightedFiftyPointAverageScore: null,
+  publicScoreCount: 0,
+  publicAverageScore: null,
   createdAt: "2026-07-05T00:00:00.000Z",
 };
 
@@ -269,10 +272,13 @@ describe("createApiClient", () => {
     await client.createRound(1, { name: "第一轮" });
     const roundBeers = await client.listRoundBeers(1, 3);
     expect(roundBeers.beers[0]).toMatchObject({
-      fiftyPointScoreCount: 0,
-      fiftyPointAverageScore: null,
-      twentyPointScoreCount: 0,
-      twentyPointAverageScore: null,
+      professionalScoreCount: 0,
+      professionalAverageScore: null,
+      consumerScoreCount: 0,
+      consumerAverageScore: null,
+      weightedFiftyPointAverageScore: null,
+      publicScoreCount: 0,
+      publicAverageScore: null,
     });
     await client.addRoundBeer(1, 3, { beerId: 2 });
     await client.removeRoundBeer(1, 3, 2, { confirm: true });

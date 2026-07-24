@@ -19,6 +19,13 @@
   white-space: nowrap;
 }
 
+.transferItem {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 48em) {
   .transfer {
     align-items: stretch;

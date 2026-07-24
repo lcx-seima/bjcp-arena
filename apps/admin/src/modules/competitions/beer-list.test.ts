@@ -44,10 +44,13 @@ function createRoundBeer(beerId: number): RoundBeer {
     name: "松针 IPA",
     brewery: "山谷酒厂",
     scoreCount: 0,
-    fiftyPointScoreCount: 0,
-    fiftyPointAverageScore: null,
-    twentyPointScoreCount: 0,
-    twentyPointAverageScore: null,
+    professionalScoreCount: 0,
+    professionalAverageScore: null,
+    consumerScoreCount: 0,
+    consumerAverageScore: null,
+    weightedFiftyPointAverageScore: null,
+    publicScoreCount: 0,
+    publicAverageScore: null,
     createdAt: "2026-07-22T00:00:00.000Z",
   };
 }
@@ -95,44 +98,69 @@ describe("admin beer list helpers", () => {
     const roundBeers = [
       {
         ...createRoundBeer(3),
-        fiftyPointScoreCount: 2,
-        fiftyPointAverageScore: 40,
-        twentyPointScoreCount: 3,
-        twentyPointAverageScore: 18,
+        professionalScoreCount: 2,
+        professionalAverageScore: 40,
+        consumerScoreCount: 3,
+        consumerAverageScore: 44,
+        weightedFiftyPointAverageScore: 41,
+        publicScoreCount: 1,
+        publicAverageScore: 18,
       },
       {
         ...createRoundBeer(1),
-        fiftyPointScoreCount: 1,
-        fiftyPointAverageScore: 45,
-        twentyPointScoreCount: 2,
-        twentyPointAverageScore: 16,
+        professionalScoreCount: 1,
+        professionalAverageScore: 45,
+        consumerScoreCount: 2,
+        consumerAverageScore: 38,
+        weightedFiftyPointAverageScore: 43.25,
+        publicScoreCount: 3,
+        publicAverageScore: 16,
       },
       {
         ...createRoundBeer(2),
-        fiftyPointScoreCount: 2,
-        fiftyPointAverageScore: null,
-        twentyPointScoreCount: 1,
-        twentyPointAverageScore: null,
+        professionalScoreCount: 2,
+        professionalAverageScore: null,
+        consumerScoreCount: 1,
+        consumerAverageScore: null,
+        weightedFiftyPointAverageScore: null,
+        publicScoreCount: 2,
+        publicAverageScore: null,
       },
     ];
 
     expect(
-      sortRoundBeers(roundBeers, { field: "fiftyPointScoreCount", direction: "asc" }).map(
+      sortRoundBeers(roundBeers, { field: "professionalScoreCount", direction: "asc" }).map(
         (beer) => beer.entryNumber
       )
     ).toEqual([1, 2, 3]);
     expect(
-      sortRoundBeers(roundBeers, { field: "twentyPointScoreCount", direction: "desc" }).map(
-        (beer) => beer.entryNumber
-      )
-    ).toEqual([3, 1, 2]);
-    expect(
-      sortRoundBeers(roundBeers, { field: "fiftyPointAverageScore", direction: "desc" }).map(
+      sortRoundBeers(roundBeers, { field: "professionalAverageScore", direction: "desc" }).map(
         (beer) => beer.entryNumber
       )
     ).toEqual([1, 3, 2]);
     expect(
-      sortRoundBeers(roundBeers, { field: "twentyPointAverageScore", direction: "asc" }).map(
+      sortRoundBeers(roundBeers, { field: "consumerScoreCount", direction: "desc" }).map(
+        (beer) => beer.entryNumber
+      )
+    ).toEqual([3, 1, 2]);
+    expect(
+      sortRoundBeers(roundBeers, { field: "consumerAverageScore", direction: "asc" }).map(
+        (beer) => beer.entryNumber
+      )
+    ).toEqual([1, 3, 2]);
+    expect(
+      sortRoundBeers(roundBeers, {
+        field: "weightedFiftyPointAverageScore",
+        direction: "desc",
+      }).map((beer) => beer.entryNumber)
+    ).toEqual([1, 3, 2]);
+    expect(
+      sortRoundBeers(roundBeers, { field: "publicScoreCount", direction: "desc" }).map(
+        (beer) => beer.entryNumber
+      )
+    ).toEqual([1, 2, 3]);
+    expect(
+      sortRoundBeers(roundBeers, { field: "publicAverageScore", direction: "asc" }).map(
         (beer) => beer.entryNumber
       )
     ).toEqual([1, 3, 2]);

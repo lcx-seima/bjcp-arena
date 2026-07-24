@@ -23,6 +23,7 @@ import {
   Segmented,
   Select,
   Space,
+  Switch,
   Table,
   Tabs,
   Tag,
@@ -32,7 +33,7 @@ import {
 import type { TableProps } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import type { CompetitionStatus, EntityStatus } from "@bjcp-arena/contracts";
+import { judgeTypeLabels, type CompetitionStatus, type EntityStatus } from "@bjcp-arena/contracts";
 import { client } from "../../app/api.js";
 import { useRequestFeedback } from "../../app/feedback.js";
 import { PageHeader } from "../../components/ui/PageHeader.js";
@@ -104,6 +105,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
   const [beerFilters, setBeerFilters] = useState<BeerListFilters>({});
   const [roundBeerFilters, setRoundBeerFilters] = useState<BeerListFilters>({});
   const [roundBeerSort, setRoundBeerSort] = useState<RoundBeerSort | null>(null);
+  const [isMasked, setIsMasked] = useState(true);
 
   const selectedRound = rounds.find((round) => round.id === selectedRoundId) ?? null;
   const isCompetitionWritable = competition?.status === "ongoing";
@@ -412,6 +414,16 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
           }
         />
         <Space wrap>
+          <Space size="small">
+            <Typography.Text>脱敏</Typography.Text>
+            <Switch
+              aria-label="切换酒名和酒厂脱敏显示"
+              checked={isMasked}
+              checkedChildren="开"
+              unCheckedChildren="关"
+              onChange={setIsMasked}
+            />
+          </Space>
           {competition?.status === "ongoing" ? (
             <Popconfirm
               cancelText="取消"
@@ -653,59 +665,124 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                           },
                           { dataIndex: "entryCode", title: "参赛编号", width: 140 },
                           { dataIndex: "bjcpSubcategoryCode", title: "BJCP", width: 120 },
-                          { dataIndex: "name", title: "参赛酒名", width: 180 },
-                          { dataIndex: "brewery", title: "参赛酒厂", width: 180 },
                           {
-                            dataIndex: "fiftyPointScoreCount",
-                            sorter: true,
-                            sortOrder:
-                              roundBeerSort?.field === "fiftyPointScoreCount"
-                                ? roundBeerSort.direction === "asc"
-                                  ? "ascend"
-                                  : "descend"
-                                : null,
-                            title: "50分评价数",
-                            width: 130,
+                            dataIndex: "name",
+                            render: (value: string) => (isMasked ? "***" : value),
+                            title: "参赛酒名",
+                            width: 180,
                           },
                           {
-                            dataIndex: "fiftyPointAverageScore",
+                            dataIndex: "brewery",
+                            render: (value: string) => (isMasked ? "***" : value),
+                            title: "参赛酒厂",
+                            width: 180,
+                          },
+                          {
+                            children: [
+                              {
+                                dataIndex: "professionalScoreCount",
+                                sorter: true,
+                                sortOrder:
+                                  roundBeerSort?.field === "professionalScoreCount"
+                                    ? roundBeerSort.direction === "asc"
+                                      ? "ascend"
+                                      : "descend"
+                                    : null,
+                                title: "评价数",
+                                width: 110,
+                              },
+                              {
+                                dataIndex: "professionalAverageScore",
+                                render: (value: number | null) =>
+                                  value === null ? "--" : value.toFixed(2),
+                                sorter: true,
+                                sortOrder:
+                                  roundBeerSort?.field === "professionalAverageScore"
+                                    ? roundBeerSort.direction === "asc"
+                                      ? "ascend"
+                                      : "descend"
+                                    : null,
+                                title: "平均分",
+                                width: 110,
+                              },
+                            ],
+                            title: judgeTypeLabels.professional,
+                          },
+                          {
+                            children: [
+                              {
+                                dataIndex: "consumerScoreCount",
+                                sorter: true,
+                                sortOrder:
+                                  roundBeerSort?.field === "consumerScoreCount"
+                                    ? roundBeerSort.direction === "asc"
+                                      ? "ascend"
+                                      : "descend"
+                                    : null,
+                                title: "评价数",
+                                width: 110,
+                              },
+                              {
+                                dataIndex: "consumerAverageScore",
+                                render: (value: number | null) =>
+                                  value === null ? "--" : value.toFixed(2),
+                                sorter: true,
+                                sortOrder:
+                                  roundBeerSort?.field === "consumerAverageScore"
+                                    ? roundBeerSort.direction === "asc"
+                                      ? "ascend"
+                                      : "descend"
+                                    : null,
+                                title: "平均分",
+                                width: 110,
+                              },
+                            ],
+                            title: judgeTypeLabels.consumer,
+                          },
+                          {
+                            dataIndex: "weightedFiftyPointAverageScore",
                             render: (value: number | null) =>
                               value === null ? "--" : value.toFixed(2),
                             sorter: true,
                             sortOrder:
-                              roundBeerSort?.field === "fiftyPointAverageScore"
+                              roundBeerSort?.field === "weightedFiftyPointAverageScore"
                                 ? roundBeerSort.direction === "asc"
                                   ? "ascend"
                                   : "descend"
                                 : null,
-                            title: "50分平均分",
-                            width: 130,
+                            title: "50分制加权平均",
+                            width: 160,
                           },
                           {
-                            dataIndex: "twentyPointScoreCount",
-                            sorter: true,
-                            sortOrder:
-                              roundBeerSort?.field === "twentyPointScoreCount"
-                                ? roundBeerSort.direction === "asc"
-                                  ? "ascend"
-                                  : "descend"
-                                : null,
-                            title: "20分评价数",
-                            width: 130,
-                          },
-                          {
-                            dataIndex: "twentyPointAverageScore",
-                            render: (value: number | null) =>
-                              value === null ? "--" : value.toFixed(2),
-                            sorter: true,
-                            sortOrder:
-                              roundBeerSort?.field === "twentyPointAverageScore"
-                                ? roundBeerSort.direction === "asc"
-                                  ? "ascend"
-                                  : "descend"
-                                : null,
-                            title: "20分平均分",
-                            width: 130,
+                            children: [
+                              {
+                                dataIndex: "publicScoreCount",
+                                sorter: true,
+                                sortOrder:
+                                  roundBeerSort?.field === "publicScoreCount"
+                                    ? roundBeerSort.direction === "asc"
+                                      ? "ascend"
+                                      : "descend"
+                                    : null,
+                                title: "评价数",
+                                width: 110,
+                              },
+                              {
+                                dataIndex: "publicAverageScore",
+                                render: (value: number | null) =>
+                                  value === null ? "--" : value.toFixed(2),
+                                sorter: true,
+                                sortOrder:
+                                  roundBeerSort?.field === "publicAverageScore"
+                                    ? roundBeerSort.direction === "asc"
+                                      ? "ascend"
+                                      : "descend"
+                                    : null,
+                                title: "平均分",
+                                width: 110,
+                              },
+                            ],
+                            title: judgeTypeLabels.public,
                           },
                           {
                             fixed: "right",
@@ -734,7 +811,7 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                           showTotal: (total) => `共 ${total} 款`,
                         }}
                         rowKey="beerId"
-                        scroll={{ x: 1350 }}
+                        scroll={{ x: 1660 }}
                         size="small"
                       />
                     </div>
@@ -875,8 +952,18 @@ export function CompetitionDetailPage({ onLogout }: { onLogout: () => void }) {
                       },
                       { dataIndex: "entryCode", title: "参赛编号", width: 120 },
                       { dataIndex: "bjcpSubcategoryCode", title: "BJCP", width: 100 },
-                      { dataIndex: "name", title: "参赛酒名", width: 180 },
-                      { dataIndex: "brewery", title: "参赛酒厂", width: 180 },
+                      {
+                        dataIndex: "name",
+                        render: (value: string) => (isMasked ? "***" : value),
+                        title: "参赛酒名",
+                        width: 180,
+                      },
+                      {
+                        dataIndex: "brewery",
+                        render: (value: string) => (isMasked ? "***" : value),
+                        title: "参赛酒厂",
+                        width: 180,
+                      },
                       {
                         dataIndex: "description",
                         ellipsis: true,

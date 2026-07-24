@@ -6,10 +6,13 @@ export interface BeerListFilters {
 }
 
 export const roundBeerSortFields = [
-  "fiftyPointScoreCount",
-  "fiftyPointAverageScore",
-  "twentyPointScoreCount",
-  "twentyPointAverageScore",
+  "professionalScoreCount",
+  "professionalAverageScore",
+  "consumerScoreCount",
+  "consumerAverageScore",
+  "weightedFiftyPointAverageScore",
+  "publicScoreCount",
+  "publicAverageScore",
 ] as const;
 
 export type RoundBeerSortField = (typeof roundBeerSortFields)[number];

@@ -253,14 +253,18 @@ describe("competition loop routes", () => {
     await app.close();
   });
 
-  it("returns separate active 50-point and 20-point statistics for round beers", async () => {
+  it("returns separate active statistics for each judge type in round beers", async () => {
     const { app } = createTestApp();
     const adminToken = await bootstrapToken(app);
     const competition = await createCompetition(app, adminToken);
     const scoredBeer = await createBeer(app, adminToken, competition.id, "SA1236");
-    const unscoredBeer = await createBeer(app, adminToken, competition.id, "SA1237");
+    const professionalOnlyBeer = await createBeer(app, adminToken, competition.id, "SA1237");
+    const consumerOnlyBeer = await createBeer(app, adminToken, competition.id, "SA1238");
+    const unscoredBeer = await createBeer(app, adminToken, competition.id, "SA1239");
     const round = await createRound(app, adminToken, competition.id);
     await addRoundBeer(app, adminToken, competition.id, round.id, scoredBeer.id);
+    await addRoundBeer(app, adminToken, competition.id, round.id, professionalOnlyBeer.id);
+    await addRoundBeer(app, adminToken, competition.id, round.id, consumerOnlyBeer.id);
     await addRoundBeer(app, adminToken, competition.id, round.id, unscoredBeer.id);
 
     const judges = [
@@ -314,6 +318,33 @@ describe("competition loop routes", () => {
       expect(response.statusCode).toBe(200);
     }
 
+    const partialSubmissions = [
+      {
+        beerId: professionalOnlyBeer.id,
+        token: professionalToken,
+        payload: { judgeType: "professional", ...professionalScore },
+      },
+      {
+        beerId: consumerOnlyBeer.id,
+        token: consumerToken,
+        payload: {
+          judgeType: judgeTypeConsumer,
+          ...professionalScore,
+          professionalAromaScore: 8,
+          professionalFlavorScore: 16,
+        },
+      },
+    ];
+    for (const submission of partialSubmissions) {
+      const response = await app.inject({
+        method: "PUT",
+        url: judgeRoundBeerScorePath(competition.id, round.id, submission.beerId),
+        headers: { authorization: `Bearer ${submission.token}` },
+        payload: submission.payload,
+      });
+      expect(response.statusCode).toBe(200);
+    }
+
     const deleted = await app.inject({
       method: "DELETE",
       url: judgeRoundBeerScorePath(competition.id, round.id, scoredBeer.id),
@@ -332,20 +363,73 @@ describe("competition loop routes", () => {
       {
         beerId: scoredBeer.id,
         scoreCount: 3,
-        fiftyPointScoreCount: 2,
-        fiftyPointAverageScore: 41,
-        twentyPointScoreCount: 1,
-        twentyPointAverageScore: 18,
+        professionalScoreCount: 1,
+        professionalAverageScore: 43,
+        consumerScoreCount: 1,
+        consumerAverageScore: 39,
+        weightedFiftyPointAverageScore: 42,
+        publicScoreCount: 1,
+        publicAverageScore: 18,
+      },
+      {
+        beerId: professionalOnlyBeer.id,
+        scoreCount: 1,
+        professionalScoreCount: 1,
+        professionalAverageScore: 43,
+        consumerScoreCount: 0,
+        consumerAverageScore: null,
+        weightedFiftyPointAverageScore: 43,
+        publicScoreCount: 0,
+        publicAverageScore: null,
+      },
+      {
+        beerId: consumerOnlyBeer.id,
+        scoreCount: 1,
+        professionalScoreCount: 0,
+        professionalAverageScore: null,
+        consumerScoreCount: 1,
+        consumerAverageScore: 39,
+        weightedFiftyPointAverageScore: 39,
+        publicScoreCount: 0,
+        publicAverageScore: null,
       },
       {
         beerId: unscoredBeer.id,
         scoreCount: 0,
-        fiftyPointScoreCount: 0,
-        fiftyPointAverageScore: null,
-        twentyPointScoreCount: 0,
-        twentyPointAverageScore: null,
+        professionalScoreCount: 0,
+        professionalAverageScore: null,
+        consumerScoreCount: 0,
+        consumerAverageScore: null,
+        weightedFiftyPointAverageScore: null,
+        publicScoreCount: 0,
+        publicAverageScore: null,
       },
     ]);
+
+    const deletedConsumerScore = await app.inject({
+      method: "DELETE",
+      url: judgeRoundBeerScorePath(competition.id, round.id, scoredBeer.id),
+      headers: { authorization: `Bearer ${consumerToken}` },
+    });
+    expect(deletedConsumerScore.statusCode).toBe(200);
+
+    const afterDeleteResponse = await app.inject({
+      method: "GET",
+      url: roundBeerPath(competition.id, round.id),
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    expect(afterDeleteResponse.statusCode).toBe(200);
+    const afterDeleteResult = roundBeerListResultSchema.parse(afterDeleteResponse.json());
+    expect(afterDeleteResult.beers.find((beer) => beer.beerId === scoredBeer.id)).toMatchObject({
+      scoreCount: 2,
+      professionalScoreCount: 1,
+      professionalAverageScore: 43,
+      consumerScoreCount: 0,
+      consumerAverageScore: null,
+      weightedFiftyPointAverageScore: 43,
+      publicScoreCount: 1,
+      publicAverageScore: 18,
+    });
     await app.close();
   });
 

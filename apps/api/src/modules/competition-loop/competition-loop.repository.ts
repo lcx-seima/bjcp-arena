@@ -101,6 +101,7 @@ interface DbBeerEntryAggregate {
 
 interface DbRoundBeerScoreAggregate {
   beerId: number;
+  judgeTypeSnapshot: JudgeType;
   _count: {
     professionalTotalScore: number;
     amateurTotalScore: number;
@@ -108,6 +109,9 @@ interface DbRoundBeerScoreAggregate {
   _avg: {
     professionalTotalScore: number | null;
     amateurTotalScore: number | null;
+  };
+  _sum: {
+    professionalTotalScore: number | null;
   };
 }
 
@@ -151,10 +155,53 @@ export interface UpsertBeerResult {
 
 export interface RoundBeerScoreStatistics {
   beerId: number;
-  fiftyPointScoreCount: number;
-  fiftyPointAverageScore: number | null;
-  twentyPointScoreCount: number;
-  twentyPointAverageScore: number | null;
+  professionalScoreCount: number;
+  professionalAverageScore: number | null;
+  consumerScoreCount: number;
+  consumerAverageScore: number | null;
+  weightedFiftyPointAverageScore: number | null;
+  publicScoreCount: number;
+  publicAverageScore: number | null;
+}
+
+function roundRatioToHundredths(numerator: bigint, denominator: bigint) {
+  const scaledNumerator = numerator * 100n;
+  const quotient = scaledNumerator / denominator;
+  const remainder = scaledNumerator % denominator;
+  const roundedHundredths = remainder * 2n >= denominator ? quotient + 1n : quotient;
+  return Number(roundedHundredths) / 100;
+}
+
+function weightedFiftyPointAverageScore({
+  professionalScoreCount,
+  professionalScoreTotal,
+  consumerScoreCount,
+  consumerScoreTotal,
+}: {
+  professionalScoreCount: number;
+  professionalScoreTotal: number | null;
+  consumerScoreCount: number;
+  consumerScoreTotal: number | null;
+}) {
+  const hasProfessionalScores = professionalScoreCount > 0 && professionalScoreTotal !== null;
+  const hasConsumerScores = consumerScoreCount > 0 && consumerScoreTotal !== null;
+
+  if (!hasProfessionalScores && !hasConsumerScores) return null;
+
+  if (!hasConsumerScores) {
+    return roundRatioToHundredths(BigInt(professionalScoreTotal!), BigInt(professionalScoreCount));
+  }
+  if (!hasProfessionalScores) {
+    return roundRatioToHundredths(BigInt(consumerScoreTotal!), BigInt(consumerScoreCount));
+  }
+
+  const professionalCount = BigInt(professionalScoreCount);
+  const consumerCount = BigInt(consumerScoreCount);
+  const numerator =
+    3n * BigInt(professionalScoreTotal) * consumerCount +
+    BigInt(consumerScoreTotal) * professionalCount;
+  const denominator = 4n * professionalCount * consumerCount;
+  return roundRatioToHundredths(numerator, denominator);
 }
 
 export interface CompetitionLoopRepository {
@@ -595,44 +642,64 @@ export function createMemoryCompetitionLoopRepository(): CompetitionLoopReposito
       const statisticsByBeer = new Map<
         number,
         {
-          fiftyPointScoreCount: number;
-          fiftyPointScoreTotal: number;
-          twentyPointScoreCount: number;
-          twentyPointScoreTotal: number;
+          professionalScoreCount: number;
+          professionalScoreTotal: number;
+          consumerScoreCount: number;
+          consumerScoreTotal: number;
+          publicScoreCount: number;
+          publicScoreTotal: number;
         }
       >();
 
       for (const score of scores.values()) {
         if (score.roundId !== roundId || score.deletedAt !== null) continue;
         const statistics = statisticsByBeer.get(score.beerId) ?? {
-          fiftyPointScoreCount: 0,
-          fiftyPointScoreTotal: 0,
-          twentyPointScoreCount: 0,
-          twentyPointScoreTotal: 0,
+          professionalScoreCount: 0,
+          professionalScoreTotal: 0,
+          consumerScoreCount: 0,
+          consumerScoreTotal: 0,
+          publicScoreCount: 0,
+          publicScoreTotal: 0,
         };
-        if (score.professionalTotalScore !== null) {
-          statistics.fiftyPointScoreCount += 1;
-          statistics.fiftyPointScoreTotal += score.professionalTotalScore;
-        }
-        if (score.amateurTotalScore !== null) {
-          statistics.twentyPointScoreCount += 1;
-          statistics.twentyPointScoreTotal += score.amateurTotalScore;
+        if (score.judgeTypeSnapshot === "professional" && score.professionalTotalScore !== null) {
+          statistics.professionalScoreCount += 1;
+          statistics.professionalScoreTotal += score.professionalTotalScore;
+        } else if (
+          score.judgeTypeSnapshot === "consumer" &&
+          score.professionalTotalScore !== null
+        ) {
+          statistics.consumerScoreCount += 1;
+          statistics.consumerScoreTotal += score.professionalTotalScore;
+        } else if (score.judgeTypeSnapshot === "public" && score.amateurTotalScore !== null) {
+          statistics.publicScoreCount += 1;
+          statistics.publicScoreTotal += score.amateurTotalScore;
         }
         statisticsByBeer.set(score.beerId, statistics);
       }
 
       return [...statisticsByBeer.entries()].map(([beerId, statistics]) => ({
         beerId,
-        fiftyPointScoreCount: statistics.fiftyPointScoreCount,
-        fiftyPointAverageScore:
-          statistics.fiftyPointScoreCount === 0
+        professionalScoreCount: statistics.professionalScoreCount,
+        professionalAverageScore:
+          statistics.professionalScoreCount === 0
             ? null
-            : statistics.fiftyPointScoreTotal / statistics.fiftyPointScoreCount,
-        twentyPointScoreCount: statistics.twentyPointScoreCount,
-        twentyPointAverageScore:
-          statistics.twentyPointScoreCount === 0
+            : statistics.professionalScoreTotal / statistics.professionalScoreCount,
+        consumerScoreCount: statistics.consumerScoreCount,
+        consumerAverageScore:
+          statistics.consumerScoreCount === 0
             ? null
-            : statistics.twentyPointScoreTotal / statistics.twentyPointScoreCount,
+            : statistics.consumerScoreTotal / statistics.consumerScoreCount,
+        weightedFiftyPointAverageScore: weightedFiftyPointAverageScore({
+          professionalScoreCount: statistics.professionalScoreCount,
+          professionalScoreTotal: statistics.professionalScoreTotal,
+          consumerScoreCount: statistics.consumerScoreCount,
+          consumerScoreTotal: statistics.consumerScoreTotal,
+        }),
+        publicScoreCount: statistics.publicScoreCount,
+        publicAverageScore:
+          statistics.publicScoreCount === 0
+            ? null
+            : statistics.publicScoreTotal / statistics.publicScoreCount,
       }));
     },
     async softDeleteScores(roundId, beerId) {
@@ -980,18 +1047,57 @@ export function createPrismaCompetitionLoopRepository(
     },
     async listActiveScoreStatisticsByBeer(roundId) {
       const aggregates = await db.score.groupBy<DbRoundBeerScoreAggregate>({
-        by: ["beerId"],
+        by: ["beerId", "judgeTypeSnapshot"],
         where: { roundId, deletedAt: null },
         _count: { professionalTotalScore: true, amateurTotalScore: true },
         _avg: { professionalTotalScore: true, amateurTotalScore: true },
+        _sum: { professionalTotalScore: true },
       });
-      return aggregates.map((aggregate) => ({
-        beerId: aggregate.beerId,
-        fiftyPointScoreCount: aggregate._count.professionalTotalScore,
-        fiftyPointAverageScore: aggregate._avg.professionalTotalScore,
-        twentyPointScoreCount: aggregate._count.amateurTotalScore,
-        twentyPointAverageScore: aggregate._avg.amateurTotalScore,
-      }));
+      const statisticsByBeer = new Map<
+        number,
+        RoundBeerScoreStatistics & {
+          professionalScoreTotal: number | null;
+          consumerScoreTotal: number | null;
+        }
+      >();
+      for (const aggregate of aggregates) {
+        const statistics = statisticsByBeer.get(aggregate.beerId) ?? {
+          beerId: aggregate.beerId,
+          professionalScoreCount: 0,
+          professionalAverageScore: null,
+          professionalScoreTotal: null,
+          consumerScoreCount: 0,
+          consumerAverageScore: null,
+          consumerScoreTotal: null,
+          weightedFiftyPointAverageScore: null,
+          publicScoreCount: 0,
+          publicAverageScore: null,
+        };
+        if (aggregate.judgeTypeSnapshot === "professional") {
+          statistics.professionalScoreCount = aggregate._count.professionalTotalScore;
+          statistics.professionalAverageScore = aggregate._avg.professionalTotalScore;
+          statistics.professionalScoreTotal = aggregate._sum.professionalTotalScore;
+        } else if (aggregate.judgeTypeSnapshot === "consumer") {
+          statistics.consumerScoreCount = aggregate._count.professionalTotalScore;
+          statistics.consumerAverageScore = aggregate._avg.professionalTotalScore;
+          statistics.consumerScoreTotal = aggregate._sum.professionalTotalScore;
+        } else {
+          statistics.publicScoreCount = aggregate._count.amateurTotalScore;
+          statistics.publicAverageScore = aggregate._avg.amateurTotalScore;
+        }
+        statisticsByBeer.set(aggregate.beerId, statistics);
+      }
+      return [...statisticsByBeer.values()].map(
+        ({ professionalScoreTotal, consumerScoreTotal, ...statistics }) => ({
+          ...statistics,
+          weightedFiftyPointAverageScore: weightedFiftyPointAverageScore({
+            professionalScoreCount: statistics.professionalScoreCount,
+            professionalScoreTotal,
+            consumerScoreCount: statistics.consumerScoreCount,
+            consumerScoreTotal,
+          }),
+        })
+      );
     },
     async softDeleteScores(roundId, beerId) {
       const result = await db.score.updateMany({
